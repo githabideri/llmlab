@@ -11,6 +11,7 @@ What’s here:
 - **Runbooks** for starting/stopping services
 - **Benchmarks** with documented flags
 - **Experiments** with goal/setup/metrics
+- **LocalBot commands** (`docs/localbot.md`)
 
 What’s not here:
 - Secrets, hostnames, IPs, or user‑specific paths
