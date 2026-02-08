@@ -1,0 +1,18 @@
+{
+  "models": {
+    "providers": {
+      "llama-cpp": {
+        "baseUrl": "http://127.0.0.1:8080/v1",
+        "api": "openai-completions",
+        "models": [
+          {"id": "qwen3-q2", "name": "Qwen3 Q2", "contextWindow": 131072}
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {"primary": "llama-cpp/qwen3-q2"}
+    }
+  }
+}
