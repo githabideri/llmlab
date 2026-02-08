@@ -21,6 +21,8 @@ A public, self‑contained notebook of a small-but-serious local LLM lab: config
 
 See **docs/benchmarks.md** for the full sweep.
 
+Also tested: **gpt‑oss‑20b GGUF on a single 3060** at ~66–68 tok/s (gen).
+
 ## Repo map
 ```
 README.md

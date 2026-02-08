@@ -12,6 +12,11 @@
 
 **Generation:** `tg256` ≈ **20.72 tok/s**
 
+## gpt‑oss‑20b (GGUF) — single 3060
+- **Model:** `ggml-org/gpt-oss-20b-GGUF` (default)
+- **GPU:** single RTX 3060 12 GB
+- **Generation:** **~66–68 tok/s** (≈2000 tokens in ~30.3s)
+
 ## Methodology
 - Use **llama-bench** for prefill + gen
 - Keep flags consistent (`-b/-ub`, `-ctk/-ctv`, `-fa`, `-ts`, `-ncmoe`)
