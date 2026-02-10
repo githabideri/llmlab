@@ -131,6 +131,12 @@ Tested as an autonomous agent (multi-turn sessions with tool access):
 
 Model handles agentic workloads well when `--reasoning-format deepseek` is applied.
 
+### Behavioral Notes (Feb 10)
+
+- **Tool-use is real, not performative:** it executed shell commands (venv + pip) and surfaced missing system deps instead of claiming success.
+- **Environment constraints are handled honestly:** it reported permission errors when `apt-get` failed rather than fabricating completion.
+- **Web-search hygiene gap:** it sometimes answers from prior knowledge unless explicitly prompted to search/cite.
+
 ## Hardware Tested
 
 - 2x NVIDIA RTX 3060 12GB
@@ -140,5 +146,5 @@ Model handles agentic workloads well when `--reasoning-format deepseek` is appli
 
 ## Changelog
 
-- **2026-02-10:** Added `--reasoning-format deepseek` mitigation (deployed). Updated context window findings (196k stable, 256k OOMs). Confirmed agentic task completion.
+- **2026-02-10:** Added `--reasoning-format deepseek` mitigation (deployed). Updated context window findings (196k stable, 256k OOMs). Confirmed agentic task completion + behavioral notes.
 - **2026-02-09:** Initial profile. Discovered "lost in thought" failure mode. Documented tensor-split requirement.
