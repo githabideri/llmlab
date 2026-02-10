@@ -22,6 +22,16 @@ Tested on 2x RTX 3060 (12GB each) with `--tensor-split 1,1`:
 | Generation (fresh) | 66.7 tok/s |
 | Generation (filled ctx) | ~58 tok/s |
 
+## Context Window
+
+| Target | Result |
+|--------|--------|
+| 131k (default) | ✅ Stable |
+| 196k | ✅ Stable (tested with 4 parallel slots) |
+| 256k | ❌ OOM on 2×12GB setup |
+
+Sweet spot on 2×RTX 3060: **196k context** with 4 slots.
+
 ## Known Issues
 
 ### 🚨 "Lost in Thought" Failure Mode
@@ -50,11 +60,21 @@ content: [
 ]
 ```
 
-**Potential mitigations (untested):**
-1. Use `--reasoning-format none` to disable thinking
-2. Increase `max_tokens` to ensure output budget after thinking
-3. Prompt engineering: prefix with "Respond with your first action:"
-4. Gateway-side: detect thinking-only responses and retry
+**Mitigations:**
+
+1. ✅ **`--reasoning-format deepseek`** (recommended) — Extracts thinking into separate `reasoning_content` field, keeping visible output in `content`. Deployed and monitoring.
+2. `--reasoning-format none` — Disables thinking entirely (loses reasoning capability)
+3. Increase `max_tokens` to ensure output budget after thinking
+4. Prompt engineering: prefix with "Respond with your first action:"
+5. Gateway-side: detect thinking-only responses and retry
+
+```bash
+# Recommended server flags for reasoning
+llama-server \
+  --reasoning-format deepseek \
+  --reasoning-budget -1 \
+  # ... other flags
+```
 
 ### Single-GPU Trap
 
@@ -97,6 +117,20 @@ Tested with llmlab OpenClaw benchmark (L0-L4 + DOC-QA):
 
 Model handles structured tasks well when it doesn't hit the "lost in thought" failure.
 
+## Agentic Capabilities
+
+Tested as an autonomous agent (multi-turn sessions with tool access):
+
+| Capability | Result |
+|------------|--------|
+| Tool calling (exec, web) | ✅ Reliable |
+| Multi-step planning | ✅ Works (watch for lost-in-thought) |
+| API integration (weather, etc.) | ✅ Correct data extraction |
+| Following prompt updates | ✅ Picks up instruction changes mid-session |
+| Voice→action pipeline | ✅ Transcribe + act in one turn |
+
+Model handles agentic workloads well when `--reasoning-format deepseek` is applied.
+
 ## Hardware Tested
 
 - 2x NVIDIA RTX 3060 12GB
@@ -106,4 +140,5 @@ Model handles structured tasks well when it doesn't hit the "lost in thought" fa
 
 ## Changelog
 
+- **2026-02-10:** Added `--reasoning-format deepseek` mitigation (deployed). Updated context window findings (196k stable, 256k OOMs). Confirmed agentic task completion.
 - **2026-02-09:** Initial profile. Discovered "lost in thought" failure mode. Documented tensor-split requirement.
