@@ -22,6 +22,34 @@ Public notebook for a practical local-LLM lab: reproducible configs, benchmark m
 ### Speed-only profile
 - `--reasoning-budget 0` is faster, but can leak malformed planner/tag artifacts in output.
 
+### At-a-glance profile table
+
+| Profile class | Core setting | Strength | Main tradeoff |
+|---|---|---|---|
+| `reduced-thinking-balanced` | `--reasoning-budget -1` + constrained brief reasoning | Better speed/quality balance | Still some hidden reasoning token overhead |
+| `non-thinking-speed` | `--reasoning-budget 0` / think-off style | Lowest latency | Higher risk of malformed planner/tag leakage and weaker factual robustness |
+
+### Run-comparison rule (important)
+- Keep profile classes separate when reading results:
+  - `non-thinking-speed` (budget `0` / think-off style)
+  - `reduced-thinking-balanced` (budget `-1` + constrained brief reasoning)
+- Do **not** mix these into one aggregate performance/quality claim.
+
+**Run-tag example (use in notes/experiments):**
+
+```yaml
+profile_class: reduced-thinking-balanced
+reasoning_budget: -1
+reasoning_style: constrained-brief
+```
+
+### Recent postmortem snapshot (Feb 12, reduced-thinking era)
+- Session type: chat-orchestration heavy (“wild ride”), not a pure quality benchmark
+- Tool-call reliability: **33 calls**, **31 success**, **2 failures**
+  - one channel-resolution (`message`) error
+  - one killed monitored process (`process`, SIGKILL)
+- Takeaway: reliability remained high overall; failures were environment/control-plane class.
+
 See:
 - `models/nemotron-3-nano-30b-a3b.md`
 - `experiments/2026-02-12-nemotron-thinking-gradient-abc.md`
