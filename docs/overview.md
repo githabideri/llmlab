@@ -1,20 +1,26 @@
 # Overview
 
-**llmlab** is a lightweight local‑LLM lab focused on reproducible configs and honest benchmarks.
+**llmlab** is a lightweight local-LLM lab built around reproducible configurations, comparable benchmarks, and practical operator notes.
 
-Goals:
-- Keep configs and results in one place
-- Make performance comparisons repeatable
-- Provide a minimal, realistic setup others can follow
+## Goals
+- Keep runtime configs, benchmark outputs, and conclusions in one place.
+- Make performance and quality comparisons repeatable.
+- Share a minimal, realistic setup others can run without lab-specific assumptions.
 
-What’s here:
-- **Runbooks** for starting/stopping services
-- **Benchmarks** with documented flags
-- **Experiments** with goal/setup/metrics
-- **Reasoning policy** (`docs/thinking-policy.md`)
-- **LocalBot commands** (`docs/localbot.md`)
+## What’s in this repo
+- **Runbooks** for starting/stopping services and standard checks.
+- **Benchmarks** with explicit flags and interpretation notes.
+- **Experiments** documented as goal → setup → commands → metrics → conclusion.
+- **Reasoning policy** (`docs/thinking-policy.md`).
+- **LocalBot command reference** (`docs/localbot.md`).
 
-Current focus (Feb 2026): Nemotron A/B/C reasoning tuning and practical speed-vs-quality operating profiles.
+## Current focus (Feb 2026)
+- Nemotron reasoning-profile tuning (A/B/C)
+- profile-class separation for fair comparisons:
+  - `reduced-thinking-balanced`
+  - `non-thinking-speed`
+- speed vs quality operating guidance for day-to-day use
 
-What’s not here:
-- Secrets, hostnames, IPs, or user‑specific paths
+## What is intentionally excluded
+- secrets, credentials, and private infrastructure data
+- user-specific hostnames/IPs/paths
