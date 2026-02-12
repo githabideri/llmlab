@@ -1,0 +1,370 @@
+{
+  "budget": "-1",
+  "configs": [
+    [
+      "A_baseline_on",
+      "You are a helpful assistant."
+    ],
+    [
+      "B_brief_on",
+      "You are a helpful assistant. Think briefly in at most 2 short sentences. Skip obvious steps. Then answer concisely."
+    ],
+    [
+      "C_prompt_off",
+      "detailed thinking off\nAnswer directly and concisely."
+    ]
+  ],
+  "prompts": [
+    [
+      "p1",
+      "Say hi in one short sentence."
+    ],
+    [
+      "p2",
+      "What is the capital of Austria? Answer in one sentence."
+    ],
+    [
+      "p3",
+      "Explain REST vs GraphQL in exactly 3 bullet points."
+    ],
+    [
+      "p4",
+      "Compute 17 * 24 and show very brief steps."
+    ],
+    [
+      "p5",
+      "Give a practical 4-step plan to back up phone photos to a NAS."
+    ]
+  ],
+  "summary": {
+    "A_baseline_on": {
+      "n_ok": 5,
+      "n_total": 5,
+      "avg_ratio": 4.91,
+      "median_ratio": 5.14,
+      "avg_latency_s": 3.36,
+      "quality_ok": "3/5",
+      "leaks": 0
+    },
+    "B_brief_on": {
+      "n_ok": 5,
+      "n_total": 5,
+      "avg_ratio": 4.96,
+      "median_ratio": 2.38,
+      "avg_latency_s": 2.31,
+      "quality_ok": "5/5",
+      "leaks": 0
+    },
+    "C_prompt_off": {
+      "n_ok": 5,
+      "n_total": 5,
+      "avg_ratio": 5.86,
+      "median_ratio": 2.4,
+      "avg_latency_s": 3.11,
+      "quality_ok": "5/5",
+      "leaks": 0
+    }
+  },
+  "rows": [
+    {
+      "config": "A_baseline_on",
+      "prompt": "p1",
+      "status": "ok",
+      "error": "",
+      "latency_s": 0.88,
+      "rtok": 35,
+      "vtok": 3,
+      "ratio": 11.67,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "Hi there!",
+      "reasoning": "The user wants: \"Say hi in one short sentence.\" So respond with a short sentence greeting. Probably \"Hi there!\" That's one short sentence. Provide just that.",
+      "visible": "Hi there!",
+      "usage": {
+        "completion_tokens": 41,
+        "prompt_tokens": 30,
+        "total_tokens": 71
+      }
+    },
+    {
+      "config": "A_baseline_on",
+      "prompt": "p2",
+      "status": "ok",
+      "error": "",
+      "latency_s": 0.9,
+      "rtok": 36,
+      "vtok": 7,
+      "ratio": 5.14,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "The capital of Austria is Vienna.",
+      "reasoning": "The user asks: \"What is the capital of Austria? Answer in one sentence.\" So answer: \"The capital of Austria is Vienna.\" That's one sentence. Provide answer.",
+      "visible": "The capital of Austria is Vienna.",
+      "usage": {
+        "completion_tokens": 46,
+        "prompt_tokens": 35,
+        "total_tokens": 81
+      }
+    },
+    {
+      "config": "A_baseline_on",
+      "prompt": "p3",
+      "status": "ok",
+      "error": "",
+      "latency_s": 4.87,
+      "rtok": 199,
+      "vtok": 87,
+      "ratio": 2.29,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "- REST relies on multiple fixed endpoints and HTTP methods, while GraphQL uses a single endpoint where the client queries exactly the data it needs.  \n- REST responses have a predefined structure; GraphQL lets the client request specific fields, allowing more efficient data fetching.  \n- REST is naturally cache‑friendly with standard HTTP caching; GraphQL requires additional mechanisms (e.g., query‑level caching) to achieve similar efficiency.",
+      "reasoning": "We need to respond with exactly 3 bullet points explaining REST vs GraphQL. Must be exactly 3 bullet points, presumably each bullet point can contain some text. Must be exactly 3 bullet points, no extra text. So we need to output three bullet points, each starting with a bullet marker (e.g., \"- \"). Must be exactly three bullet points, no extra lines or text. Ensure no extra bullet points or extra content. Provide concise comparison. Let's craft three bullet points that compare REST vs GraphQL. Possibly:\n\n- REST uses fixed endpoints and HTTP methods; GraphQL uses a single endpoint and lets the client specify needed fields.\n- REST responses are predefined; GraphQL returns exactly the data requested, enabling flexible queries.\n- REST is easier to cache and use with standard tools; GraphQL requires a query engine and may need more complex caching strategies.\n\nThat's three bullet points. Ensure exactly three bullet points, no extra text. Let's output exactly three bullet points.",
+      "visible": "- REST relies on multiple fixed endpoints and HTTP methods, while GraphQL uses a single endpoint where the client queries exactly the data it needs.  \n- REST responses have a predefined structure; GraphQL lets the client request specific fields, allowing more efficient data fetching.  \n- REST is naturally cache‑friendly with standard HTTP caching; GraphQL requires additional mechanisms (e.g., query‑level caching) to achieve similar efficiency.",
+      "usage": {
+        "completion_tokens": 289,
+        "prompt_tokens": 36,
+        "total_tokens": 325
+      }
+    },
+    {
+      "config": "A_baseline_on",
+      "prompt": "p4",
+      "status": "ok",
+      "error": "",
+      "latency_s": 5.08,
+      "rtok": 250,
+      "vtok": 48,
+      "ratio": 5.21,
+      "leak": false,
+      "quality_ok": false,
+      "raw_content": "**Steps**\n\n1. Break 24 into 20 + 4.  \n2. Multiply each part by 17:  \n   - 17 × 20 = 34",
+      "reasoning": "User wants compute 17 * 24 and show very brief steps. Provide answer with brief steps. Probably just compute: 17*24 = (10+7)*(20+4) = 200+40+140+28 = 368? Let's compute: 17*24 = 17*20 + 17*4 = 340 + 68 = 408? Wait that's wrong: 17*20 = 340, 17*4 = 68, sum = 408. But earlier I thought 368. Let's recalc: 17*24: 24*10=240, 24*7=168, sum=408. Yes 408. So answer: 408. Show brief steps: 17*24 = 17*(20+4) = 17*20 + 17*4 = 340 + 68 = 408. Provide that.",
+      "visible": "**Steps**\n\n1. Break 24 into 20 + 4.  \n2. Multiply each part by 17:  \n   - 17 × 20 = 34",
+      "usage": {
+        "completion_tokens": 300,
+        "prompt_tokens": 37,
+        "total_tokens": 337
+      }
+    },
+    {
+      "config": "A_baseline_on",
+      "prompt": "p5",
+      "status": "ok",
+      "error": "",
+      "latency_s": 5.08,
+      "rtok": 53,
+      "vtok": 245,
+      "ratio": 0.22,
+      "leak": false,
+      "quality_ok": false,
+      "raw_content": "**4‑Step Practical Plan to Back‑up Your Phone Photos to a NAS**\n\n| Step | What to Do | Why It Matters | Quick Tips |\n|------|------------|----------------|------------|\n| **1️⃣ Choose & Prepare the NAS** | • Pick a NAS that supports **SMB/AFP/SMB3** (e.g., Synology, QNAP, Western Digital). <br>• Connect it to your router via Ethernet (or Wi‑Fi if it’s a wireless‑only model). <br>• Create a dedicated **shared folder** for photos (e.g., `PhoneBackup`). | A stable, always‑on storage device ensures your photos are always reachable and can handle the data volume. | • Use a **static IP** for the NAS (or reserve one in your router) so the address never changes. <br>• Enable **SMB3** for better performance and security. |\n| **2️⃣ Install a Backup App on Your Phone** | • **iOS:** *Apple Files* (with SMB), *Google Photos* (auto‑backup to NAS via “Backup &",
+      "reasoning": "We need to respond with a practical 4-step plan to back up phone photos to a NAS. Should be concise, actionable steps. Possibly include choosing NAS, setting up network, using backup apps, scheduling, verification. Provide details. Should be helpful.",
+      "visible": "**4‑Step Practical Plan to Back‑up Your Phone Photos to a NAS**\n\n| Step | What to Do | Why It Matters | Quick Tips |\n|------|------------|----------------|------------|\n| **1️⃣ Choose & Prepare the NAS** | • Pick a NAS that supports **SMB/AFP/SMB3** (e.g., Synology, QNAP, Western Digital). <br>• Connect it to your router via Ethernet (or Wi‑Fi if it’s a wireless‑only model). <br>• Create a dedicated **shared folder** for photos (e.g., `PhoneBackup`). | A stable, always‑on storage device ensures your photos are always reachable and can handle the data volume. | • Use a **static IP** for the NAS (or reserve one in your router) so the address never changes. <br>• Enable **SMB3** for better performance and security. |\n| **2️⃣ Install a Backup App on Your Phone** | • **iOS:** *Apple Files* (with SMB), *Google Photos* (auto‑backup to NAS via “Backup &",
+      "usage": {
+        "completion_tokens": 300,
+        "prompt_tokens": 39,
+        "total_tokens": 339
+      }
+    },
+    {
+      "config": "B_brief_on",
+      "prompt": "p1",
+      "status": "ok",
+      "error": "",
+      "latency_s": 0.75,
+      "rtok": 31,
+      "vtok": 2,
+      "ratio": 15.5,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "Hi!",
+      "reasoning": "The user wants a short sentence greeting. Provide \"Hi there!\" or \"Hello!\" Probably \"Hi!\" is one short sentence. Provide a short sentence.",
+      "visible": "Hi!",
+      "usage": {
+        "completion_tokens": 36,
+        "prompt_tokens": 50,
+        "total_tokens": 86
+      }
+    },
+    {
+      "config": "B_brief_on",
+      "prompt": "p2",
+      "status": "ok",
+      "error": "",
+      "latency_s": 0.94,
+      "rtok": 37,
+      "vtok": 7,
+      "ratio": 5.29,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "The capital of Austria is Vienna.",
+      "reasoning": "The user asks: \"What is the capital of Austria? Answer in one sentence.\" So answer: \"The capital of Austria is Vienna.\" That's one sentence. Provide concise answer.",
+      "visible": "The capital of Austria is Vienna.",
+      "usage": {
+        "completion_tokens": 47,
+        "prompt_tokens": 55,
+        "total_tokens": 102
+      }
+    },
+    {
+      "config": "B_brief_on",
+      "prompt": "p3",
+      "status": "ok",
+      "error": "",
+      "latency_s": 4.16,
+      "rtok": 169,
+      "vtok": 71,
+      "ratio": 2.38,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "- REST uses fixed endpoints and HTTP methods; GraphQL uses a single endpoint where the client defines the exact data shape.  \n- REST responses are predefined; GraphQL returns only the fields requested, allowing flexible queries.  \n- REST is naturally cacheable with built‑in mechanisms; GraphQL requires client‑side caching and schema introspection.",
+      "reasoning": "We need to respond with exactly 3 bullet points explaining REST vs GraphQL. Must be concise, exactly 3 bullet points. Probably each bullet point can cover differences. Must be exactly 3 bullet points, no extra text. So output should be bullet points, likely using hyphens or asterisks. Ensure exactly 3 bullet points, no extra sentences. Probably each bullet point can be a short statement. Let's produce:\n\n- REST uses fixed endpoints and HTTP methods; GraphQL uses a single endpoint and lets the client specify needed fields.\n- REST responses are predefined; GraphQL returns exactly the data requested, enabling flexible queries.\n- REST is easier to cache and has built‑in tooling; GraphQL requires client‑side handling of caching and schema introspection.\n\nThat's three bullet points. Ensure no extra text.",
+      "visible": "- REST uses fixed endpoints and HTTP methods; GraphQL uses a single endpoint where the client defines the exact data shape.  \n- REST responses are predefined; GraphQL returns only the fields requested, allowing flexible queries.  \n- REST is naturally cacheable with built‑in mechanisms; GraphQL requires client‑side caching and schema introspection.",
+      "usage": {
+        "completion_tokens": 243,
+        "prompt_tokens": 56,
+        "total_tokens": 299
+      }
+    },
+    {
+      "config": "B_brief_on",
+      "prompt": "p4",
+      "status": "ok",
+      "error": "",
+      "latency_s": 2.16,
+      "rtok": 58,
+      "vtok": 59,
+      "ratio": 0.98,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "17 × 24 = 17 × (20 + 4) = (17 × 20) + (17 × 4) = 340 + 68 = **408**.",
+      "reasoning": "We need to compute 17*24, show very brief steps, concise. Provide answer. Probably 408. Steps: 17*20=340, 17*4=68, sum=408. Provide brief.",
+      "visible": "17 × 24 = 17 × (20 + 4) = (17 × 20) + (17 × 4) = 340 + 68 = **408**.",
+      "usage": {
+        "completion_tokens": 120,
+        "prompt_tokens": 57,
+        "total_tokens": 177
+      }
+    },
+    {
+      "config": "B_brief_on",
+      "prompt": "p5",
+      "status": "ok",
+      "error": "",
+      "latency_s": 3.56,
+      "rtok": 78,
+      "vtok": 124,
+      "ratio": 0.63,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "Think: 1) Locate the photo folder on the phone. 2) Connect the phone or its storage to the NAS.  \nAnswer:  \n1. Install and open a file‑transfer app (e.g., Syncthing, Resilio, or the NAS’s native app).  \n2. Select the phone’s photo directory as the source and the NAS’s shared folder as the destination.  \n3. Start the transfer and monitor for errors or interruptions.  \n4. After completion, verify a few files on the NAS and enable automatic sync for future backups.",
+      "reasoning": "We need to respond concisely, with at most 2 short sentences for thinking, then answer concisely. Provide a practical 4-step plan. So we need to think briefly (max 2 short sentences) then answer concisely. Probably we can think: \"Identify photos, connect NAS, copy, verify.\" Then answer with 4 steps. Keep concise.",
+      "visible": "Think: 1) Locate the photo folder on the phone. 2) Connect the phone or its storage to the NAS.  \nAnswer:  \n1. Install and open a file‑transfer app (e.g., Syncthing, Resilio, or the NAS’s native app).  \n2. Select the phone’s photo directory as the source and the NAS’s shared folder as the destination.  \n3. Start the transfer and monitor for errors or interruptions.  \n4. After completion, verify a few files on the NAS and enable automatic sync for future backups.",
+      "usage": {
+        "completion_tokens": 205,
+        "prompt_tokens": 59,
+        "total_tokens": 264
+      }
+    },
+    {
+      "config": "C_prompt_off",
+      "prompt": "p1",
+      "status": "ok",
+      "error": "",
+      "latency_s": 0.87,
+      "rtok": 40,
+      "vtok": 2,
+      "ratio": 20.0,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "Hi!",
+      "reasoning": "We need to respond directly and concisely, one short sentence, saying hi. So \"Hi there!\" or \"Hello!\" Probably \"Hi!\" That's one short sentence. Provide answer directly.",
+      "visible": "Hi!",
+      "usage": {
+        "completion_tokens": 45,
+        "prompt_tokens": 36,
+        "total_tokens": 81
+      }
+    },
+    {
+      "config": "C_prompt_off",
+      "prompt": "p2",
+      "status": "ok",
+      "error": "",
+      "latency_s": 0.91,
+      "rtok": 37,
+      "vtok": 7,
+      "ratio": 5.29,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "The capital of Austria is Vienna.",
+      "reasoning": "The user asks: \"What is the capital of Austria? Answer in one sentence.\" So answer: \"The capital of Austria is Vienna.\" That's one sentence. Provide concise answer.",
+      "visible": "The capital of Austria is Vienna.",
+      "usage": {
+        "completion_tokens": 47,
+        "prompt_tokens": 41,
+        "total_tokens": 88
+      }
+    },
+    {
+      "config": "C_prompt_off",
+      "prompt": "p3",
+      "status": "ok",
+      "error": "",
+      "latency_s": 4.39,
+      "rtok": 180,
+      "vtok": 75,
+      "ratio": 2.4,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "- REST uses fixed endpoints and HTTP methods; GraphQL uses a single endpoint and lets the client specify needed fields.  \n- REST returns whole resources; GraphQL returns precisely the requested data structure, reducing over‑/under‑fetching.  \n- REST is easier to cache and use with standard tools; GraphQL requires a query engine and more complex caching strategies.",
+      "reasoning": "We need to answer directly and concisely, exactly 3 bullet points. Explain REST vs GraphQL. So three bullet points comparing. Must be exactly 3 bullet points. Probably each bullet point can contain some info. Must be concise. Provide exactly three bullet points. No extra text. Ensure bullet points format. Use hyphens or asterisks? Probably hyphens. Provide exactly three bullet points. No extra explanation. Let's craft:\n\n- REST uses fixed endpoints and HTTP methods; GraphQL uses a single endpoint and lets the client specify needed fields.\n- REST responses are whole resources; GraphQL returns precisely the requested data structure, reducing over‑/under‑fetching.\n- REST is easier to cache and use with standard tools; GraphQL requires a query engine and more complex caching strategies.\n\nThat's three bullet points. Ensure exactly three bullet points, no extra text.",
+      "visible": "- REST uses fixed endpoints and HTTP methods; GraphQL uses a single endpoint and lets the client specify needed fields.  \n- REST returns whole resources; GraphQL returns precisely the requested data structure, reducing over‑/under‑fetching.  \n- REST is easier to cache and use with standard tools; GraphQL requires a query engine and more complex caching strategies.",
+      "usage": {
+        "completion_tokens": 258,
+        "prompt_tokens": 42,
+        "total_tokens": 300
+      }
+    },
+    {
+      "config": "C_prompt_off",
+      "prompt": "p4",
+      "status": "ok",
+      "error": "",
+      "latency_s": 4.26,
+      "rtok": 138,
+      "vtok": 110,
+      "ratio": 1.25,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "**Steps**\n\n1. Break 24 into 20 + 4.  \n2. Multiply each part by 17:  \n   - 17 × 20 = 340  \n   - 17 × 4 = 68  \n3. Add the results: 340 + 68 = 408.  \n\n**Answer:** 17 × 24 = **408**.",
+      "reasoning": "User wants compute 17*24 and show very brief steps. Provide answer concisely. Compute: 17*24 = (10+7)*(20+4) = 10*20 +10*4 +7*20 +7*4 = 200+40+140+28 = 408. Or simpler: 17*24 = 17* (6*4)?? Actually 24*17 = (20*17)+(4*17)=340+68=408. Provide brief steps.",
+      "visible": "**Steps**\n\n1. Break 24 into 20 + 4.  \n2. Multiply each part by 17:  \n   - 17 × 20 = 340  \n   - 17 × 4 = 68  \n3. Add the results: 340 + 68 = 408.  \n\n**Answer:** 17 × 24 = **408**.",
+      "usage": {
+        "completion_tokens": 251,
+        "prompt_tokens": 43,
+        "total_tokens": 294
+      }
+    },
+    {
+      "config": "C_prompt_off",
+      "prompt": "p5",
+      "status": "ok",
+      "error": "",
+      "latency_s": 5.11,
+      "rtok": 77,
+      "vtok": 218,
+      "ratio": 0.35,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "**4‑Step Plan to Back Up Phone Photos to a NAS**\n\n1. **Connect & Install**  \n   - Ensure your phone and NAS are on the same local network (Wi‑Fi or Ethernet).  \n   - Install a NAS‑compatible backup app (e.g., Syncthing, Google Photos → NAS, or the vendor’s app).\n\n2. **Create a Shared Folder on the NAS**  \n   - Log into the NAS admin UI.  \n   - Add a shared folder (e.g., `PhonePhotos`) and set appropriate permissions for read/write.\n\n3. **Configure the Backup App**  \n   - In the app, point the “source” to your phone’s photo library.  \n   - Set the destination to the NAS share you created.  \n   - Enable automatic sync or schedule (e.g., “continuous” or “daily at 2 AM”).\n\n4. **Verify & Maintain**  \n   - Run an initial full sync to confirm all photos appear on the NAS.",
+      "reasoning": "We need to answer directly and concisely, providing a practical 4-step plan to back up phone photos to a NAS. Should be concise, direct. Probably bullet points or numbered steps. Provide practical steps: 1) Connect phone to network, 2) Install app, 3) Configure backup settings, 4) Verify and schedule. Let's produce concise answer.",
+      "visible": "**4‑Step Plan to Back Up Phone Photos to a NAS**\n\n1. **Connect & Install**  \n   - Ensure your phone and NAS are on the same local network (Wi‑Fi or Ethernet).  \n   - Install a NAS‑compatible backup app (e.g., Syncthing, Google Photos → NAS, or the vendor’s app).\n\n2. **Create a Shared Folder on the NAS**  \n   - Log into the NAS admin UI.  \n   - Add a shared folder (e.g., `PhonePhotos`) and set appropriate permissions for read/write.\n\n3. **Configure the Backup App**  \n   - In the app, point the “source” to your phone’s photo library.  \n   - Set the destination to the NAS share you created.  \n   - Enable automatic sync or schedule (e.g., “continuous” or “daily at 2 AM”).\n\n4. **Verify & Maintain**  \n   - Run an initial full sync to confirm all photos appear on the NAS.",
+      "usage": {
+        "completion_tokens": 300,
+        "prompt_tokens": 45,
+        "total_tokens": 345
+      }
+    }
+  ]
+}

@@ -137,6 +137,66 @@ Model handles agentic workloads well when `--reasoning-format deepseek` is appli
 - **Environment constraints are handled honestly:** it reported permission errors when `apt-get` failed rather than fabricating completion.
 - **Web-search hygiene gap:** it sometimes answers from prior knowledge unless explicitly prompted to search/cite.
 
+### Non-thinking Mode Results (Feb 12)
+
+Dedicated no-thinking validation run after clean reset (`/lbn llmlab`) on GPU Nemotron.
+
+**Runtime config in test:**
+- Model: `llama-cpp/Nemotron-3-Nano-30B-A3B-IQ4_NL.gguf`
+- OpenClaw session thinking: `off`
+- llama-server: `--reasoning-format deepseek --reasoning-budget 0`
+
+**Observed speed (chat-level):**
+- 20 prompt→answer pairs
+- Average: **~8.15s**
+- Median: **~6.75s**
+- P90: **~12.8s**
+
+**Tool-call reliability in this run window:**
+
+| Tool | Calls | Outcome |
+|------|------:|---------|
+| `web_search` | 2 | ✅ success |
+| `web_fetch` | 2 | ✅ success |
+| `browser` | 1 | ⚠️ failed (browser relay/tab unavailable), fallback path used |
+| **Total** | **5** | **4 successful, 1 understandable environment failure** |
+
+**Quality findings:**
+- **Reasoning/planner leakage occurred** in visible answers (internal planning text surfaced in output on multiple turns).
+- **Hallucination risk increased** for factual prompts when not forced through tool-grounded retrieval.
+- **Link hygiene degraded** in some responses (invalid/404 URLs were produced in one segment).
+
+**Interpretation:**
+- `think=off` gives excellent latency, but quality/reliability can drop for open-ended factual tasks.
+- Best used for lightweight chat or tightly tool-grounded workflows; less ideal for freeform factual synthesis without guardrails.
+
+### Reasoning Gradient Tuning (A/B/C, Feb 12)
+
+Follow-up tuning compared three profiles on the same 5-prompt set:
+- **A**: baseline reasoning on
+- **B**: constrained brief reasoning prompt ("max 1–2 short sentences")
+- **C**: prompt-level thinking-off directive
+
+#### With `--reasoning-budget -1`
+| Profile | Weighted reasoning:text | Avg latency | Quality proxy |
+|---|---:|---:|---:|
+| A | 1.47:1 | 3.36s | 3/5 |
+| B | **1.42:1** | **2.31s** | **5/5** |
+| C | 1.15:1 | 3.11s | 5/5 |
+
+#### With `--reasoning-budget 0`
+- Fastest, but not perfectly clean: occasional malformed `</think>`/planner-style output still leaked into visible text.
+- Practical takeaway: budget=0 is speed mode, not quality mode.
+
+#### `chat_template_kwargs.reasoning_effort` probe
+- `reasoning_effort=low` reduced reasoning on a reasoning-heavy prompt, but behavior was inconsistent across prompt types.
+- Treat as experimental/secondary control until verified stable for Nemotron templates.
+
+**Current best "less-not-none" strategy:**
+1. keep `--reasoning-budget -1`
+2. apply constrained brief-thinking prompt profile (B)
+3. add task routing (`off` for trivial/speed-critical; constrained-on for medium/hard)
+
 ## Hardware Tested
 
 - 2x NVIDIA RTX 3060 12GB
@@ -146,5 +206,7 @@ Model handles agentic workloads well when `--reasoning-format deepseek` is appli
 
 ## Changelog
 
+- **2026-02-12:** Added A/B/C reasoning-gradient results (timing/token split), adopted brief-constrained B profile as recommended default (`--reasoning-budget -1`, constrained prompt style).
+- **2026-02-12:** Added dedicated non-thinking run results section (speed profile, tool-call success/failure breakdown, leakage + hallucination caveats).
 - **2026-02-10:** Added `--reasoning-format deepseek` mitigation (deployed). Updated context window findings (196k stable, 256k OOMs). Confirmed agentic task completion + behavioral notes.
 - **2026-02-09:** Initial profile. Discovered "lost in thought" failure mode. Documented tensor-split requirement.
