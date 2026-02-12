@@ -5,7 +5,7 @@
 ```bash
 llama-server \
   --model /path/to/Nemotron-3-Nano-30B-A3B-IQ4_NL.gguf \
-  --ctx-size 120000 \
+  --ctx-size 196608 \
   --parallel 1 \
   --slot-save-path /path/to/slots \
   --split-mode row --tensor-split 1,1 \
