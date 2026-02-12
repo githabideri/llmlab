@@ -5,9 +5,12 @@ Repo: https://github.com/githabideri/localbot-ctl
 
 ## Working commands
 
-Use `/lbh` for the command summary, `/lbs` for active backend/model/slot state, `/lbe` for endpoint probe output, and `/lbp` for a quick performance check on the active endpoint.
-
-For control actions, `/lbw <backend>` switches runtime backend (`llama-cpp | vllm | stop`), and `/lbn <room>` resets a LocalBot session in the specified room.
+- `/lbh` — help/command summary
+- `/lbs` — status (active backend + model + slot/cache state)
+- `/lbe` — list endpoints + probe results
+- `/lbp` — quick perf benchmark on active endpoint
+- `/lbw <backend>` — switch backend (`llama-cpp | vllm | stop`)
+- `/lbn <room>` — reset LocalBot session (room-scoped)
 
 ## Architecture (sanitized)
 
@@ -20,4 +23,5 @@ plugins/localbot-ctl/            -> command implementation
 
 ## Notes
 
-Room auto-detection for `/lbn` is limited by command context, so an explicit room argument remains the reliable path. Reasoning budgets and prompt policy are controlled by backend service configuration plus agent prompt policy, not by `localbot-ctl` itself.
+- Room auto-detection for `/lbn` is limited by command context; explicit room args are more reliable.
+- Reasoning budgets and prompt policy are controlled by backend service config + agent prompt policy, not by `localbot-ctl` itself.
