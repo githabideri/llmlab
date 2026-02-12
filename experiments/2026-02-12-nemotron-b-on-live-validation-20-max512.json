@@ -1,0 +1,345 @@
+{
+  "ts_utc": "2026-02-12T18:54:10.533315+00:00",
+  "profile": "B_on",
+  "endpoint": "http://192.168.0.27:8080/v1/chat/completions",
+  "model": "Nemotron-3-Nano-30B-A3B-IQ4_NL.gguf",
+  "system_prompt": "You are a helpful assistant. Think briefly in at most 2 short sentences. Skip obvious steps. Then answer concisely.",
+  "summary": {
+    "n_ok": 20,
+    "n_total": 20,
+    "max_tokens": 512,
+    "avg_latency_s": 3.163,
+    "p50_latency_s": 2.808,
+    "p90_latency_s": 4.807,
+    "reasoning_tokens_total": 1691,
+    "visible_tokens_total": 510,
+    "reasoning_to_visible_ratio": 3.316,
+    "leak_count": 0,
+    "empty_visible_count": 1,
+    "prompt_tokens_total": 1107,
+    "completion_tokens_total": 3497,
+    "output_tokens_per_s": 55.27
+  },
+  "rows": [
+    {
+      "idx": 1,
+      "prompt": "Say hi in one short sentence.",
+      "latency_s": 1.153,
+      "reasoning_tokens": 36,
+      "visible_tokens": 1,
+      "ratio": 36.0,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 54,
+        "prompt_tokens": 50,
+        "total_tokens": 104
+      },
+      "answer": "Hi!"
+    },
+    {
+      "idx": 2,
+      "prompt": "What is the capital of Austria? One sentence.",
+      "latency_s": 0.716,
+      "reasoning_tokens": 15,
+      "visible_tokens": 6,
+      "ratio": 2.5,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 31,
+        "prompt_tokens": 53,
+        "total_tokens": 84
+      },
+      "answer": "The capital of Austria is Vienna."
+    },
+    {
+      "idx": 3,
+      "prompt": "Compute 17*24 and show one-line working.",
+      "latency_s": 4.053,
+      "reasoning_tokens": 78,
+      "visible_tokens": 11,
+      "ratio": 7.091,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 228,
+        "prompt_tokens": 56,
+        "total_tokens": 284
+      },
+      "answer": "17\u202f\u00d7\u202f24\u202f=\u202f(10+7)\u00d724\u202f=\u202f240+168\u202f=\u202f408.  \n\n**Answer:** 408."
+    },
+    {
+      "idx": 4,
+      "prompt": "Give 3 bullet points: REST vs GraphQL.",
+      "latency_s": 3.441,
+      "reasoning_tokens": 50,
+      "visible_tokens": 90,
+      "ratio": 0.556,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 194,
+        "prompt_tokens": 54,
+        "total_tokens": 248
+      },
+      "answer": "- **Data fetching model**: REST uses multiple endpoints (e.g., `/users`, `/posts`) and returns fixed payloads; GraphQL exposes a single endpoint and lets the client specify exactly which fields are needed.  \n- **Versioning & flexibility**: REST often requires new versions or endpoints for changes; GraphQL evolves without versioning by adding new fields or types while preserving existing queries.  \n- **Network efficiency & caching**: REST can leverage HTTP caching and simple GET semantics; GraphQL typically uses POST with a request body, requiring client\u2011side caching strategies (e.g., Apollo Cache) to achieve similar efficiency."
+    },
+    {
+      "idx": 5,
+      "prompt": "Draft a 4-step plan to back up phone photos to a NAS.",
+      "latency_s": 4.325,
+      "reasoning_tokens": 50,
+      "visible_tokens": 123,
+      "ratio": 0.407,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 241,
+        "prompt_tokens": 58,
+        "total_tokens": 299
+      },
+      "answer": "**4\u2011Step Plan to Back Up Phone Photos to a NAS**\n\n1. **Connect & Install** \u2013 Install the NAS\u2011specific app (e.g., Synology\u202fDS Photo, QNAP\u202fPhoto Station) on your phone and configure it to access the NAS over your local network.  \n2. **Select & Queue** \u2013 Choose the photo folders or albums you want to back up, then set the app to sync them to a designated share/folder on the NAS.  \n3. **Transfer & Verify** \u2013 Initiate the transfer, monitor progress, and confirm that the file count and sizes match on both devices (check a few random files).  \n4. **Automate & Secure** \u2013 Enable scheduled incremental backups and enable encryption or password protection on the NAS share to keep future uploads automatic and secure."
+    },
+    {
+      "idx": 6,
+      "prompt": "Translate to German: 'The server is healthy and ready.'",
+      "latency_s": 1.347,
+      "reasoning_tokens": 37,
+      "visible_tokens": 6,
+      "ratio": 6.167,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 68,
+        "prompt_tokens": 55,
+        "total_tokens": 123
+      },
+      "answer": "Der Server ist gesund und bereit."
+    },
+    {
+      "idx": 7,
+      "prompt": "What's 15% of 240?",
+      "latency_s": 1.294,
+      "reasoning_tokens": 22,
+      "visible_tokens": 5,
+      "ratio": 4.4,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 65,
+        "prompt_tokens": 55,
+        "total_tokens": 120
+      },
+      "answer": "15% of 240 is 36."
+    },
+    {
+      "idx": 8,
+      "prompt": "Give one regex to match IPv4 addresses (practical, concise).",
+      "latency_s": 4.078,
+      "reasoning_tokens": 35,
+      "visible_tokens": 1,
+      "ratio": 35.0,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 229,
+        "prompt_tokens": 57,
+        "total_tokens": 286
+      },
+      "answer": "`^(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d?\\d)$`"
+    },
+    {
+      "idx": 9,
+      "prompt": "How do I check disk usage on Linux in 2 commands?",
+      "latency_s": 2.129,
+      "reasoning_tokens": 51,
+      "visible_tokens": 20,
+      "ratio": 2.55,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 112,
+        "prompt_tokens": 56,
+        "total_tokens": 168
+      },
+      "answer": "Use `df -h` to see overall filesystem usage, then `du -sh /path/to/dir` to view the size of a specific directory."
+    },
+    {
+      "idx": 10,
+      "prompt": "Explain CPU-bound vs GPU-bound in 2 bullets.",
+      "latency_s": 1.791,
+      "reasoning_tokens": 21,
+      "visible_tokens": 41,
+      "ratio": 0.512,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 95,
+        "prompt_tokens": 55,
+        "total_tokens": 150
+      },
+      "answer": "- **CPU\u2011bound**: The workload\u2019s bottleneck is the processor; it spends most cycles executing code, limited by CPU clock speed and cores.  \n- **GPU\u2011bound**: The workload\u2019s bottleneck is the graphics processor; it\u2019s constrained by GPU compute units, memory bandwidth, and parallel throughput."
+    },
+    {
+      "idx": 11,
+      "prompt": "Write a one-liner curl healthcheck for localhost:8080.",
+      "latency_s": 1.668,
+      "reasoning_tokens": 29,
+      "visible_tokens": 6,
+      "ratio": 4.833,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 87,
+        "prompt_tokens": 59,
+        "total_tokens": 146
+      },
+      "answer": "`curl -fsS http://localhost:8080/health || exit 1`"
+    },
+    {
+      "idx": 12,
+      "prompt": "Name 3 failure causes for 503 Loading model.",
+      "latency_s": 6.607,
+      "reasoning_tokens": 232,
+      "visible_tokens": 23,
+      "ratio": 10.087,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 378,
+        "prompt_tokens": 56,
+        "total_tokens": 434
+      },
+      "answer": "Insufficient memory or disk space, corrupted or missing model files, and excessive concurrent requests can each cause a 503 while loading a model."
+    },
+    {
+      "idx": 13,
+      "prompt": "Give a concise commit message for fixing fallback routing.",
+      "latency_s": 1.015,
+      "reasoning_tokens": 32,
+      "visible_tokens": 6,
+      "ratio": 5.333,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 49,
+        "prompt_tokens": 53,
+        "total_tokens": 102
+      },
+      "answer": "Fix fallback routing edge case handling."
+    },
+    {
+      "idx": 14,
+      "prompt": "Summarize why model fallbacks: [] can matter in one paragraph.",
+      "latency_s": 4.247,
+      "reasoning_tokens": 146,
+      "visible_tokens": 38,
+      "ratio": 3.842,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 238,
+        "prompt_tokens": 58,
+        "total_tokens": 296
+      },
+      "answer": "Model fallbacks matter because they decide which alternative model is invoked when the primary one fails, directly influencing performance, cost, and user experience. They also affect reliability and the system\u2019s ability to handle diverse inputs without manual intervention."
+    },
+    {
+      "idx": 15,
+      "prompt": "Provide a tiny JSON example with model primary and empty fallbacks.",
+      "latency_s": 3.626,
+      "reasoning_tokens": 113,
+      "visible_tokens": 11,
+      "ratio": 10.273,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 202,
+        "prompt_tokens": 57,
+        "total_tokens": 259
+      },
+      "answer": "```json\n{\n  \"model\": {\n    \"primary\": \"gpt-3.5\",\n    \"fallbacks\": []\n  }\n}\n```"
+    },
+    {
+      "idx": 16,
+      "prompt": "What is the day after Thursday?",
+      "latency_s": 1.217,
+      "reasoning_tokens": 34,
+      "visible_tokens": 2,
+      "ratio": 17.0,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 61,
+        "prompt_tokens": 50,
+        "total_tokens": 111
+      },
+      "answer": "It's Friday."
+    },
+    {
+      "idx": 17,
+      "prompt": "List 3 checks before saying a backend is 'ready'.",
+      "latency_s": 2.175,
+      "reasoning_tokens": 43,
+      "visible_tokens": 33,
+      "ratio": 1.303,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 117,
+        "prompt_tokens": 55,
+        "total_tokens": 172
+      },
+      "answer": "- Health endpoint returns\u202f200\u202fand responds within expected latency.  \n- All required dependent services (e.g., DB, cache) are reachable and report healthy.  \n- No critical errors or timeouts appear in recent logs."
+    },
+    {
+      "idx": 18,
+      "prompt": "Give 2 pros and 2 cons of very large context windows.",
+      "latency_s": 8.915,
+      "reasoning_tokens": 373,
+      "visible_tokens": 0,
+      "ratio": 373.0,
+      "leak": false,
+      "empty_visible": true,
+      "usage": {
+        "completion_tokens": 512,
+        "prompt_tokens": 57,
+        "total_tokens": 569
+      },
+      "answer": ""
+    },
+    {
+      "idx": 19,
+      "prompt": "Suggest a safe rollback checklist in 5 bullets.",
+      "latency_s": 4.666,
+      "reasoning_tokens": 143,
+      "visible_tokens": 50,
+      "ratio": 2.86,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 265,
+        "prompt_tokens": 55,
+        "total_tokens": 320
+      },
+      "answer": "- Confirm the backup/restore point is intact and accessible.  \n- Pause affected services and snapshot the current system state.  \n- Execute the rollback script or revert configuration changes.  \n- Run quick smoke tests to ensure core functionality is restored.  \n- Record the rollback results and update documentation for future reference."
+    },
+    {
+      "idx": 20,
+      "prompt": "One sentence: when to use reasoning-budget 0 vs -1?",
+      "latency_s": 4.807,
+      "reasoning_tokens": 151,
+      "visible_tokens": 37,
+      "ratio": 4.081,
+      "leak": false,
+      "empty_visible": false,
+      "usage": {
+        "completion_tokens": 271,
+        "prompt_tokens": 58,
+        "total_tokens": 329
+      },
+      "answer": "Use reasoning\u2011budget\u202f0 for fast, low\u2011effort answers when you just need a direct response, and use\u202f\u20111 when the task is complex or ambiguous and you want the model to allocate as much internal reasoning as needed."
+    }
+  ]
+}
