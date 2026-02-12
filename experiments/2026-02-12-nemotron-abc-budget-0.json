@@ -1,0 +1,370 @@
+{
+  "budget": "0",
+  "configs": [
+    [
+      "A_baseline_budget0",
+      "You are a helpful assistant."
+    ],
+    [
+      "B_brief_budget0",
+      "You are a helpful assistant. Think briefly in at most 2 short sentences. Skip obvious steps. Then answer concisely."
+    ],
+    [
+      "C_prompt_off_budget0",
+      "detailed thinking off\nAnswer directly and concisely."
+    ]
+  ],
+  "prompts": [
+    [
+      "p1",
+      "Say hi in one short sentence."
+    ],
+    [
+      "p2",
+      "What is the capital of Austria? Answer in one sentence."
+    ],
+    [
+      "p3",
+      "Explain REST vs GraphQL in exactly 3 bullet points."
+    ],
+    [
+      "p4",
+      "Compute 17 * 24 and show very brief steps."
+    ],
+    [
+      "p5",
+      "Give a practical 4-step plan to back up phone photos to a NAS."
+    ]
+  ],
+  "summary": {
+    "A_baseline_budget0": {
+      "n_ok": 5,
+      "n_total": 5,
+      "avg_ratio": 0.0,
+      "median_ratio": 0.0,
+      "avg_latency_s": 2.04,
+      "quality_ok": "4/5",
+      "leaks": 3
+    },
+    "B_brief_budget0": {
+      "n_ok": 5,
+      "n_total": 5,
+      "avg_ratio": 0.0,
+      "median_ratio": 0.0,
+      "avg_latency_s": 1.27,
+      "quality_ok": "5/5",
+      "leaks": 2
+    },
+    "C_prompt_off_budget0": {
+      "n_ok": 5,
+      "n_total": 5,
+      "avg_ratio": 0.0,
+      "median_ratio": 0.0,
+      "avg_latency_s": 1.77,
+      "quality_ok": "5/5",
+      "leaks": 3
+    }
+  },
+  "rows": [
+    {
+      "config": "A_baseline_budget0",
+      "prompt": "p1",
+      "status": "ok",
+      "error": "",
+      "latency_s": 0.49,
+      "rtok": 0,
+      "vtok": 13,
+      "ratio": 0.0,
+      "leak": true,
+      "quality_ok": true,
+      "raw_content": "Hi there! 😊\n</think>Hi there! 😊",
+      "reasoning": "",
+      "visible": "Hi there! 😊\nHi there! 😊",
+      "usage": {
+        "completion_tokens": 15,
+        "prompt_tokens": 31,
+        "total_tokens": 46
+      }
+    },
+    {
+      "config": "A_baseline_budget0",
+      "prompt": "p2",
+      "status": "ok",
+      "error": "",
+      "latency_s": 0.39,
+      "rtok": 0,
+      "vtok": 14,
+      "ratio": 0.0,
+      "leak": true,
+      "quality_ok": true,
+      "raw_content": "The capital of Austria is Vienna.\n</think>The capital of Austria is Vienna.",
+      "reasoning": "",
+      "visible": "The capital of Austria is Vienna.\nThe capital of Austria is Vienna.",
+      "usage": {
+        "completion_tokens": 16,
+        "prompt_tokens": 36,
+        "total_tokens": 52
+      }
+    },
+    {
+      "config": "A_baseline_budget0",
+      "prompt": "p3",
+      "status": "ok",
+      "error": "",
+      "latency_s": 2.79,
+      "rtok": 0,
+      "vtok": 160,
+      "ratio": 0.0,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "- **Data Fetching Model**: REST uses multiple endpoints (e.g., `/users`, `/posts`) where each returns a fixed resource structure; GraphQL uses a single endpoint and lets the client specify exactly which fields it needs, enabling precise data retrieval.  \n- **Over- and Under-Fetching**: REST often leads to over-fetching (returning unnecessary data) or under-fetching (requiring multiple requests); GraphQL eliminates this by letting clients request only the needed fields in one query.  \n- **Schema & Flexibility**: REST relies on endpoint conventions and versioning (e.g., `/v1/users`), making it rigid; GraphQL uses a strong, self-documenting schema that evolves without breaking existing clients, allowing flexible, type-safe queries.",
+      "reasoning": "",
+      "visible": "- **Data Fetching Model**: REST uses multiple endpoints (e.g., `/users`, `/posts`) where each returns a fixed resource structure; GraphQL uses a single endpoint and lets the client specify exactly which fields it needs, enabling precise data retrieval.  \n- **Over- and Under-Fetching**: REST often leads to over-fetching (returning unnecessary data) or under-fetching (requiring multiple requests); GraphQL eliminates this by letting clients request only the needed fields in one query.  \n- **Schema & Flexibility**: REST relies on endpoint conventions and versioning (e.g., `/v1/users`), making it rigid; GraphQL uses a strong, self-documenting schema that evolves without breaking existing clients, allowing flexible, type-safe queries.",
+      "usage": {
+        "completion_tokens": 161,
+        "prompt_tokens": 37,
+        "total_tokens": 198
+      }
+    },
+    {
+      "config": "A_baseline_budget0",
+      "prompt": "p4",
+      "status": "ok",
+      "error": "",
+      "latency_s": 1.45,
+      "rtok": 0,
+      "vtok": 78,
+      "ratio": 0.0,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "Sure!  \n\n\\(17 \\times 24 = 17 \\times (20 + 4) = 17 \\times 20 + 17 \\times 4 = 340 + 68 = 408.\\)  \n\nSo, **\\(17 \\times 24 = 408\\).**",
+      "reasoning": "",
+      "visible": "Sure!  \n\n\\(17 \\times 24 = 17 \\times (20 + 4) = 17 \\times 20 + 17 \\times 4 = 340 + 68 = 408.\\)  \n\nSo, **\\(17 \\times 24 = 408\\).**",
+      "usage": {
+        "completion_tokens": 80,
+        "prompt_tokens": 38,
+        "total_tokens": 118
+      }
+    },
+    {
+      "config": "A_baseline_budget0",
+      "prompt": "p5",
+      "status": "ok",
+      "error": "",
+      "latency_s": 5.09,
+      "rtok": 0,
+      "vtok": 297,
+      "ratio": 0.0,
+      "leak": true,
+      "quality_ok": false,
+      "raw_content": "The user wants a practical 4-step plan to back up phone photos to a NAS. Provide concise steps. Should be practical. No disallowed content. Provide steps: 1) Choose NAS and set up, 2) Install app on phone, 3) Configure backup settings, 4) Verify and maintain. Provide details.\n</think>\n**4‑Step Practical Plan to Back Up Your Phone Photos to a NAS**\n\n| Step | What to Do | Why It Matters | Quick Tips |\n|------|------------|----------------|------------|\n| **1️⃣ Choose & Prepare the NAS** | • Pick a NAS that supports the protocols you’ll use (SMB/CIFS, AFP, NFS, or cloud‑sync). <br>• Connect it to your home router (wired Ethernet is best for speed). <br>• Create a dedicated shared folder (e.g., `PhonePhotos`). | The NAS is the central storage hub; a stable network connection prevents drops and slow transfers. | • Use a static IP for the NAS so the address never changes. <br>• Enable “SMB 3.0” (or the latest version) for better performance and security. |\n| **2️⃣ Install a Backup App on Your Phone** | • **iOS:** Use the built‑in **Photos** app with the “iCloud Photos” toggle off and enable “Upload to NAS",
+      "reasoning": "",
+      "visible": "The user wants a practical 4-step plan to back up phone photos to a NAS. Provide concise steps. Should be practical. No disallowed content. Provide steps: 1) Choose NAS and set up, 2) Install app on phone, 3) Configure backup settings, 4) Verify and maintain. Provide details.\n\n**4‑Step Practical Plan to Back Up Your Phone Photos to a NAS**\n\n| Step | What to Do | Why It Matters | Quick Tips |\n|------|------------|----------------|------------|\n| **1️⃣ Choose & Prepare the NAS** | • Pick a NAS that supports the protocols you’ll use (SMB/CIFS, AFP, NFS, or cloud‑sync). <br>• Connect it to your home router (wired Ethernet is best for speed). <br>• Create a dedicated shared folder (e.g., `PhonePhotos`). | The NAS is the central storage hub; a stable network connection prevents drops and slow transfers. | • Use a static IP for the NAS so the address never changes. <br>• Enable “SMB 3.0” (or the latest version) for better performance and security. |\n| **2️⃣ Install a Backup App on Your Phone** | • **iOS:** Use the built‑in **Photos** app with the “iCloud Photos” toggle off and enable “Upload to NAS",
+      "usage": {
+        "completion_tokens": 300,
+        "prompt_tokens": 40,
+        "total_tokens": 340
+      }
+    },
+    {
+      "config": "B_brief_budget0",
+      "prompt": "p1",
+      "status": "ok",
+      "error": "",
+      "latency_s": 0.33,
+      "rtok": 0,
+      "vtok": 6,
+      "ratio": 0.0,
+      "leak": true,
+      "quality_ok": true,
+      "raw_content": "Hi there!\n</think>\nHi there!",
+      "reasoning": "",
+      "visible": "Hi there!\n\nHi there!",
+      "usage": {
+        "completion_tokens": 10,
+        "prompt_tokens": 51,
+        "total_tokens": 61
+      }
+    },
+    {
+      "config": "B_brief_budget0",
+      "prompt": "p2",
+      "status": "ok",
+      "error": "",
+      "latency_s": 0.43,
+      "rtok": 0,
+      "vtok": 14,
+      "ratio": 0.0,
+      "leak": true,
+      "quality_ok": true,
+      "raw_content": "The capital of Austria is Vienna.\n</think>\nThe capital of Austria is Vienna.",
+      "reasoning": "",
+      "visible": "The capital of Austria is Vienna.\n\nThe capital of Austria is Vienna.",
+      "usage": {
+        "completion_tokens": 18,
+        "prompt_tokens": 56,
+        "total_tokens": 74
+      }
+    },
+    {
+      "config": "B_brief_budget0",
+      "prompt": "p3",
+      "status": "ok",
+      "error": "",
+      "latency_s": 1.64,
+      "rtok": 0,
+      "vtok": 89,
+      "ratio": 0.0,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "- REST uses fixed endpoints and HTTP methods (GET, POST, etc.), while GraphQL uses a single endpoint and lets the client specify exactly which data it needs.  \n- REST responses are predefined; GraphQL responses can be tailored per request, reducing over‑fetching and under‑fetching.  \n- REST is easier to cache and works well with standard tools; GraphQL requires more complex handling for caching and introspection.",
+      "reasoning": "",
+      "visible": "- REST uses fixed endpoints and HTTP methods (GET, POST, etc.), while GraphQL uses a single endpoint and lets the client specify exactly which data it needs.  \n- REST responses are predefined; GraphQL responses can be tailored per request, reducing over‑fetching and under‑fetching.  \n- REST is easier to cache and works well with standard tools; GraphQL requires more complex handling for caching and introspection.",
+      "usage": {
+        "completion_tokens": 90,
+        "prompt_tokens": 57,
+        "total_tokens": 147
+      }
+    },
+    {
+      "config": "B_brief_budget0",
+      "prompt": "p4",
+      "status": "ok",
+      "error": "",
+      "latency_s": 1.02,
+      "rtok": 0,
+      "vtok": 50,
+      "ratio": 0.0,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "17 × 24 = 17 × (20 + 4) = 17·20 + 17·4 = 340 + 68 = **408**.",
+      "reasoning": "",
+      "visible": "17 × 24 = 17 × (20 + 4) = 17·20 + 17·4 = 340 + 68 = **408**.",
+      "usage": {
+        "completion_tokens": 52,
+        "prompt_tokens": 58,
+        "total_tokens": 110
+      }
+    },
+    {
+      "config": "B_brief_budget0",
+      "prompt": "p5",
+      "status": "ok",
+      "error": "",
+      "latency_s": 2.94,
+      "rtok": 0,
+      "vtok": 166,
+      "ratio": 0.0,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "1. **Connect & Install** – Link your phone to the NAS (via Wi‑Fi or Ethernet) and install the NAS vendor’s mobile app (e.g., Synology DS photo, QNAP Qfile).  \n2. **Select Source** – In the app, choose “Backup” or “Import” and point it to your phone’s photo library (camera roll, albums, etc.).  \n3. **Configure Rules** – Set automatic backup frequency (e.g., “Every night”) and enable “Only over Wi‑Fi” + “Only when charging” to preserve battery and bandwidth.  \n4. **Verify & Monitor** – After the first run, check the NAS folder for the transferred files and monitor the app’s log to confirm successful, error‑free syncing.",
+      "reasoning": "",
+      "visible": "1. **Connect & Install** – Link your phone to the NAS (via Wi‑Fi or Ethernet) and install the NAS vendor’s mobile app (e.g., Synology DS photo, QNAP Qfile).  \n2. **Select Source** – In the app, choose “Backup” or “Import” and point it to your phone’s photo library (camera roll, albums, etc.).  \n3. **Configure Rules** – Set automatic backup frequency (e.g., “Every night”) and enable “Only over Wi‑Fi” + “Only when charging” to preserve battery and bandwidth.  \n4. **Verify & Monitor** – After the first run, check the NAS folder for the transferred files and monitor the app’s log to confirm successful, error‑free syncing.",
+      "usage": {
+        "completion_tokens": 168,
+        "prompt_tokens": 60,
+        "total_tokens": 228
+      }
+    },
+    {
+      "config": "C_prompt_off_budget0",
+      "prompt": "p1",
+      "status": "ok",
+      "error": "",
+      "latency_s": 0.25,
+      "rtok": 0,
+      "vtok": 6,
+      "ratio": 0.0,
+      "leak": true,
+      "quality_ok": true,
+      "raw_content": "Hi there!\n</think>Hi there!",
+      "reasoning": "",
+      "visible": "Hi there!\nHi there!",
+      "usage": {
+        "completion_tokens": 8,
+        "prompt_tokens": 37,
+        "total_tokens": 45
+      }
+    },
+    {
+      "config": "C_prompt_off_budget0",
+      "prompt": "p2",
+      "status": "ok",
+      "error": "",
+      "latency_s": 0.4,
+      "rtok": 0,
+      "vtok": 14,
+      "ratio": 0.0,
+      "leak": true,
+      "quality_ok": true,
+      "raw_content": "The capital of Austria is Vienna.\n</think>The capital of Austria is Vienna.",
+      "reasoning": "",
+      "visible": "The capital of Austria is Vienna.\nThe capital of Austria is Vienna.",
+      "usage": {
+        "completion_tokens": 16,
+        "prompt_tokens": 42,
+        "total_tokens": 58
+      }
+    },
+    {
+      "config": "C_prompt_off_budget0",
+      "prompt": "p3",
+      "status": "ok",
+      "error": "",
+      "latency_s": 1.51,
+      "rtok": 0,
+      "vtok": 82,
+      "ratio": 0.0,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "- REST uses fixed endpoints and HTTP methods; GraphQL uses a single endpoint and lets the client specify exactly which fields it needs.  \n- REST responses are predefined; GraphQL responses can be composed dynamically from multiple data sources in one request.  \n- REST is easier to cache and has built‑in tooling; GraphQL offers more flexibility but requires more client‑side handling and careful schema design.",
+      "reasoning": "",
+      "visible": "- REST uses fixed endpoints and HTTP methods; GraphQL uses a single endpoint and lets the client specify exactly which fields it needs.  \n- REST responses are predefined; GraphQL responses can be composed dynamically from multiple data sources in one request.  \n- REST is easier to cache and has built‑in tooling; GraphQL offers more flexibility but requires more client‑side handling and careful schema design.",
+      "usage": {
+        "completion_tokens": 83,
+        "prompt_tokens": 43,
+        "total_tokens": 126
+      }
+    },
+    {
+      "config": "C_prompt_off_budget0",
+      "prompt": "p4",
+      "status": "ok",
+      "error": "",
+      "latency_s": 1.97,
+      "rtok": 0,
+      "vtok": 108,
+      "ratio": 0.0,
+      "leak": true,
+      "quality_ok": true,
+      "raw_content": "17 × 24 = (10 + 7) × 24 = 10 × 24 + 7 × 24 = 240 + 168 = **408**\n</think>\n17 × 24 = (10 + 7) × 24 = 10 × 24 + 7 × 24 = 240 + 168 = **408**",
+      "reasoning": "",
+      "visible": "17 × 24 = (10 + 7) × 24 = 10 × 24 + 7 × 24 = 240 + 168 = **408**\n\n17 × 24 = (10 + 7) × 24 = 10 × 24 + 7 × 24 = 240 + 168 = **408**",
+      "usage": {
+        "completion_tokens": 111,
+        "prompt_tokens": 44,
+        "total_tokens": 155
+      }
+    },
+    {
+      "config": "C_prompt_off_budget0",
+      "prompt": "p5",
+      "status": "ok",
+      "error": "",
+      "latency_s": 4.73,
+      "rtok": 0,
+      "vtok": 275,
+      "ratio": 0.0,
+      "leak": false,
+      "quality_ok": true,
+      "raw_content": "**4‑Step Practical Plan to Back Up Phone Photos to a NAS**\n\n1. **Connect & Configure the NAS**\n   - Plug the NAS into your router (Ethernet) and power it on.\n   - Use the vendor’s app or web UI to create a shared folder (e.g., `PhoneBackups`) and set permissions for your user account.\n\n2. **Enable Automatic Photo Sync on Your Phone**\n   - **iOS:** Install the vendor’s app (e.g., Synology Drive, QNAP Photo Station) → sign in → enable “Camera Upload” → choose the NAS folder as destination.\n   - **Android:** Install the corresponding app (e.g., Synology Drive, Google Photos with NAS integration) → enable “Backup to NAS” → select the shared folder.\n\n3. **Verify the First Backup**\n   - Open the app, start a manual sync, and confirm that photos appear in the NAS folder.\n   - Check file integrity (open a few images) and ensure the transfer speed meets expectations.\n\n4. **Set Up Ongoing Maintenance**\n   - Enable continuous background syncing so new photos upload automatically.\n   - Schedule a weekly check (or use the NAS’s notification feature) to confirm the backup job runs without errors.\n   - Periodically review storage quotas and purge old backups if needed.",
+      "reasoning": "",
+      "visible": "**4‑Step Practical Plan to Back Up Phone Photos to a NAS**\n\n1. **Connect & Configure the NAS**\n   - Plug the NAS into your router (Ethernet) and power it on.\n   - Use the vendor’s app or web UI to create a shared folder (e.g., `PhoneBackups`) and set permissions for your user account.\n\n2. **Enable Automatic Photo Sync on Your Phone**\n   - **iOS:** Install the vendor’s app (e.g., Synology Drive, QNAP Photo Station) → sign in → enable “Camera Upload” → choose the NAS folder as destination.\n   - **Android:** Install the corresponding app (e.g., Synology Drive, Google Photos with NAS integration) → enable “Backup to NAS” → select the shared folder.\n\n3. **Verify the First Backup**\n   - Open the app, start a manual sync, and confirm that photos appear in the NAS folder.\n   - Check file integrity (open a few images) and ensure the transfer speed meets expectations.\n\n4. **Set Up Ongoing Maintenance**\n   - Enable continuous background syncing so new photos upload automatically.\n   - Schedule a weekly check (or use the NAS’s notification feature) to confirm the backup job runs without errors.\n   - Periodically review storage quotas and purge old backups if needed.",
+      "usage": {
+        "completion_tokens": 277,
+        "prompt_tokens": 46,
+        "total_tokens": 323
+      }
+    }
+  ]
+}

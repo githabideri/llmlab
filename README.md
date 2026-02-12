@@ -1,30 +1,35 @@
 # llmlab
 
-A public, self‑contained notebook of a small-but-serious local LLM lab: configs, benchmarks, runbooks, and reproducible experiments.
+Public notebook for a practical local-LLM lab: reproducible configs, benchmark methods, and operator-grade run notes.
 
-## Why this repo
-- Capture working configs (before they get lost)
-- Keep benchmarks reproducible
-- Share a lightweight, practical setup for running local models
+## What this repo is for
+- Keep working inference configs from getting lost
+- Compare model/runtime changes with repeatable measurements
+- Share what actually works (and what breaks) in small-GPU setups
 
-## Hardware (as tested)
-- **GPUs:** 2× RTX 3060 12GB
-- **RAM:** ~26 GiB available to inference container
-- **Storage:** 1 TB SSD for models, 250 GB NVMe for OS/root (ZFS)
-- **OS:** Linux + ZFS
+## Current operating profile (2026-02-12)
 
-## Current best config (as of 2026‑02‑08)
-- **Model:** Qwen3‑Coder‑Next REAP‑40B A3B **Q2_K_XL** (GGUF)
-- **llama.cpp:** Flash‑Attn (all‑quants), **K=q8_0**, **V=q4_0**
-- **Params:** `n-cpu-moe 0`, `tensor-split 14/10`, `ctx 128k`, `b/ub 128/64`
-- **Perf:** prefill @128k **~166.9 tok/s**, `tg256` **~20.7 tok/s`
+### Primary model/runtime
+- **Model:** Nemotron-3-Nano-30B-A3B (IQ4_NL GGUF)
+- **Runtime:** llama.cpp (`llama-server`)
+- **Hardware class tested:** dual 12GB GPUs + CPU fallback node
 
-See **docs/benchmarks.md** for the full sweep.
+### Recommended reasoning profile (“less, not none”)
+- **Server:** `--reasoning-format deepseek --reasoning-budget -1 --jinja`
+- **Prompt/system style:** brief constrained reasoning (B profile)
+- **Why:** best observed balance of speed + quality in A/B/C tests
 
-Also tested: **gpt‑oss‑20b GGUF on a single 3060** at ~66–68 tok/s (gen).
+### Speed-only profile
+- `--reasoning-budget 0` is faster, but can leak malformed planner/tag artifacts in output.
+
+See:
+- `models/nemotron-3-nano-30b-a3b.md`
+- `experiments/2026-02-12-nemotron-thinking-gradient-abc.md`
+- `experiments/2026-02-12-nemotron-abc-executive-summary.md`
 
 ## Repo map
-```
+
+```text
 README.md
 LICENSE
 /docs
@@ -33,10 +38,14 @@ LICENSE
   runbook.md
   benchmarks.md
   troubleshooting.md
+  thinking-policy.md
+/models
+  nemotron-3-nano-30b-a3b.md
 /experiments
   README.md
-  2026-02-07-qwen3-q2-fa-vram.md
-  2026-02-08-qwen3-q2-ctx-sweep.md
+  2026-02-09-nemotron-thinking-fix.md
+  2026-02-12-nemotron-thinking-gradient-abc.md
+  2026-02-12-nemotron-abc-executive-summary.md
 /scripts
   start_qwen3_q2.sh
   bench_ctx_sweep.sh
@@ -45,10 +54,9 @@ LICENSE
 ```
 
 ## Safety note
-This repo is **public**. Do not commit:
-- hostnames / IPs
-- SSH keys
-- usernames / home paths
-- private prompts or logs
+This repo is public. Do **not** commit:
+- private hostnames/IPs
+- credentials/tokens/SSH keys
+- personal transcripts or sensitive logs
 
-Keep configs and paths **generic** and documented.
+Keep examples generic and reusable.
