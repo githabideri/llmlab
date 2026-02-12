@@ -137,7 +137,23 @@ Model handles agentic workloads well when `--reasoning-format deepseek` is appli
 - **Environment constraints are handled honestly:** it reported permission errors when `apt-get` failed rather than fabricating completion.
 - **Web-search hygiene gap:** it sometimes answers from prior knowledge unless explicitly prompted to search/cite.
 
+### Wild-ride Session Addendum (Feb 12, reduced-thinking era)
+
+Chat-orchestration-heavy postmortem sample (not a quality benchmark):
+
+- Tool calls: **33 total**
+- Successes: **31**
+- Failures: **2**
+  - `message`: channel-resolution error (`Unknown channel`)
+  - `process`: monitored process ended with `SIGKILL`
+
+Operational interpretation: tool reliability remained high overall, and failures were environment/control-plane class rather than model-internal reasoning failures.
+
 ### Non-thinking Mode Results (Feb 12)
+
+> Scope note: this section reflects a targeted no-thinking speed snapshot.
+> It is not directly comparable to later reduced-thinking production-profile runs
+> (`--reasoning-budget -1` + constrained brief-reasoning prompt style).
 
 Dedicated no-thinking validation run after clean reset (`/lbn llmlab`) on GPU Nemotron.
 
@@ -197,6 +213,22 @@ Follow-up tuning compared three profiles on the same 5-prompt set:
 2. apply constrained brief-thinking prompt profile (B)
 3. add task routing (`off` for trivial/speed-critical; constrained-on for medium/hard)
 
+### Reduced-thinking Operating Profile (Adopted, Feb 12 evening)
+
+After A/B/C tuning, operational profile was switched to reduced-thinking mode for better speed/quality balance:
+
+- `--reasoning-format deepseek`
+- `--reasoning-budget -1`
+- brief constrained reasoning prompt style
+- OpenClaw-side reasoning remains enabled (`reasoning: true`), with prompt-level constraining
+
+**How to compare runs correctly:**
+- compare reduced-thinking runs only against other reduced-thinking runs
+- do not merge reduced-thinking outcomes into no-thinking baseline tables
+- tag runs by profile class in notes/reports:
+  - `non-thinking-speed` (e.g. budget `0` / think-off style)
+  - `reduced-thinking-balanced` (budget `-1` + constrained brief reasoning)
+
 ## Hardware Tested
 
 - 2x NVIDIA RTX 3060 12GB
@@ -206,6 +238,7 @@ Follow-up tuning compared three profiles on the same 5-prompt set:
 
 ## Changelog
 
+- **2026-02-12:** Added run-class scope note for no-thinking section, added reduced-thinking operating profile guidance, and added wild-ride postmortem reliability addendum (33 calls, 31 success, 2 env/control failures).
 - **2026-02-12:** Added A/B/C reasoning-gradient results (timing/token split), adopted brief-constrained B profile as recommended default (`--reasoning-budget -1`, constrained prompt style).
 - **2026-02-12:** Added dedicated non-thinking run results section (speed profile, tool-call success/failure breakdown, leakage + hallucination caveats).
 - **2026-02-10:** Added `--reasoning-format deepseek` mitigation (deployed). Updated context window findings (196k stable, 256k OOMs). Confirmed agentic task completion + behavioral notes.
