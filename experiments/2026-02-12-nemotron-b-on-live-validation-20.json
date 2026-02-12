@@ -1,0 +1,343 @@
+{
+  "ts_utc": "2026-02-12T18:49:46.699727Z",
+  "profile": "B_on",
+  "endpoint": "http://192.168.0.27:8080/v1/chat/completions",
+  "model": "Nemotron-3-Nano-30B-A3B-IQ4_NL.gguf",
+  "system_prompt": "You are a helpful assistant. Think briefly in at most 2 short sentences. Skip obvious steps. Then answer concisely.",
+  "summary": {
+    "n_ok": 20,
+    "n_total": 20,
+    "avg_latency_s": 2.6,
+    "p50_latency_s": 2.784,
+    "p90_latency_s": 3.81,
+    "reasoning_tokens_total": 1549,
+    "visible_tokens_total": 303,
+    "reasoning_to_visible_ratio": 5.112,
+    "leak_count": 0,
+    "prompt_tokens_total": 1107,
+    "completion_tokens_total": 2940,
+    "output_tokens_per_s": 56.55
+  },
+  "rows": [
+    {
+      "idx": 1,
+      "prompt": "Say hi in one short sentence.",
+      "latency_s": 1.376,
+      "reasoning_tokens": 46,
+      "visible_tokens": 1,
+      "ratio": 46.0,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 70,
+        "prompt_tokens": 50,
+        "total_tokens": 120
+      },
+      "answer": "Hi!",
+      "reasoning_preview": "We need to respond with a short sentence saying hi. Probably \"Hi there!\" or \"Hello!\" The user wants \"Say hi in one short sentence.\" So answer with a short sentence greeting. Probably \"Hi!\" That's one short sentence. Let'"
+    },
+    {
+      "idx": 2,
+      "prompt": "What is the capital of Austria? One sentence.",
+      "latency_s": 1.042,
+      "reasoning_tokens": 32,
+      "visible_tokens": 6,
+      "ratio": 5.333,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 53,
+        "prompt_tokens": 53,
+        "total_tokens": 106
+      },
+      "answer": "The capital of Austria is Vienna.",
+      "reasoning_preview": "The user asks: \"What is the capital of Austria? One sentence.\" They want a concise answer in one sentence. So answer: \"The capital of Austria is Vienna.\" That's one sentence. Provide that."
+    },
+    {
+      "idx": 3,
+      "prompt": "Compute 17*24 and show one-line working.",
+      "latency_s": 3.8,
+      "reasoning_tokens": 93,
+      "visible_tokens": 6,
+      "ratio": 15.5,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 220,
+        "prompt_tokens": 56,
+        "total_tokens": 276
+      },
+      "answer": "\\(17 \\times 24 = (10+7)\\times24 =",
+      "reasoning_preview": "We need to compute 17*24 and show one-line working. Provide concise answer with one-line working. Probably \"17*24 = 408\". Show one-line working: \"17\u00d724 = (10+7)\u00d724 = 240+168 = 408\". That's one line? Could be \"17\u00d724 = 408"
+    },
+    {
+      "idx": 4,
+      "prompt": "Give 3 bullet points: REST vs GraphQL.",
+      "latency_s": 2.975,
+      "reasoning_tokens": 48,
+      "visible_tokens": 68,
+      "ratio": 0.706,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 170,
+        "prompt_tokens": 54,
+        "total_tokens": 224
+      },
+      "answer": "- **Data Fetching Model**: REST uses fixed endpoints and multiple requests; GraphQL lets the client specify exactly the fields it needs in a single request.  \n- **Versioning & Evolution**: REST often version\u2011controls APIs (e.g., `/v1/`); GraphQL evolves schema without breaking existing queries, allowing additive changes.  \n- **Over\u2011/Under\u2011Fetching**: REST can return too much or too little data; GraphQL eliminates this by letting clients request only the required data structure.",
+      "reasoning_preview": "We need to respond with 3 bullet points comparing REST vs GraphQL. The user wants \"Give 3 bullet points: REST vs GraphQL.\" Probably they want bullet points that compare REST vs GraphQL. Provide concise bullet points. Pro"
+    },
+    {
+      "idx": 5,
+      "prompt": "Draft a 4-step plan to back up phone photos to a NAS.",
+      "latency_s": 3.411,
+      "reasoning_tokens": 72,
+      "visible_tokens": 61,
+      "ratio": 1.18,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 196,
+        "prompt_tokens": 58,
+        "total_tokens": 254
+      },
+      "answer": "Think: Identify the photos, connect the phone to the NAS, copy the files, verify the backup.  \n1. Enable photo sync or use a file\u2011transfer app on your phone.  \n2. Connect the phone to the same network as the NAS.  \n3. Use the NAS\u2019s file\u2011share or backup app to copy the photo folder.  \n4. Confirm the transfer completed and check file integrity.",
+      "reasoning_preview": "We need to respond concisely, with at most 2 short sentences for thinking, then answer concisely. The user wants a 4-step plan to back up phone photos to a NAS. So we should think briefly (max 2 short sentences) then ans"
+    },
+    {
+      "idx": 6,
+      "prompt": "Translate to German: 'The server is healthy and ready.'",
+      "latency_s": 1.29,
+      "reasoning_tokens": 37,
+      "visible_tokens": 6,
+      "ratio": 6.167,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 68,
+        "prompt_tokens": 55,
+        "total_tokens": 123
+      },
+      "answer": "Der Server ist gesund und bereit.",
+      "reasoning_preview": "We need to translate to German. Provide concise answer. Probably \"Der Server ist gesund und bereit.\" Or \"Der Server ist gesund und einsatzbereit.\" The phrase \"ready\" could be \"bereit\". So answer: \"Der Server ist gesund u"
+    },
+    {
+      "idx": 7,
+      "prompt": "What's 15% of 240?",
+      "latency_s": 1.153,
+      "reasoning_tokens": 25,
+      "visible_tokens": 1,
+      "ratio": 25.0,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 59,
+        "prompt_tokens": 55,
+        "total_tokens": 114
+      },
+      "answer": "36.",
+      "reasoning_preview": "We need to answer concisely, brief, at most 2 short sentences, skip obvious steps. Compute 15% of 240 = 0.15*240 = 36. So answer: 36."
+    },
+    {
+      "idx": 8,
+      "prompt": "Give one regex to match IPv4 addresses (practical, concise).",
+      "latency_s": 3.792,
+      "reasoning_tokens": 53,
+      "visible_tokens": 1,
+      "ratio": 53.0,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 220,
+        "prompt_tokens": 57,
+        "total_tokens": 277
+      },
+      "answer": "`^(?:(?:25[0-5]|2[",
+      "reasoning_preview": "We need to respond with a regex that matches IPv4 addresses, practical and concise. Provide one regex. Probably something like `^(?:25[0-5]|2[0-4]\\d|1?\\d{1,2})(?:\\.(?:25[0-5]|2[0-4]\\d|1?\\d{1,2})){3}$`. Or a simpler but l"
+    },
+    {
+      "idx": 9,
+      "prompt": "How do I check disk usage on Linux in 2 commands?",
+      "latency_s": 2.593,
+      "reasoning_tokens": 72,
+      "visible_tokens": 21,
+      "ratio": 3.429,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 147,
+        "prompt_tokens": 56,
+        "total_tokens": 203
+      },
+      "answer": "Use `df -h` to view overall filesystem usage.  \nThen run `du -sh /path` to check the size of a specific directory.",
+      "reasoning_preview": "We need to answer concisely, at most 2 short sentences, skipping obvious steps. Provide two commands to check disk usage. Probably \"df -h\" and \"du -sh /path\". But they ask \"in 2 commands\". Could be \"df -h\" and \"du -sh\". "
+    },
+    {
+      "idx": 10,
+      "prompt": "Explain CPU-bound vs GPU-bound in 2 bullets.",
+      "latency_s": 2.404,
+      "reasoning_tokens": 25,
+      "visible_tokens": 62,
+      "ratio": 0.403,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 135,
+        "prompt_tokens": 55,
+        "total_tokens": 190
+      },
+      "answer": "- **CPU\u2011bound**: The workload\u2019s bottleneck is the processor; it spends most cycles on sequential or lightly parallel tasks (e.g., complex logic, data\u2011heavy calculations) and limited parallelism prevents scaling beyond a few cores.  \n- **GPU\u2011bound**: The workload\u2019s bottleneck is the graphics processor; it can efficiently run thousands of parallel threads (e.g., matrix ops, graphics rendering, deep\u2011learning inference), so performance scales with GPU resources.",
+      "reasoning_preview": "We need to respond with 2 bullets, concise, brief. Explain CPU-bound vs GPU-bound. Provide two bullet points. Probably each bullet explains one. Let's do that."
+    },
+    {
+      "idx": 11,
+      "prompt": "Write a one-liner curl healthcheck for localhost:8080.",
+      "latency_s": 1.612,
+      "reasoning_tokens": 29,
+      "visible_tokens": 6,
+      "ratio": 4.833,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 87,
+        "prompt_tokens": 59,
+        "total_tokens": 146
+      },
+      "answer": "`curl -fsS http://localhost:8080/health || exit 1`",
+      "reasoning_preview": "We need to respond with a one-liner curl healthcheck for localhost:8080. Probably something like: curl -f http://localhost:8080/health || exit 1. Or just curl -s -f http://localhost:8080/health. Provide concise answer."
+    },
+    {
+      "idx": 12,
+      "prompt": "Name 3 failure causes for 503 Loading model.",
+      "latency_s": 3.803,
+      "reasoning_tokens": 156,
+      "visible_tokens": 0,
+      "ratio": 156.0,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 220,
+        "prompt_tokens": 56,
+        "total_tokens": 276
+      },
+      "answer": "",
+      "reasoning_preview": "We need to answer concisely, at most 2 short sentences, naming 3 failure causes for 503 Loading model. Probably list three causes: model loading timeout, insufficient memory, corrupted model file, concurrent requests ove"
+    },
+    {
+      "idx": 13,
+      "prompt": "Give a concise commit message for fixing fallback routing.",
+      "latency_s": 1.006,
+      "reasoning_tokens": 34,
+      "visible_tokens": 6,
+      "ratio": 5.667,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 51,
+        "prompt_tokens": 53,
+        "total_tokens": 104
+      },
+      "answer": "Fix fallback routing edge case handling.",
+      "reasoning_preview": "We need to respond with a concise commit message for fixing fallback routing. Probably something like \"Fix fallback routing logic\". Must be concise. Probably \"Fix fallback routing edge case\". Provide just the commit mess"
+    },
+    {
+      "idx": 14,
+      "prompt": "Summarize why model fallbacks: [] can matter in one paragraph.",
+      "latency_s": 3.79,
+      "reasoning_tokens": 159,
+      "visible_tokens": 0,
+      "ratio": 159.0,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 220,
+        "prompt_tokens": 58,
+        "total_tokens": 278
+      },
+      "answer": "",
+      "reasoning_preview": "We need to respond concisely, at most 2 short sentences? The user says \"Summarize why model fallbacks: [] can matter in one paragraph.\" They want a paragraph summarizing why model fallbacks can matter. They also said \"Yo"
+    },
+    {
+      "idx": 15,
+      "prompt": "Provide a tiny JSON example with model primary and empty fallbacks.",
+      "latency_s": 3.795,
+      "reasoning_tokens": 144,
+      "visible_tokens": 1,
+      "ratio": 144.0,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 220,
+        "prompt_tokens": 57,
+        "total_tokens": 277
+      },
+      "answer": "{",
+      "reasoning_preview": "We need to respond with a tiny JSON example with model primary and empty fallbacks. The user wants a tiny JSON example with model primary and empty fallbacks. Probably they refer to some schema? They want a JSON example "
+    },
+    {
+      "idx": 16,
+      "prompt": "What is the day after Thursday?",
+      "latency_s": 0.837,
+      "reasoning_tokens": 22,
+      "visible_tokens": 6,
+      "ratio": 3.667,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 40,
+        "prompt_tokens": 50,
+        "total_tokens": 90
+      },
+      "answer": "The day after Thursday is Friday.",
+      "reasoning_preview": "We need to answer concisely, at most 2 short sentences, skip obvious steps. The day after Thursday is Friday. Provide concise answer."
+    },
+    {
+      "idx": 17,
+      "prompt": "List 3 checks before saying a backend is 'ready'.",
+      "latency_s": 1.871,
+      "reasoning_tokens": 25,
+      "visible_tokens": 40,
+      "ratio": 0.625,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 104,
+        "prompt_tokens": 55,
+        "total_tokens": 159
+      },
+      "answer": "1. **Health endpoint returns 200** \u2013 confirms the service is up and responding.  \n2. **Critical dependencies are reachable** \u2013 e.g., DB connection, message queue, cache.  \n3. **Required configuration/feature flags are enabled** \u2013 ensures the backend is configured to serve traffic.",
+      "reasoning_preview": "We need to respond concisely, list 3 checks before saying a backend is 'ready'. Probably like health endpoint, database connection, external services. Provide short answer."
+    },
+    {
+      "idx": 18,
+      "prompt": "Give 2 pros and 2 cons of very large context windows.",
+      "latency_s": 3.822,
+      "reasoning_tokens": 147,
+      "visible_tokens": 11,
+      "ratio": 13.364,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 220,
+        "prompt_tokens": 57,
+        "total_tokens": 277
+      },
+      "answer": "**Pros**  \n- Handles very long inputs without truncation, preserving more context.",
+      "reasoning_preview": "We need to answer concisely, at most 2 short sentences per bullet? The user wants 2 pros and 2 cons of very large context windows. They said \"Give 2 pros and 2 cons of very large context windows.\" They also said \"Think b"
+    },
+    {
+      "idx": 19,
+      "prompt": "Suggest a safe rollback checklist in 5 bullets.",
+      "latency_s": 3.81,
+      "reasoning_tokens": 177,
+      "visible_tokens": 0,
+      "ratio": 177.0,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 220,
+        "prompt_tokens": 55,
+        "total_tokens": 275
+      },
+      "answer": "",
+      "reasoning_preview": "We need to respond with a safe rollback checklist in 5 bullets, concise, brief, at most 2 short sentences per bullet? The user wants \"Suggest a safe rollback checklist in 5 bullets.\" They also said \"Think briefly in at m"
+    },
+    {
+      "idx": 20,
+      "prompt": "One sentence: when to use reasoning-budget 0 vs -1?",
+      "latency_s": 3.811,
+      "reasoning_tokens": 153,
+      "visible_tokens": 0,
+      "ratio": 153.0,
+      "leak": false,
+      "usage": {
+        "completion_tokens": 220,
+        "prompt_tokens": 58,
+        "total_tokens": 278
+      },
+      "answer": "",
+      "reasoning_preview": "We need to answer concisely, one sentence, about when to use reasoning-budget 0 vs -1. Probably referring to some AI model's reasoning budget parameter? Possibly in some system like \"reasoning-budget\" parameter for certa"
+    }
+  ]
+}
