@@ -55,6 +55,21 @@ See:
 - `experiments/2026-02-12-nemotron-thinking-gradient-abc.md`
 - `experiments/2026-02-12-nemotron-abc-executive-summary.md`
 
+## In-progress benchmark campaign (ik_llama.cpp → llama.cpp baseline)
+
+A replacement-model benchmark pass is now underway for:
+- Qwen3-30B-A3B
+- Qwen3-Coder-30B-A3B-Instruct
+- DeepSeek-Coder-V2-Lite-Instruct
+
+Current state:
+- ik GPU suite: complete on all three models (dual 3060)
+- ik CPU suite: complete
+- regular llama.cpp GPU baseline: mostly complete; final DeepSeek point pending confirmation after a CT327 connectivity interruption
+
+Working notes:
+- `experiments/2026-02-12-ik-llama-cpp-vs-main-preliminary.md`
+
 ## Repo map
 
 ```text
