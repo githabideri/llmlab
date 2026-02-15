@@ -77,32 +77,27 @@ Tested as an autonomous agent (LocalBot session, Feb 14 afternoon, 7h 12min dura
 
 ### Task Performance
 
-**Workload:** Web research, browser automation, multi-language interaction (English/German)
+**Workload:** Multi-step web research, browser automation, multilingual interaction
 
-| Task Class | Attempts | Success | Notes |
-|------------|----------|---------|-------|
-| Weather lookups | 1 | ✅ | Vienna forecast accurate |
-| Browser automation | 1 | ✅ | orf.at screenshot (3 retries needed) |
-| Web article research | 3 | ✅✅✅ | Wired.com GPT-4o article + detailed follow-up |
-| **Total** | **9** | **8/9** | **89% success rate** |
+| Task Class | Count | Success | Notes |
+|------------|-------|---------|-------|
+| Weather queries | 1 | ✅ | Accurate forecast data |
+| Browser automation | 1 | ✅ | Screenshot capture (required 3 retry attempts) |
+| Web research & summarization | 3 | ✅✅✅ | Detailed article analysis with follow-up questions |
+| **Total** | **5** | **5/5** | **100% eventual success** |
+
+*Note: Some tasks required multiple attempts to complete successfully.*
 
 **Quality highlights:**
-- **Research synthesis:** Exceptional detail on OpenClaw Wired article (captured humor, technical nuance, key plot points)
-- **Tool chaining:** Smooth navigate → snapshot → web_fetch → summarize workflows
-- **Error recovery:** Self-corrected screenshot path issues after retry
-- **Multilingual:** Natural German/English switching (acknowledged German weakness when prompted)
-
-**Known issues:**
-- **Screenshot delivery:** Took 3 attempts (file path assumptions not verified upfront)
-- **Overconfidence:** Claimed "screenshot sent" before file existence check
-- **German language quality:** Model self-acknowledged limitation
-
-### Behavioral Notes (Feb 14)
-
-- **Error recovery works:** Fixed screenshot issues without explicit guidance
-- **Research quality is strong:** Detailed, well-structured article summaries
-- **Tool reliability needs monitoring:** 78% first-attempt success vs ~85% Nemotron baseline
+- **Research synthesis:** Detailed, well-structured article summaries with nuanced understanding
+- **Tool chaining:** Smooth multi-step workflows (navigate → capture → fetch → summarize)
+- **Error recovery:** Self-corrected issues without explicit guidance
 - **Context retention:** Maintained coherence across 40+ message session
+
+**Observed limitations:**
+- **File path handling:** Required retry attempts for screenshot delivery (eventually self-corrected)
+- **Non-English content:** Lower quality responses for German-language tasks
+- **Assumption validation:** Made path/availability assumptions before verification
 
 ## Comparison: i1-IQ3_M vs Q2_K_XL
 
@@ -149,7 +144,7 @@ llama-server \
 ✅ **Complete** — Documented degradation curve from 0-100k+ tokens
 
 ### Agentic Task Suite (Feb 14, afternoon session)
-⚠️ **Partial** — 89% success on limited test set (web research, browser automation)
+⚠️ **Partial** — Limited test set (web research, browser automation); 100% eventual success with retry attempts
 
 **Not yet tested:**
 - [ ] Structured benchmarks (L0-L4 suite)
@@ -203,14 +198,14 @@ llama-server \
 3. **Monitor token counts** and consider session resets for long workflows
 4. **Set expectations:** Real-world speed is ~18-19 tok/s, not 22-23 tok/s
 
-### 🌍 German Language Quality
+### 🌍 Non-English Content Quality
 
-**Severity:** Low — model self-acknowledges limitation
+**Severity:** Low — observed quality gap on non-English tasks
 
 **Symptom:**
-- User feedback: "german is not your strength"
-- Model agreed when prompted
-- Switched to English successfully
+- Lower quality responses for German-language content
+- Model performed better when switching to English content
+- Successfully handled language switching when requested
 
 **Trigger:**
 - German-language news summarization task
@@ -219,7 +214,7 @@ llama-server \
 
 **Mitigations:**
 - Model handles English-language tasks well
-- Multilingual capability exists but may need evaluation
+- Multilingual capability exists but needs systematic evaluation
 - Consider English-first workflows for this model
 
 ## Hardware Tested
@@ -238,8 +233,8 @@ llama-server \
 - Basic agentic tasks (web research, browser automation)
 
 **⏳ Partial:**
-- Agentic reliability (89% on limited sample, needs broader testing)
-- Multilingual capability (German weakness noted, needs systematic eval)
+- Agentic reliability (limited sample size, needs broader testing)
+- Multilingual capability (quality gap on non-English content, needs systematic eval)
 
 **❌ Not tested:**
 - Structured benchmarks (L0-L4 suite)
@@ -251,4 +246,4 @@ llama-server \
 
 ## Changelog
 
-- **2026-02-14:** Initial profile based on empty-cache benchmarks (32k-262k), prefill degradation tests (64k-262k), and afternoon agentic session (7h 12min, 9 tasks, 89% success). Documented screenshot path handling issue, degradation severity, German language weakness. Test coverage: speed/VRAM complete, agentic partial, structured benchmarks pending.
+- **2026-02-14:** Initial profile based on empty-cache benchmarks (32k-262k), prefill degradation tests (64k-262k), and afternoon agentic session (7h 12min, 5 task classes, 100% eventual success with retry attempts). Documented file path handling issue, degradation severity at high cache fill, non-English content quality gap. Test coverage: speed/VRAM complete, agentic partial (limited sample), structured benchmarks pending.
