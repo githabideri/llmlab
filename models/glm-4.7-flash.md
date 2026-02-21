@@ -1,5 +1,9 @@
 # GLM-4.7-Flash
 
+**Base model:** [THUDM/GLM-4.7-Flash](https://huggingface.co/THUDM/GLM-4.7-Flash)  
+**GGUF quant:** [bartowski/GLM-4.7-Flash-GGUF](https://huggingface.co/bartowski/GLM-4.7-Flash-GGUF) (UltraDeep dynamic quants)  
+**File tested:** `GLM-4.7-Flash-UD-Q4_K_XL.gguf` (17.5 GB on disk)
+
 Zhipu AI's GLM-4.7-Flash, a 30B parameter MoE model optimized for tool-calling and agentic tasks.
 
 ## Quick Facts
@@ -8,7 +12,7 @@ Zhipu AI's GLM-4.7-Flash, a 30B parameter MoE model optimized for tool-calling a
 |-------|-------|
 | Parameters | ~30B total (MoE, active params undisclosed) |
 | Architecture | Mixture of Experts, Multi-head Latent Attention (MLA) |
-| Quant tested | UD-Q4_K_XL (17 GB on disk, dynamic quant) |
+| Quant tested | **UD-Q4_K_XL** (17.5 GB, UltraDeep dynamic quant) |
 | Context window | 131,072 tokens (tested) |
 | VRAM requirement | **2× 12GB GPUs** (requires split-mode layer) |
 | Reasoning | Built-in `<think>` blocks, always generated (no disable mechanism) |
