@@ -129,8 +129,18 @@ Model card specifies 32,768 tokens as the tested context length, despite `max_po
 ### ❌ No Reasoning Traces
 LFM2 is instruct-only — no `<think>` blocks, no reasoning budget control. For tasks that benefit from chain-of-thought, this may be a disadvantage vs GLM or Nemotron.
 
-### 🔍 Agentic Quality Untested
-Speed benchmarks only. Tool-calling quality, multi-step reliability, and error recovery have not been tested yet. These are critical for production use.
+### ❌ Agentic Quality Fails at High Context (tested 2026-03-01)
+- **At <1K tokens:** Tool calling works perfectly. Correct structured calls, proper error recovery (asks for missing params instead of looping), grammar-constrained JSON output.
+- **At 57K tokens (real agent system prompt):** Enters tool-call loops. Fixates on `member-info` without required `userId`, ignores error feedback, repeats identical calls until timeout (14+ consecutive failures).
+- **Root cause:** Quality degradation above 32K training window. The model can parse tools and generate correct calls at short context, but loses instruction-following capability at depth.
+- Same pathology class as Qwen3.5-35B-A3B (infinite tool loops from error non-recovery).
+
+### ⚠️ llama.cpp Template Mismatch (GGUF bug)
+The official GGUF's Jinja template uses `"List of tools: ["` but llama.cpp's LFM2 handler expects `"List of tools: <|tool_list_start|>["`. Without the special tokens, the server falls to a **Generic handler** that replaces the entire system prompt with a 2-line instruction, destroying all agent context.
+
+**Fix:** Override with `--chat-template-file` containing the corrected template, AND add `"Force json schema."` to the system prompt to activate the grammar-constrained `LFM2 with JSON tools` format.
+
+See: `chat.cpp` lines 1005-1110, detection at line 3168-3172.
 
 ## Recommended Config
 
