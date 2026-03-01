@@ -258,6 +258,16 @@ llama-server \
 - CUDA 13.0, Driver 580.105.08
 - llama.cpp build 91ea44e (Feb 2, 2026)
 
+## Production Status
+
+**As of 2026-03-01:** GLM-4.7-Flash is the **default model for all LocalBot agents** (localbot-labmaster, localbot-fraktalia, localbot-llmlab, localbot-planning, localbot-polis, ht). Fallback: Nemotron-30B-A3B on CPU (llama-local).
+
+Previous default was Nemotron-3-Nano-30B-A3B, switched 2026-03-01 after multi-account Matrix fix enabled stable agent routing.
+
+### NO_REPLY Quirk
+GLM consistently appends `NO_REPLY` to the end of real responses (doesn't follow the "entire message" instruction). Required a gateway-level fix: `isSilentReplyText()` changed to strict exact-match `^\s*NO_REPLY\s*$`.
+
 ## Changelog
 
+- **2026-03-01:** Promoted to default for all LocalBot agents. NO_REPLY suppression fix documented.
 - **2026-02-20:** Initial profile. llama-bench context fill-up benchmarks (0-64K). Full 79-request production session analysis with per-request metrics, compaction analysis, thinking overhead measurement. Three-model comparison (GLM vs Nemotron vs Qwen3). MLA history documented.
