@@ -1,105 +1,107 @@
 # llmlab
 
-Public notebook for a practical local-LLM lab: reproducible configs, benchmark methods, and operator-grade run notes.
+A hobbyist's notebook for running local LLMs on consumer GPUs — focused on what actually works, not what benchmarks promise.
 
-## What this repo is for
-- Keep working inference configs from getting lost
-- Compare model/runtime changes with repeatable measurements
-- Share what actually works (and what breaks) in small-GPU setups
+## What this is
 
-## Current operating profile (2026-02-12)
+We run agentic LLM workloads on **2× RTX 3060 (24 GB VRAM)** and document everything: configs that work, models that don't, performance numbers from real serving (not just `llama-bench`), and the weird edge cases you only find by actually using these things.
 
-### Primary model/runtime
-- **Model:** Nemotron-3-Nano-30B-A3B (IQ4_NL GGUF)
-- **Runtime:** llama.cpp (`llama-server`)
-- **Hardware class tested:** dual 12GB GPUs + CPU fallback node
+**Focus areas:**
+- **MoE (Mixture of Experts) models** — the sweet spot for interactive use on limited VRAM. Small active parameters = fast generation, large total parameters = good quality. Dense models are on the table too, but ~10 tok/s generation isn't thrilling for interactive work.
+- **Agentic tool-calling** — not just chat, but models driving multi-step tool chains (web search → fetch → analyze → file ops). We test with [OpenClaw](https://github.com/openclaw/openclaw), which is demanding enough that if a model works here, it'll work in any general-purpose agentic setup.
+- **Real serving metrics** — `llama-bench` numbers are a starting point. Real-world serving with prompt caches, thinking tokens, and growing context tells a different story. We measure both.
 
-### Recommended reasoning profile (“less, not none”)
-- **Server:** `--reasoning-format deepseek --reasoning-budget -1 --jinja`
-- **Prompt/system style:** brief constrained reasoning (B profile)
-- **Why:** best observed balance of speed + quality in A/B/C tests
+## Current setup
 
-### Speed-only profile
-- `--reasoning-budget 0` is faster, but can leak malformed planner/tag artifacts in output.
+### Hardware
+- **GPU server:** 2× RTX 3060 12 GB (24 GB total), Intel i5-7400, llama.cpp
+- **CPU fallback:** Intel i5-8400T, 64 GB DDR4-2667, llama.cpp
+- **Runtime:** llama.cpp (`llama-server`) with `-sm layer -fa 1 -ctk q8_0 -ctv q4_0`
 
-### At-a-glance profile table
+### Active model (March 2026)
+- **[GLM-4.7-Flash](models/glm-4.7-flash.md)** (Q4_K_XL, 17.5 GB) — 30B MoE with MLA, strong tool-calling (τ²-Bench 79.5%), 71→33 tok/s (0→64K context)
+- **Fallback:** [Nemotron-3-Nano-30B-A3B](models/nemotron-3-nano-30b-a3b.md) (IQ4_NL) on CPU at ~5 tok/s
 
-| Profile class | Core setting | Strength | Main tradeoff |
-|---|---|---|---|
-| `reduced-thinking-balanced` | `--reasoning-budget -1` + constrained brief reasoning | Better speed/quality balance | Still some hidden reasoning token overhead |
-| `non-thinking-speed` | `--reasoning-budget 0` / think-off style | Lowest latency | Higher risk of malformed planner/tag leakage and weaker factual robustness |
+### Key finding: `-sm layer` is everything
+On PCIe dual-GPU without NVLink, split-mode matters more than the model itself. `-sm layer` gives 2.5× the throughput of `-sm row`. If you have multiple consumer GPUs, this is the single most important flag.
 
-### Run-comparison rule (important)
-- Keep profile classes separate when reading results:
-  - `non-thinking-speed` (budget `0` / think-off style)
-  - `reduced-thinking-balanced` (budget `-1` + constrained brief reasoning)
-- Do **not** mix these into one aggregate performance/quality claim.
+## What we've learned
 
-**Run-tag example (use in notes/experiments):**
+### Models tested
 
-```yaml
-profile_class: reduced-thinking-balanced
-reasoning_budget: -1
-reasoning_style: constrained-brief
+| Model | Active | Speed @0 | Verdict | Notes |
+|-------|--------|----------|---------|-------|
+| [GLM-4.7-Flash](models/glm-4.7-flash.md) | MoE ~4B | 71 tok/s | ✅ Production | Best tool-calling quality, always-on thinking |
+| [Nemotron-3-Nano-30B](models/nemotron-3-nano-30b-a3b.md) | MoE 3B | 96 tok/s | ✅ Production | Best speed retention at depth (Mamba-2), controllable reasoning |
+| [Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md) | MoE 3B | ~95 tok/s | ❌ Failed | Infinite tool-call loops. DeltaNet NOT faster than Mamba-2 in practice |
+| [Nanbeige4.1-3B](models/nanbeige4.1-3b.md) | Dense 3B | ~80 tok/s | ❌ Failed | Leaks `<think>` blocks, can't disable reasoning |
+| [ZwZ-4B](models/zwz-4b.md) | Dense 4B | 77 tok/s | 🟡 Parked | Multimodal arch, untested for agentic |
+| [Qwen3-Coder-REAP](models/qwen3-coder-next-reap-40b-a3b.md) | MoE 3B | ~90 tok/s | 🟡 Mixed | Good code, context degradation issues |
+
+### Context degradation (the number that actually matters)
+
+`llama-bench` at empty context is marketing. Here's what happens as context fills:
+
+| Model | @0 | @16K | @32K | @64K | Degradation pattern |
+|-------|------|------|------|------|---------------------|
+| Nemotron (Mamba-2) | 96 | 85 | 72 | 55 | **-42% @64K** — best |
+| GLM (MLA) | 71 | 54 | 45 | 33 | -53% @64K |
+| Qwen3 (GQA) | 99 | 39 | 24 | 13 | -87% @64K — worst |
+
+Nemotron's Mamba-2 architecture genuinely delivers on the "constant-time attention" promise. Qwen3's traditional GQA falls off a cliff.
+
+### Real serving vs benchmarks
+
+From a 79-request GLM production session:
+- **Benchmark says:** 71 tok/s at empty context
+- **Real serving:** 30 tok/s at 37K context, 14.4 tok/s at 113K
+- **Gap:** 28-36% slower than `llama-bench` (server overhead, prompt cache, thinking tokens, KV pressure)
+- **Compaction helps:** speed recovered 14.4 → 30.0 tok/s (2.1×) after context compaction
+
+## Repo structure
+
+```
+models/          8 model profiles (GLM, Nemotron, Qwen3.5, ZwZ, Nanbeige, ...)
+experiments/     14 experiment logs (context sweeps, quant comparisons, speed tests)
+benchmarks/      Agentic benchmark suite (L0-L4: read/write → config → tool chains)
+docs/            Architecture, runbook, systemd setup, troubleshooting, thinking policy
+scripts/         Context sweep benchmarking, model info fetcher, server start scripts
 ```
 
-### Recent postmortem snapshot (Feb 12, reduced-thinking era)
-- Session type: chat-orchestration heavy (“wild ride”), not a pure quality benchmark
-- Tool-call reliability: **33 calls**, **31 success**, **2 failures**
-  - one channel-resolution (`message`) error
-  - one killed monitored process (`process`, SIGKILL)
-- Takeaway: reliability remained high overall; failures were environment/control-plane class.
+### Model profiles (`models/`)
 
-See:
-- `models/nemotron-3-nano-30b-a3b.md`
-- `experiments/2026-02-12-nemotron-thinking-gradient-abc.md`
-- `experiments/2026-02-12-nemotron-abc-executive-summary.md`
+Each model gets a full write-up: architecture, quant selection rationale, speed at various context depths, real-world serving numbers, agentic capability test results, known issues, and recommended config. Not just "it works" — *how* it works, *where* it breaks, and *why*.
 
-## In-progress benchmark campaign (ik_llama.cpp → llama.cpp baseline)
+### Experiments (`experiments/`)
 
-A replacement-model benchmark pass is now underway for:
-- Qwen3-30B-A3B
-- Qwen3-Coder-30B-A3B-Instruct
-- DeepSeek-Coder-V2-Lite-Instruct
+Raw experiment logs with goal → setup → commands → observations → metrics → conclusion. Covers context sweep benchmarks, quant quality comparisons, thinking budget tuning (A/B/C profiles), CPU vs GPU comparisons, and more.
 
-Current state:
-- ik GPU suite: complete on all three models (dual 3060)
-- ik CPU suite: complete
-- regular llama.cpp GPU baseline: mostly complete; final DeepSeek point pending confirmation after a CT327 connectivity interruption
+### Benchmark suite (`benchmarks/`)
 
-Working notes:
-- `experiments/2026-02-12-ik-llama-cpp-vs-main-preliminary.md`
+Five-level agentic benchmark:
+- **L0:** Basic file read/write
+- **L1:** Config summarization
+- **L2:** Config patching (structured edit)
+- **L3:** Benchmark output parsing (complex extraction)
+- **L4:** Multi-step tool chain (search → fetch → analyze → write)
 
-## Repo map
+Designed to stress real agentic capabilities, not trivia or chat fluency.
 
-```text
-README.md
-LICENSE
-/docs
-  overview.md
-  architecture.md
-  runbook.md
-  benchmarks.md
-  troubleshooting.md
-  thinking-policy.md
-/models
-  nemotron-3-nano-30b-a3b.md
-/experiments
-  README.md
-  2026-02-09-nemotron-thinking-fix.md
-  2026-02-12-nemotron-thinking-gradient-abc.md
-  2026-02-12-nemotron-abc-executive-summary.md
-/scripts
-  start_qwen3_q2.sh
-  bench_ctx_sweep.sh
-/config
-  llama-server.example.env
-```
+## Quant selection philosophy
+
+We pick the **highest-quality quant that fits 24 GB with 100K+ context headroom**. Every model profile includes a transparent comparison table showing all viable quants with exact sizes and math. No "just use Q4" hand-waving.
+
+KV cache per token varies wildly between architectures (Nemotron: 2.25 KiB, GLM: ~54 KiB, Qwen3: 36 KiB) and dominates fitment at large context more than model size itself.
 
 ## Safety note
-This repo is public. Do **not** commit:
-- private hostnames/IPs
-- credentials/tokens/SSH keys
-- personal transcripts or sensitive logs
 
-Keep examples generic and reusable.
+This repo is public. Do **not** commit:
+- Private hostnames, IPs, or infrastructure details
+- Credentials, tokens, or SSH keys
+- Personal transcripts or sensitive logs
+
+Keep examples generic and reproducible.
+
+## Contributing
+
+This is primarily a personal lab notebook, but issues and discussions are welcome if you're running similar hardware and have findings to share. The more data points on consumer GPU setups, the better.
