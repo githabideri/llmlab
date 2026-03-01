@@ -73,7 +73,7 @@ Tested on 2× RTX 3060 12GB, `-sm layer -fa 1 -ctk q8_0 -ctv q4_0`, Q6_K quant.
 
 **PP512:** 1,713 tok/s
 
-**Real serving (API, fresh context):** 103 tok/s
+**Real serving (API):** 103 tok/s (fresh), 80–89 tok/s (at 17–21K context)
 
 ### VRAM Usage
 
@@ -129,11 +129,29 @@ Model card specifies 32,768 tokens as the tested context length, despite `max_po
 ### ❌ No Reasoning Traces
 LFM2 is instruct-only — no `<think>` blocks, no reasoning budget control. For tasks that benefit from chain-of-thought, this may be a disadvantage vs GLM or Nemotron.
 
-### ❌ Agentic Quality Fails at High Context (tested 2026-03-01)
-- **At <1K tokens:** Tool calling works perfectly. Correct structured calls, proper error recovery (asks for missing params instead of looping), grammar-constrained JSON output.
-- **At 57K tokens (real agent system prompt):** Enters tool-call loops. Fixates on `member-info` without required `userId`, ignores error feedback, repeats identical calls until timeout (14+ consecutive failures).
-- **Root cause:** Quality degradation above 32K training window. The model can parse tools and generate correct calls at short context, but loses instruction-following capability at depth.
-- Same pathology class as Qwen3.5-35B-A3B (infinite tool loops from error non-recovery).
+### ❌ Agentic Quality — Speed Can't Compensate (tested 2026-03-01)
+
+**At <1K tokens (manual curl tests):**
+Tool calling works perfectly. Correct structured calls, proper error recovery (asks for missing params instead of looping), grammar-constrained JSON output.
+
+**At 17–21K tokens (clean interactive session, within 32K training window):**
+Tool calling mechanics work — `weather`, `web_search`, `web_fetch` all called with correct parameters. Speed excellent (80–89 tok/s TG, 2,700+ tok/s PP). But quality problems emerged:
+
+| Issue | Detail |
+|-------|--------|
+| **Hallucination** | Fabricated specific exhibition names, dates, and URLs for museums not in search results. Presented hallucinated content with full confidence, no hedging. |
+| **Error misinterpretation** | First `web_fetch` returned a 404 wrapped in OpenClaw's standard security notice. Model interpreted the notice preamble as a blanket restriction on all HTTP fetching, rather than a simple 404 on one URL. |
+| **Tool abandonment** | After one failed `web_fetch`, refused to try remaining 6 URLs. When explicitly asked to "curl each link", claimed "security restrictions" prevented it — despite having successfully used `web_fetch` moments earlier. |
+| **Dishonesty** | Claimed "I've double-checked all links to ensure they work" without checking any. |
+| **No persistence** | Simple 1–2 tool chains work well. Multi-step tasks requiring iteration, error recovery, or alternative approaches fail. |
+
+**At 57K tokens (accumulated agent context):**
+Enters tool-call loops. Fixates on `member-info` without required `userId`, ignores error feedback, repeats identical calls until timeout (14+ consecutive failures). Same pathology class as Qwen3.5-35B-A3B.
+
+**Root causes:**
+1. No reasoning mode — model can't plan, reflect, or self-correct. Acts on pattern matching alone.
+2. Quality above 32K training window degrades to non-functional tool calling.
+3. Even within 32K, hallucination and poor error recovery make it unreliable for tasks beyond basic lookup.
 
 ### ⚠️ llama.cpp Template Mismatch (GGUF bug)
 The official GGUF's Jinja template uses `"List of tools: ["` but llama.cpp's LFM2 handler expects `"List of tools: <|tool_list_start|>["`. Without the special tokens, the server falls to a **Generic handler** that replaces the entire system prompt with a 2-line instruction, destroying all agent context.
@@ -141,6 +159,23 @@ The official GGUF's Jinja template uses `"List of tools: ["` but llama.cpp's LFM
 **Fix:** Override with `--chat-template-file` containing the corrected template, AND add `"Force json schema."` to the system prompt to activate the grammar-constrained `LFM2 with JSON tools` format.
 
 See: `chat.cpp` lines 1005-1110, detection at line 3168-3172.
+
+## Verdict: ❌ Not Suitable for Production Agentic Use
+
+**Speed:** Unmatched. Fastest model tested at every context depth up to ~50K.
+
+**Quality:** Insufficient for agentic deployment. The lack of reasoning traces means the model can't plan multi-step actions, self-correct on errors, or hedge when uncertain. It hallucinates confidently, abandons tools after first failure, and can't iterate through a list of tasks. Think of it as a very fast typist who doesn't read what they're typing.
+
+**Niche potential:** Could be useful for:
+- Simple single-tool lookups (weather, search) where speed matters
+- Non-agentic batch inference where hallucination can be filtered
+- As a "draft" model in speculative decoding (untested)
+- Casual chat where tool calling isn't needed
+
+**Comparison to GLM-4.7-Flash (current production model):**
+GLM is ~60% slower at equivalent context depths but has reasoning mode, persists through multi-step tool chains, hallucinates less, and admits uncertainty. For agentic use: GLM wins decisively on quality, LFM2 wins decisively on speed. Speed without quality is wasted tokens.
+
+**See also:** `LFM2-1.2B-Tool` — a separate, tiny model purpose-built for tool calling. Not yet evaluated.
 
 ## Recommended Config
 
@@ -167,4 +202,6 @@ llama-server \
 
 ## Changelog
 
-- **2026-03-01:** Initial evaluation. Q6_K downloaded, full context ladder 0-128K, comparison with Nemotron/GLM/Qwen3. Fastest model tested on this hardware.
+- **2026-03-01 (evening):** Clean agentic session test at 17–21K tokens. Confirmed tool-calling mechanics work but uncovered hallucination, error misinterpretation, tool abandonment, and dishonesty issues even within 32K training window. Added verdict: ❌ not suitable for production agentic use.
+- **2026-03-01 (afternoon):** Template mismatch root cause found and fixed. GGUF Jinja template missing `<|tool_list_start|>` tokens → llama.cpp Generic handler replaced entire system prompt. Fix: `--chat-template-file` with corrected template + `"Force json schema."` marker.
+- **2026-03-01 (morning):** Initial evaluation. Q6_K downloaded, full context ladder 0–128K, comparison with Nemotron/GLM/Qwen3. Fastest model tested on this hardware.
