@@ -18,9 +18,11 @@ We run agentic LLM workloads on **2× RTX 3060 (24 GB VRAM)** and document every
 - **CPU fallback:** Intel i5-8400T, 64 GB DDR4-2667, llama.cpp
 - **Runtime:** llama.cpp (`llama-server`) with `-sm layer -fa 1 -ctk q8_0 -ctv q4_0`
 
-### Active model (March 2026)
-- **[GLM-4.7-Flash](models/glm-4.7-flash.md)** (Q4_K_XL, 17.5 GB) — 30B MoE with MLA, strong tool-calling (τ²-Bench 79.5%), 71→33 tok/s (0→64K context)
-- **Fallback:** [Nemotron-3-Nano-30B-A3B](models/nemotron-3-nano-30b-a3b.md) (IQ4_NL) on CPU at ~5 tok/s
+### Active model focus (March 2026)
+- **[Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md)** (Q4_K_M, 20 GB + 858 MB mmproj) — now running as a **single text+tools+vision profile on 24GB** with tuned runtime (`ctx=98k`, `-sm layer`, `parallel=1`, `--no-mmproj-offload`)
+- **Fallbacks:**
+  - [GLM-4.7-Flash](models/glm-4.7-flash.md) for high-trust tool workflows
+  - [Nemotron-3-Nano-30B-A3B](models/nemotron-3-nano-30b-a3b.md) on CPU (~5 tok/s)
 
 ### Key finding: `-sm layer` is everything
 On PCIe dual-GPU without NVLink, split-mode matters more than the model itself. `-sm layer` gives 2.5× the throughput of `-sm row`. If you have multiple consumer GPUs, this is the single most important flag.
@@ -33,7 +35,7 @@ On PCIe dual-GPU without NVLink, split-mode matters more than the model itself. 
 |-------|--------|----------|---------|-------|
 | [GLM-4.7-Flash](models/glm-4.7-flash.md) | MoE ~4B | 71 tok/s | ✅ Production | Best tool-calling quality, always-on thinking |
 | [Nemotron-3-Nano-30B](models/nemotron-3-nano-30b-a3b.md) | MoE 3B | 96 tok/s | ✅ Production | Best speed retention at depth (Mamba-2), controllable reasoning |
-| [Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md) | MoE 3B | ~95 tok/s | ❌ Failed | Infinite tool-call loops. DeltaNet NOT faster than Mamba-2 in practice |
+| [Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md) | MoE 3B | ~95 tok/s | 🟡 Pilot | Fits 24GB with vision under tuned profile; historical tool-loop risk still needs guardrails |
 | [Nanbeige4.1-3B](models/nanbeige4.1-3b.md) | Dense 3B | ~80 tok/s | ❌ Failed | Leaks `<think>` blocks, can't disable reasoning |
 | [ZwZ-4B](models/zwz-4b.md) | Dense 4B | 77 tok/s | 🟡 Parked | Multimodal arch, untested for agentic |
 | [Qwen3-Coder-REAP](models/qwen3-coder-next-reap-40b-a3b.md) | MoE 3B | ~90 tok/s | 🟡 Mixed | Good code, context degradation issues |
