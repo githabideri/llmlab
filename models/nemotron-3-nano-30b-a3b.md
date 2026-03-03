@@ -10,7 +10,7 @@ NVIDIA's Nemotron-3-Nano, a 30B parameter MoE model with ~3B active parameters.
 | Architecture | Mixture of Experts |
 | Quant tested | IQ4_NL (18GB on disk) |
 | Context window | 131,072 tokens |
-| VRAM requirement | **2x 12GB GPUs** (requires tensor split) |
+| VRAM requirement | **2x 12GB GPUs** (min), **3x 12GB GPUs** (recommended for 250K+ context) |
 
 ## Performance
 
@@ -21,6 +21,66 @@ Tested on 2x RTX 3060 (12GB each) with `--tensor-split 1,1`:
 | Prompt eval (32k ctx) | 670 tok/s |
 | Generation (fresh) | 66.7 tok/s |
 | Generation (filled ctx) | ~58 tok/s |
+
+
+## Performance (3x RTX 3060, March 2026)
+
+**Hardware upgrade:** 2×12GB → 3×12GB GPUs (36GB total VRAM)
+
+### Full Context Ladder (0-250K)
+
+Tested with complete 13-point ladder on 3×RTX 3060:
+
+| Context | PP tok/s | TG tok/s | vs Baseline |
+|--------:|---------:|---------:|------------:|
+| 11 | 240 | 102 | 100% |
+| 3K | 1,800 | 95 | 93% |
+| 6K | 1,899 | 93 | 91% |
+| **10K** | **1,913** | **115** | **113%** 🔥 |
+| 13K | 1,906 | 111 | 109% |
+| 19K | 1,879 | 105 | 103% |
+| 24K | 1,843 | 100 | 98% |
+| 32K | 1,789 | 95 | 93% |
+| 64K | 1,577 | 76 | 74% |
+| 95K | 1,407 | 62 | 61% |
+| 128K | 1,260 | 54 | 53% |
+| 192K | 1,049 | 42 | 41% |
+| **250K** | **911** | **34** | **33%** |
+
+**Key findings:**
+- ✅ **Peak TG: 115 tok/s** (+73% vs 2×3060 baseline of 66.7 tok/s)
+- ✅ **Peak PP: 1,913 tok/s** (+185% vs previous ~670 tok/s)
+- ✅ **No OOM at 250K context** (still had VRAM headroom)
+- ✅ **Graceful degradation** across entire range (no cliffs)
+- 🔥 **TG improvement (73%) exceeds VRAM increase (50%)** — suggests better parallelization with 3-GPU split
+
+### Performance Zones (3×3060)
+
+| Zone | Context | TG Speed | Use Case |
+|------|--------:|----------|----------|
+| 🟢 Optimal | 0-32K | 95-115 tok/s | Interactive, agentic workflows |
+| 🟡 Good | 32-95K | 62-76 tok/s | Long docs, code review |
+| 🟠 Usable | 95-192K | 42-54 tok/s | Very long documents |
+| 🔴 Slow | 192-250K | 34-42 tok/s | Ultra-long (if needed) |
+
+**Sweet spot:** 10-32K context delivers peak performance (95-115 tok/s TG).
+
+### Architecture Advantage at Depth
+
+Compared to Qwen3.5-35B (similar ~3B active params, tested same hardware):
+
+| Context | Nemotron | Qwen3.5 | Advantage |
+|--------:|---------:|--------:|----------:|
+| 32K | 95 tok/s | 50 tok/s | +90% |
+| 64K | 76 tok/s | 40 tok/s | +90% |
+| 128K | 54 tok/s | 28 tok/s | +93% |
+| **250K** | **34 tok/s** | **18 tok/s** | **+89%** |
+
+**Mamba-2 hybrid architecture delivers nearly 2× throughput at long context** compared to traditional GQA attention.
+
+**Full experiment report:** `llmlab/experiments/2026-03-03-nemotron-3x3060-full-ladder.md`
+
+
 
 ## Context Window
 
@@ -231,10 +291,18 @@ After A/B/C tuning, operational profile was switched to reduced-thinking mode fo
 
 ## Hardware Tested
 
-- 2x NVIDIA RTX 3060 12GB
+### Original Testing (2×RTX 3060, Feb 2026)
+- 2x NVIDIA RTX 3060 12GB (24GB total)
 - Intel i5-7400
 - 24GB system RAM
-- llama.cpp (latest as of 2026-02-09)
+- llama.cpp b241-3769fe6
+
+### Updated Testing (3×RTX 3060, Mar 2026)
+- 3x NVIDIA RTX 3060 12GB (36GB total)
+- Intel i5-7400
+- 32GB system RAM
+- llama.cpp b241-3769fe6
+- **+73% TG speed improvement**, **+185% PP improvement**
 
 ## Changelog
 
