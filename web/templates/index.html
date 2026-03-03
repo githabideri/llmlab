@@ -352,18 +352,19 @@
                 // Update server status
                 const serverStatus = document.getElementById('server-status');
                 const info = data.server_info;
+                const defaultGen = info.default_generation_settings || {};
                 serverStatus.innerHTML = `
                     <div class="flex justify-between py-2 border-b border-dark-border">
                         <span class="text-slate-400">Context Size:</span>
-                        <span class="font-mono">${info.n_ctx || 'Unknown'}</span>
+                        <span class="font-mono">${defaultGen.n_ctx || 'Unknown'}</span>
                     </div>
                     <div class="flex justify-between py-2 border-b border-dark-border">
-                        <span class="text-slate-400">Parallel:</span>
-                        <span class="font-mono">${info.n_parallel || 'Unknown'}</span>
+                        <span class="text-slate-400">Total Slots:</span>
+                        <span class="font-mono">${info.total_slots || 'Unknown'}</span>
                     </div>
                     <div class="flex justify-between py-2">
-                        <span class="text-slate-400">GPU Layers:</span>
-                        <span class="font-mono">${info.n_gpu_layers || 'Unknown'}</span>
+                        <span class="text-slate-400">Build:</span>
+                        <span class="font-mono text-xs">${info.build_info || 'Unknown'}</span>
                     </div>
                 `;
                 
