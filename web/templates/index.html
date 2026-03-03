@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLMlab Benchmark UI</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- htmx -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <!-- Tailwind config to match llama.cpp UI -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'dark-bg': '#0f172a',
+                        'dark-surface': '#1e293b',
+                        'dark-border': '#334155',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Match llama.cpp UI styling */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        .card {
+            @apply bg-dark-surface rounded-lg border border-dark-border p-4;
+        }
+        
+        .btn {
+            @apply px-4 py-2 rounded-lg font-medium transition-colors;
+        }
+        
+        .btn-primary {
+            @apply btn bg-blue-600 hover:bg-blue-700 text-white;
+        }
+        
+        .btn-secondary {
+            @apply btn bg-dark-border hover:bg-slate-600 text-white;
+        }
+        
+        .form-control {
+            @apply w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500;
+        }
+        
+        .badge {
+            @apply inline-block px-2 py-1 text-xs rounded-full font-medium;
+        }
+        
+        .badge-success {
+            @apply badge bg-green-900 text-green-200;
+        }
+        
+        .badge-warning {
+            @apply badge bg-yellow-900 text-yellow-200;
+        }
+        
+        .badge-error {
+            @apply badge bg-red-900 text-red-200;
+        }
+        
+        #log-output {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+        
+        .log-line {
+            @apply border-b border-dark-border py-1;
+        }
+        
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-dark-bg text-white min-h-screen">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-dark-surface border-r border-dark-border flex flex-col">
+            <div class="p-4 border-b border-dark-border">
+                <h1 class="text-xl font-bold flex items-center gap-2">
+                    <span>🧪</span>
+                    <span>LLMlab Bench</span>
+                </h1>
+            </div>
+            
+            <nav class="flex-1 overflow-y-auto p-4">
+                <div class="space-y-2">
+                    <button 
+                        onclick="showTab('dashboard')" 
+                        class="w-full text-left px-3 py-2 rounded-lg hover:bg-dark-bg transition-colors"
+                        id="tab-dashboard"
+                    >
+                        📊 Dashboard
+                    </button>
+                    <button 
+                        onclick="showTab('benchmark')" 
+                        class="w-full text-left px-3 py-2 rounded-lg hover:bg-dark-bg transition-colors"
+                        id="tab-benchmark"
+                    >
+                        🚀 Run Benchmark
+                    </button>
+                    <button 
+                        onclick="showTab('results')" 
+                        class="w-full text-left px-3 py-2 rounded-lg hover:bg-dark-bg transition-colors"
+                        id="tab-results"
+                    >
+                        📈 Results
+                    </button>
+                    <button 
+                        onclick="showTab('settings')" 
+                        class="w-full text-left px-3 py-2 rounded-lg hover:bg-dark-bg transition-colors"
+                        id="tab-settings"
+                    >
+                        ⚙️ Settings
+                    </button>
+                </div>
+            </nav>
+            
+            <div class="p-4 border-t border-dark-border">
+                <div class="text-xs text-slate-400" id="health-status">
+                    <span class="inline-block w-2 h-2 rounded-full bg-gray-500 mr-2"></span>
+                    Checking...
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main content -->
+        <main class="flex-1 overflow-y-auto">
+            <!-- Dashboard Tab -->
+            <div id="content-dashboard" class="tab-content p-8">
+                <h2 class="text-2xl font-bold mb-6">Dashboard</h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Model Info -->
+                    <div class="card">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <span>🤖</span>
+                            <span>Current Model</span>
+                        </h3>
+                        <div id="model-info" class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Server Status -->
+                    <div class="card">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <span>⚡</span>
+                            <span>Server Status</span>
+                        </h3>
+                        <div id="server-status" class="space-y-2 text-sm">
+                            <div class="text-slate-400">Loading...</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Slots Status -->
+                    <div class="card lg:col-span-2">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <span>💾</span>
+                            <span>Slot Status</span>
+                        </h3>
+                        <div id="slots-status" class="text-sm">
+                            <div class="text-slate-400">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Benchmark Tab -->
+            <div id="content-benchmark" class="tab-content hidden p-8">
+                <h2 class="text-2xl font-bold mb-6">Run Benchmark</h2>
+                
+                <div class="max-w-4xl">
+                    <div class="card mb-6">
+                        <h3 class="text-lg font-semibold mb-4">Test Configuration</h3>
+                        
+                        <form id="benchmark-form" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">
+                                    Test Points (comma-separated token counts)
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="test-points"
+                                    class="form-control"
+                                    value="9,3000,6000,10000,13000,19000,24000,32000,64000,95000,128000,192000,250000"
+                                    placeholder="9,3000,6000,10000..."
+                                />
+                                <p class="text-xs text-slate-400 mt-1">
+                                    Enter token counts to test. More points = longer test time.
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium mb-2">
+                                    Output Formats
+                                </label>
+                                <div class="flex gap-4">
+                                    <label class="flex items-center">
+                                        <input type="checkbox" checked name="format" value="json" class="mr-2">
+                                        <span class="text-sm">JSON</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" checked name="format" value="csv" class="mr-2">
+                                        <span class="text-sm">CSV</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" checked name="format" value="md" class="mr-2">
+                                        <span class="text-sm">Markdown</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="flex items-center">
+                                    <input type="checkbox" checked id="monitor-resources" class="mr-2">
+                                    <span class="text-sm font-medium">Monitor system resources during test</span>
+                                </label>
+                            </div>
+                            
+                            <div class="flex gap-4 pt-4">
+                                <button 
+                                    type="submit" 
+                                    class="btn-primary"
+                                    id="run-button"
+                                >
+                                    🚀 Start Benchmark
+                                </button>
+                                <button 
+                                    type="button" 
+                                    class="btn-secondary hidden"
+                                    id="stop-button"
+                                    onclick="stopBenchmark()"
+                                >
+                                    ⏹️ Stop
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Live Output -->
+                    <div class="card">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <span>📝</span>
+                            <span>Live Output</span>
+                        </h3>
+                        <div id="log-output" class="bg-dark-bg rounded-lg p-4 h-96 overflow-y-auto border border-dark-border">
+                            <div class="text-slate-500 text-sm">Waiting for benchmark to start...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Tab -->
+            <div id="content-results" class="tab-content hidden p-8">
+                <h2 class="text-2xl font-bold mb-6">Previous Results</h2>
+                
+                <div class="card">
+                    <div id="results-list">
+                        <div class="text-slate-400">Loading results...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="content-settings" class="tab-content hidden p-8">
+                <h2 class="text-2xl font-bold mb-6">Server Settings</h2>
+                
+                <div class="max-w-2xl">
+                    <div class="card mb-4">
+                        <h3 class="text-lg font-semibold mb-4">Current Configuration</h3>
+                        <div id="settings-info" class="space-y-2 text-sm">
+                            <div class="text-slate-400">Loading...</div>
+                        </div>
+                    </div>
+                    
+                    <div class="card bg-yellow-900/20 border-yellow-700">
+                        <p class="text-sm text-yellow-200">
+                            ⚠️ <strong>Note:</strong> Server configuration changes require manually updating your 
+                            llama-server launch command and restarting the service. This UI displays current 
+                            settings for reference.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let eventSource = null;
+        
+        // Tab switching
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            
+            // Remove active state from all buttons
+            document.querySelectorAll('nav button').forEach(btn => {
+                btn.classList.remove('bg-dark-bg');
+            });
+            
+            // Show selected tab
+            document.getElementById(`content-${tabName}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabName}`).classList.add('bg-dark-bg');
+            
+            // Load data for specific tabs
+            if (tabName === 'dashboard') {
+                loadDashboard();
+            } else if (tabName === 'results') {
+                loadResults();
+            } else if (tabName === 'settings') {
+                loadSettings();
+            }
+        }
+        
+        // Load dashboard data
+        async function loadDashboard() {
+            try {
+                const response = await fetch('/api/models');
+                const data = await response.json();
+                
+                // Update model info
+                const modelInfo = document.getElementById('model-info');
+                modelInfo.innerHTML = `
+                    <div class="flex justify-between py-2 border-b border-dark-border">
+                        <span class="text-slate-400">Model:</span>
+                        <span class="font-mono">${data.current_model}</span>
+                    </div>
+                `;
+                
+                // Update server status
+                const serverStatus = document.getElementById('server-status');
+                const info = data.server_info;
+                serverStatus.innerHTML = `
+                    <div class="flex justify-between py-2 border-b border-dark-border">
+                        <span class="text-slate-400">Context Size:</span>
+                        <span class="font-mono">${info.n_ctx || 'Unknown'}</span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-dark-border">
+                        <span class="text-slate-400">Parallel:</span>
+                        <span class="font-mono">${info.n_parallel || 'Unknown'}</span>
+                    </div>
+                    <div class="flex justify-between py-2">
+                        <span class="text-slate-400">GPU Layers:</span>
+                        <span class="font-mono">${info.n_gpu_layers || 'Unknown'}</span>
+                    </div>
+                `;
+                
+                // Update slots
+                const slotsStatus = document.getElementById('slots-status');
+                if (data.slots && data.slots.length > 0) {
+                    slotsStatus.innerHTML = data.slots.map((slot, idx) => `
+                        <div class="flex items-center justify-between py-2 border-b border-dark-border last:border-0">
+                            <div>
+                                <span class="font-medium">Slot ${idx}</span>
+                                <span class="ml-2 ${slot.state === 0 ? 'badge-success' : 'badge-warning'}">
+                                    ${slot.state === 0 ? 'Idle' : 'Processing'}
+                                </span>
+                            </div>
+                            <div class="text-sm text-slate-400">
+                                ${slot.n_prompt_tokens || 0} / ${slot.n_ctx || 0} tokens
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    slotsStatus.innerHTML = '<div class="text-slate-400">No slot data available</div>';
+                }
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+        
+        // Load results list
+        async function loadResults() {
+            try {
+                const response = await fetch('/api/results');
+                const results = await response.json();
+                
+                const resultsList = document.getElementById('results-list');
+                if (results.length === 0) {
+                    resultsList.innerHTML = '<div class="text-slate-400">No results yet. Run a benchmark to see results here.</div>';
+                } else {
+                    resultsList.innerHTML = results.map(result => `
+                        <div class="py-3 border-b border-dark-border last:border-0">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="font-medium">${result.model}</div>
+                                    <div class="text-sm text-slate-400">${result.timestamp}</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm text-slate-400">${result.test_points} test points</div>
+                                    <a href="/api/results/${result.filename}" 
+                                       target="_blank"
+                                       class="text-blue-400 hover:text-blue-300 text-sm">
+                                        View JSON →
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading results:', error);
+            }
+        }
+        
+        // Load settings
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/settings');
+                const settings = await response.json();
+                
+                const settingsInfo = document.getElementById('settings-info');
+                settingsInfo.innerHTML = Object.entries(settings).map(([key, value]) => `
+                    <div class="flex justify-between py-2 border-b border-dark-border last:border-0">
+                        <span class="text-slate-400">${key}:</span>
+                        <span class="font-mono">${value}</span>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading settings:', error);
+            }
+        }
+        
+        // Run benchmark
+        document.getElementById('benchmark-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const testPoints = document.getElementById('test-points').value;
+            const formats = Array.from(document.querySelectorAll('input[name="format"]:checked')).map(cb => cb.value);
+            const monitor = document.getElementById('monitor-resources').checked;
+            
+            // Clear log
+            document.getElementById('log-output').innerHTML = '';
+            
+            // Update UI
+            document.getElementById('run-button').classList.add('hidden');
+            document.getElementById('stop-button').classList.remove('hidden');
+            
+            // Start SSE connection
+            eventSource = new EventSource(
+                '/api/benchmark/run?' + new URLSearchParams({
+                    test_points: testPoints,
+                    output_formats: formats.join(','),
+                    monitor_resources: monitor
+                })
+            );
+            
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                const logOutput = document.getElementById('log-output');
+                
+                if (data.type === 'log') {
+                    const line = document.createElement('div');
+                    line.className = 'log-line text-slate-300';
+                    line.textContent = data.message;
+                    logOutput.appendChild(line);
+                    logOutput.scrollTop = logOutput.scrollHeight;
+                } else if (data.type === 'complete') {
+                    stopBenchmark();
+                    const line = document.createElement('div');
+                    line.className = 'log-line font-bold ' + (data.status === 'success' ? 'text-green-400' : 'text-red-400');
+                    line.textContent = data.status === 'success' ? '✅ Benchmark complete!' : '❌ Benchmark failed';
+                    logOutput.appendChild(line);
+                    logOutput.scrollTop = logOutput.scrollHeight;
+                }
+            };
+            
+            eventSource.onerror = () => {
+                stopBenchmark();
+                const logOutput = document.getElementById('log-output');
+                const line = document.createElement('div');
+                line.className = 'log-line text-red-400 font-bold';
+                line.textContent = '❌ Connection error';
+                logOutput.appendChild(line);
+            };
+        });
+        
+        function stopBenchmark() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            document.getElementById('run-button').classList.remove('hidden');
+            document.getElementById('stop-button').classList.add('hidden');
+        }
+        
+        // Health check
+        async function checkHealth() {
+            try {
+                const response = await fetch('/api/health');
+                const health = await response.json();
+                
+                const status = document.getElementById('health-status');
+                const color = health.llama_server === 'reachable' ? 'bg-green-500' : 'bg-red-500';
+                status.innerHTML = `
+                    <span class="inline-block w-2 h-2 rounded-full ${color} mr-2"></span>
+                    ${health.llama_server === 'reachable' ? 'Server online' : 'Server offline'}
+                `;
+            } catch (error) {
+                const status = document.getElementById('health-status');
+                status.innerHTML = `
+                    <span class="inline-block w-2 h-2 rounded-full bg-red-500 mr-2"></span>
+                    Connection error
+                `;
+            }
+        }
+        
+        // Initialize
+        showTab('dashboard');
+        checkHealth();
+        setInterval(checkHealth, 10000); // Check every 10 seconds
+    </script>
+</body>
+</html>
