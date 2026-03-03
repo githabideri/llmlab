@@ -65,12 +65,35 @@ Related experiments:
 
 **Key finding:** **Nemotron shows remarkably similar patterns for PP vs TG**, unlike GLM's dramatic difference (0-100% spikes vs 25-75% waves). This demonstrates **Mamba-2's constant-time attention advantage** — more predictable, consistent GPU utilization regardless of processing phase.
 
+### Qwen3.5-35B nvtop Screenshot
+
+**File:** `2026-03-03-qwen35-nvtop-pattern.png`
+
+**What it shows:**
+- **Moderate 25-50% GPU utilization** (GPU1: 32%, GPU2: 36%, GPU3: 31%)
+- Gentle wave patterns with some variation
+- More oscillation than Nemotron, less extreme than GLM
+- VRAM: ~10.3GB, 9.0GB, 8.9GB per GPU (~28.2GB total)
+
+**Pattern characteristics:**
+- Not as smooth as Nemotron (more waves)
+- Not as spiky as GLM (no extreme 0-100% swings)
+- **Middle ground between constant-time (Mamba-2) and burst (MLA)**
+
 ### Architecture Comparison (Visual Evidence)
 
-| Model | PP Pattern | TG Pattern | Consistency |
-|-------|-----------|-----------|-------------|
-| **GLM (MLA)** | **0-100% extreme spikes** | 25-75% waves | ❌ **Highly variable** |
-| **Nemotron (Mamba-2)** | **30-60% smooth waves** | **30-60% smooth waves** | ✅ **Very consistent** |
-| Qwen3.5 (GQA) | [Pending] | [Pending] | [Pending] |
+| Model | GPU Pattern | Utilization Range | Consistency | Architecture |
+|-------|------------|-------------------|-------------|--------------|
+| **GLM (MLA)** | **Extreme spikes (PP)** / Waves (TG) | 0-100% (PP), 25-75% (TG) | ❌ **Highly variable** | Multi-head Latent Attention |
+| **Qwen3.5 (GQA)** | **Moderate waves** | 25-50% sustained | 🟡 **Moderate** | Grouped Query Attention |
+| **Nemotron (Mamba-2)** | **Smooth sustained** | 30-60% consistent | ✅ **Very consistent** | Mamba-2 hybrid (constant-time) |
 
-**Implication:** Mamba-2's consistent utilization pattern suggests better hardware efficiency and more predictable performance characteristics compared to traditional attention mechanisms.
+**Visual fingerprints discovered:**
+1. **MLA (GLM):** Extreme alternating bursts — memory-bandwidth limited, sequential wave processing
+2. **GQA (Qwen3.5):** Moderate sustained waves — traditional attention with some optimization
+3. **Mamba-2 (Nemotron):** Smooth consistent utilization — constant-time attention, best hardware efficiency
+
+**Implication:** Visual evidence confirms architectural trade-offs:
+- **GLM (MLA):** Highest VRAM cost, most variable GPU load, steepest degradation
+- **Qwen3.5 (GQA):** Balanced middle ground, good VRAM efficiency, moderate degradation
+- **Nemotron (Mamba-2):** Best VRAM efficiency, most consistent load, shallowest degradation
