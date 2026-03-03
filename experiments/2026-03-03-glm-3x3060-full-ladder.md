@@ -37,7 +37,12 @@ GLM's Multi-head Latent Attention (MLA) shows **distinctive utilization patterns
 
 ## Complete Context Speed Ladder (0-128K)
 
-**Note:** 192K and 250K tests failed (timeout/OOM). Results cover 0-128K context range.
+**Note:** Tests beyond 128K failed due to VRAM constraints. GLM's MLA architecture has higher VRAM requirements than Nemotron/Qwen3.5.
+
+**Failure details:**
+- **192K:** CUDA OOM (KV cache allocation failed, needed ~857 MB more)
+- **250K:** Exceeded auto-reduced context window (server: 202K, not 262K)
+- **Root cause:** GLM's context was auto-reduced from 262K → 202K due to insufficient VRAM for full KV cache
 
 | Context | PP tok/s | TG tok/s | TG % | Notes |
 |--------:|---------:|---------:|-----:|-------|
@@ -130,7 +135,7 @@ Based on visual evidence from nvtop screenshots:
 ```bash
 llama-server \
   --model /mnt/models/gguf/glm-4.7-flash/GLM-4.7-Flash-UD-Q4_K_XL.gguf \
-  --ctx-size 262144 \
+  --ctx-size 262144 \           # Configured
   --split-mode layer \
   --gpu-layers 99 \
   --parallel 1 \
@@ -141,6 +146,8 @@ llama-server \
   --host 0.0.0.0 \
   --port 8080
 ```
+
+**Note:** Server auto-reduced context to **202,752 tokens** (from configured 262,144) due to insufficient VRAM for full KV cache with GLM's MLA architecture on 3×3060 (36GB).
 
 ---
 
@@ -172,6 +179,20 @@ All three models tested on same hardware with full context ladder:
 | **GLM-4.7** | MLA | **13 tok/s** | **-80%** |
 
 **GLM's MLA architecture shows the steepest degradation** under long context load, despite being the smallest model (4.7B active vs ~3B for Nemotron/Qwen3.5).
+
+### VRAM Efficiency Comparison
+
+**Maximum stable context on 3×3060 (36GB VRAM):**
+
+| Model | Architecture | Max Context | KV Cache Efficiency |
+|-------|-------------|------------:|---------------------|
+| Nemotron-30B | Mamba-2 | **250K+** | ✅ **Best** (constant-time) |
+| Qwen3.5-35B | GQA | 250K+ | ✅ Good |
+| **GLM-4.7** | MLA | **~128K** | ❌ **Worst** (high per-token VRAM) |
+
+**Key finding:** GLM's MLA has **significantly higher VRAM requirements per token** than Mamba-2 or GQA, limiting practical context on consumer GPUs.
+
+Server auto-reduced from 262K → 202K configured context due to insufficient VRAM for full KV cache.
 
 ---
 
