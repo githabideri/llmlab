@@ -1,84 +1,97 @@
 # Qwen3.5-35B-A3B
 
 **Base model:** [Qwen/Qwen3.5-35B-A3B](https://huggingface.co/Qwen/Qwen3.5-35B-A3B)  
-**Architecture:** DeltaNet linear attention + Mixture of Experts (35B total, 3B active)  
-**Quant tested:** Q4_K_M (19.7 GB on disk)  
-**Context window:** 131,072 tokens
+**Architecture:** DeltaNet linear attention + MoE (35B total, ~3B active)  
+**Quant used:** `Qwen_Qwen3.5-35B-A3B-Q4_K_M.gguf` (≈20 GB on disk)  
+**Vision projector:** `mmproj-Qwen_Qwen3.5-35B-A3B-f16.gguf` (858 MB)
 
 ## Quick Facts
 
 | Param | Value |
 |-------|-------|
 | Total parameters | 35B |
-| Active parameters | 3B (MoE) |
-| Architecture | DeltaNet (linear attention) + MoE |
-| Context window | 131,072 tokens |
-| Quant tested | Q4_K_M (19.7 GB) |
-| VRAM requirement | 2× 12GB GPUs (text-only, vision OOMs) |
+| Active parameters | ~3B (8 routed + 1 shared expert) |
+| KV cache | ~7.5 KiB/token (10 attention layers) |
+| Tested hardware | 2× RTX 3060 12GB (24GB total) |
+| Current stable profile | `ctx=98,304`, `-sm layer`, `--no-mmproj-offload`, `parallel=1` |
+| Text+tools+vision on 24GB | ✅ **Works** (with tuned profile) |
 
-## Evaluation (2026-02-25)
+## What changed (important)
 
-### Deployment
+### Earlier result (2026-02)
+- We observed **vision OOM** while trying to run Q4_K_M + mmproj on 24GB.
+- We also observed repeated tool-call loops in real agentic sessions.
 
-- Downloaded Q4_K_M (19.7 GB) to CT327 (2× RTX 3060 12GB)
-- Required llama.cpp rebuild for Qwen3.5 arch support
-- **Vision OOM**: mmproj + pipeline parallelism exceeded 24GB → text-only deployment
-- **Template crisis**: Qwen3.5 chat template rejects `tool`/`function` roles → fixed with `--chat-template chatml` (11 min to diagnose)
-- Config: `-ngl 99 -sm layer -fa 1 -ctk q8_0 -ctv q4_0 --chat-template chatml`
+### Retest result (2026-03-03)
+- We re-ran Qwen3.5 as a single text+tools+vision model on the same 24GB setup.
+- It **fits and runs** when using a tighter memory profile:
 
-### Speed (llama-bench tg128, ctx 131072)
+```bash
+llama-server \
+  --model /mnt/models/gguf/qwen3.5-35b-a3b/Qwen_Qwen3.5-35B-A3B-Q4_K_M.gguf \
+  --mmproj /mnt/models/gguf/qwen3.5-35b-a3b/mmproj-Qwen_Qwen3.5-35B-A3B-f16.gguf \
+  --no-mmproj-offload \
+  --ctx-size 98304 \
+  --parallel 1 \
+  --split-mode layer \
+  --gpu-layers 99 \
+  --cache-type-k q8_0 --cache-type-v q4_0 \
+  --flash-attn on --jinja
+```
 
-| Context Depth | TG tok/s |
-|--------------:|---------:|
-| 0 | ~95 |
-| 2K | ~90 |
-| 4K | ~85 |
-| 8K | ~75 |
-| 16K | ~60 |
-| 32K | ~45 |
+## Why it fits on 24GB now
 
-**DeltaNet speed hypothesis was WRONG.** Expected DeltaNet's O(1) per-step attention to beat Nemotron's Mamba-2 at long context. In practice, **Nemotron was faster at ALL context depths** on our hardware. See `notes/models/qwen3.5-vs-nemotron-speed-hypothesis.md`.
+The key was not changing the model quant; it was changing runtime pressure points:
 
-### Agentic Testing
+1. **Lowered context to 96k (`--ctx-size 98304`)**  
+   Lower KV/cache footprint than 131k+ profiles.
 
-**CRITICAL FAILURE: Infinite tool-call loops.**
+2. **Used `split-mode layer`**  
+   Better memory balance for this dual-3060 PCIe setup.
 
-In llmlab testing, Qwen3.5 entered a loop of 25+ identical `web_search` calls with the same query, never converging. The pattern:
-1. Makes a tool call (e.g. `web_search("llama.cpp weather API")`)
-2. Gets results
-3. Immediately makes the same call again
-4. Repeats indefinitely until context fills up or timeout
+3. **Kept `parallel=1`**  
+   Avoids extra slot overhead.
 
-This happened consistently across multiple sessions and prompts. The model cannot be used for agentic work without a circuit breaker.
+4. **Used `--no-mmproj-offload`**  
+   Prevents additional projector-offload pressure on already-tight VRAM.
 
-### Verdict
+Observed runtime memory during active service stayed just under the cliff:
+- GPU0: ~11.9 GB / 12 GB
+- GPU1: ~11.3 GB / 12 GB
 
-**❌ NOT SUITABLE for production agentic use.**
+## Performance notes (retest)
 
-| Criterion | Result |
-|-----------|--------|
-| Speed | ⚠️ Good but NOT better than Nemotron (DeltaNet advantage not realized on PCIe GPUs) |
-| Tool calling | ❌ Infinite loop pathology — unusable without external circuit breaker |
-| Template | ⚠️ Requires ChatML workaround (native template rejects tool roles) |
-| Vision | ❌ OOMs on 24GB with mmproj |
-| Context degradation | ⚠️ Steeper than Nemotron despite DeltaNet claims |
+From live serving logs at ~32k prompt depth:
+- Prompt eval: ~725–984 tok/s (cache/checkpoint dependent)
+- Generation eval: ~44–45 tok/s
 
-### Why DeltaNet Wasn't Faster
+Vision preprocessing time scales hard with input size:
+- ~128px image class: ~0.3 s
+- ~512px image class: ~5.3 s
+- ~1024px image class: ~32 s
 
-- DeltaNet's O(1) attention doesn't help when the bottleneck is PCIe data transfer between GPUs
-- `-sm layer` means each GPU processes complete layers — attention mechanism efficiency is secondary to inter-GPU communication
-- The model's 19.7 GB weight size creates more transfer overhead than Nemotron's smaller footprint
-- Full analysis: `notes/models/qwen3-vs-nemotron-speed-analysis.md`
+**Operational takeaway:** keep interactive images small/medium unless high latency is acceptable.
+
+## Agentic behavior
+
+- Historical risk remains: we have prior sessions with runaway repeated tool calls.
+- In short retest prompts, tool usage was sane (single-call behavior where expected), but this is not yet enough to declare it fully stable under long mixed workloads.
+
+## Verdict
+
+**🟡 PILOT / LAB-ONLY**
+
+- ✅ Strong capability: one model for text + tools + vision on 24GB is possible.
+- ⚠️ Reliability caveat: tool-loop pathology still requires guardrails and soak observation.
+- ✅ Good fit for controlled llmlab experiments.
+- ❌ Not yet “set-and-forget production” without loop controls.
 
 ## References
 
-- Full evaluation: `notes/models/qwen3.5-35b-a3b-eval-2026-02-25.md`
-- Memory analysis: `notes/models/qwen3.5-memory-analysis-2026-02-25.md`
-- Speed hypothesis: `notes/models/qwen3.5-vs-nemotron-speed-hypothesis.md`
-- Session report: `notes/models/qwen35-llmlab-session-report-2026-02-26.md`
-- Experiment log: `experiments/2026-02-26-qwen3.5-35b-a3b-llmlab-preliminary.md`
+- Preliminary run with loop failures: `../experiments/2026-02-26-qwen3.5-35b-a3b-llmlab-preliminary.md`
+- 24GB vision retest: `../experiments/2026-03-03-qwen3.5-35b-a3b-24gb-vision-retest.md`
 
 ## Changelog
 
-- **2026-02-25:** Initial evaluation. Template workaround, speed benchmarks, tool-loop failure documented.
-- **2026-02-26:** Session report from llmlab testing confirms tool-loop pathology.
+- **2026-02-25/26:** Initial evaluation and loop-failure finding.
+- **2026-03-03:** Retest confirms 24GB text+tools+vision viability with tuned runtime profile; verdict updated to pilot/lab-only.
