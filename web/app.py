@@ -90,13 +90,10 @@ async def get_models():
     model_name = "Unknown"
     if server_info:
         # Try to extract model name from server props
-        model_name = server_info.get("default_generation_settings", {}).get("model", "Unknown")
+        model_name = server_info.get("model_alias", "Unknown")
         if model_name == "Unknown":
-            # Fallback to any model field
-            for key in ["model", "model_alias", "model_path"]:
-                if key in server_info:
-                    model_name = server_info[key]
-                    break
+            # Fallback to model_path
+            model_name = server_info.get("model_path", "Unknown")
     
     return {
         "current_model": model_name,
@@ -113,11 +110,12 @@ async def get_settings():
     # Extract relevant settings
     settings = {}
     if server_info:
+        default_gen = server_info.get("default_generation_settings", {})
         settings = {
-            "ctx_size": server_info.get("n_ctx", "Unknown"),
-            "n_parallel": server_info.get("n_parallel", "Unknown"),
-            "n_gpu_layers": server_info.get("n_gpu_layers", "Unknown"),
-            "model": server_info.get("model", "Unknown")
+            "ctx_size": default_gen.get("n_ctx", "Unknown"),
+            "total_slots": server_info.get("total_slots", "Unknown"),
+            "model": server_info.get("model_alias", "Unknown"),
+            "build": server_info.get("build_info", "Unknown")
         }
     
     return settings
