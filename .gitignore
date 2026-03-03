@@ -3,3 +3,12 @@
 *.swp
 .DS_Store
 scripts/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+web/venv/
+web/.env
