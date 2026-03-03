@@ -68,7 +68,27 @@ experiments/     14 experiment logs (context sweeps, quant comparisons, speed te
 benchmarks/      Agentic benchmark suite (L0-L4: read/write → config → tool chains)
 docs/            Architecture, runbook, systemd setup, troubleshooting, thinking policy
 scripts/         Context sweep benchmarking, model info fetcher, server start scripts
+web/             Web UI for running and monitoring benchmarks
 ```
+
+### Web UI (`web/`)
+
+**Interactive benchmark dashboard** built with FastAPI + htmx, styled to match llama.cpp's web interface:
+- 🤖 Model and server status monitoring
+- 🚀 Run context ladder benchmarks with live streaming output
+- 📈 Browse historical test results
+- ⚙️ View current server configuration
+
+**Quick start:**
+```bash
+cd web
+python3 -m venv venv
+./venv/bin/pip install -r requirements.txt
+./start.sh
+```
+Then open http://localhost:8000
+
+See [web/README.md](web/README.md) for full documentation and deployment guide.
 
 ### Model profiles (`models/`)
 
