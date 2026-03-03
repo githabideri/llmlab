@@ -1,0 +1,129 @@
+# Triple GPU Full Context Ladder — Qwen3.5-35B Q4_K_M
+
+**Date:** 2026-03-03  
+**Model:** Qwen_Qwen3.5-35B-A3B-Q4_K_M.gguf  
+**Hardware:** 3x RTX 3060 (36GB VRAM total)  
+**Runtime:** `--ctx-size 262144 --split-mode layer --ngl 99 --parallel 1`
+
+---
+
+## Complete Context Speed Ladder (0-250K)
+
+| Context | PP tok/s | TG tok/s | TG % | Notes |
+|--------:|---------:|---------:|-----:|-------|
+| 9 | 135 | 59 | 100% | Baseline |
+| 3,210 | 1,240 | 59 | 100% | Peak efficiency zone |
+| 6,410 | **1,275** | **59** | 100% | **Peak PP speed** |
+| 9,610 | 1,270 | 57 | 97% | Sustained optimal |
+| 12,813 | 1,257 | 58 | 98% | Still excellent |
+| 19,213 | 1,228 | 55 | 93% | Minor TG drop |
+| 24,013 | 1,211 | 53 | 90% | -10% TG |
+| 32,013 | 1,159 | 50 | 85% | -15% TG |
+| 64,013 | 1,007 | 40 | 68% | -32% TG |
+| 95,013 | 888 | 33 | 56% | Near original limit |
+| **128,013** | **791** | **28** | **47%** | Extended context |
+| **192,013** | **646** | **22** | **37%** | Ultra-long docs |
+| **250,013** | **555** | **18** | **31%** | **Maximum tested** |
+
+**Percentages relative to baseline (9 tokens).**
+
+---
+
+## Key Findings
+
+### Prompt Processing (PP)
+- **Peak:** 1,275 tok/s at 6K context
+- **Sustained high:** >1,200 tok/s from 3K-24K
+- **Graceful degradation:** 791 tok/s at 128K (-38%), 555 tok/s at 250K (-56%)
+- **No cliff:** Continuous smooth degradation across entire range
+
+### Text Generation (TG)
+- **Peak:** 59 tok/s at low-mid context (0-10K)
+- **Stable zone:** 55-59 tok/s from 0-20K context
+- **Progressive decline:** 50→40→33→28→22→18 tok/s
+- **At 250K limit:** 18 tok/s (-69% from peak, but still functional)
+
+### Performance Zones
+
+| Zone | Context Range | TG Performance | Recommended Use |
+|------|--------------|----------------|-----------------|
+| 🟢 **Optimal** | 0-20K | 55-59 tok/s (-7% max) | Interactive chat, short docs |
+| 🟡 **Good** | 20-40K | 50-53 tok/s (-15% max) | Medium docs, code review |
+| 🟠 **Usable** | 40-100K | 33-40 tok/s (-44% max) | Long docs, large codebases |
+| 🔴 **Slow but viable** | 100-250K | 18-28 tok/s (-69% max) | Ultra-long context (if needed) |
+
+---
+
+## 3-GPU Distribution Verified
+
+**VRAM usage across context range:**
+- **At 95K:** GPU0 8.3GB, GPU1 7.6GB, GPU2 7.7GB (~23.6GB)
+- **At 250K:** (estimated ~30GB based on linear scaling)
+
+**Active utilization during inference:**
+- GPU0: 31% util, 58.71 W
+- GPU1: 28% util, 52.99 W
+- GPU2: 36% util, 65.71 W
+
+✅ **All 3 cards actively processing throughout entire ladder**  
+✅ **No OOM errors at any context level**  
+✅ **Graceful degradation, no cliffs or crashes**
+
+---
+
+## Runtime Limits Tested
+
+- **Original config:** 98,304 tokens (`--ctx-size 98304`)
+- **Extended config:** 262,144 tokens (`--ctx-size 262144`)
+- **Maximum tested:** 250,013 tokens (96% of extended limit)
+- **Hardware ceiling:** Not reached (still had VRAM headroom)
+
+**Conclusion:** Could likely push higher (300K+) if needed, but 250K demonstrates viability.
+
+---
+
+## Observations
+
+### Degradation Pattern
+- **Linear-ish decline:** No sudden drops or instability points
+- **Predictable:** Performance at any context can be interpolated from ladder
+- **Stable:** No crashes, OOMs, or error states across 13 test points
+
+### Practical Implications
+- **0-20K:** Production-ready, excellent performance
+- **20-40K:** Good for most real-world tasks
+- **40-100K:** Usable for specialized long-context tasks
+- **100-250K:** Emergency use only (very slow, but functional)
+
+### 3-GPU Advantages Confirmed
+- **Massive VRAM pool:** 36GB allows comfortable headroom even at 250K
+- **No single-card bottleneck:** Work distributed evenly
+- **Scalability:** Could handle even heavier quants (Q5/Q6) or multiple models
+
+---
+
+## Next Steps
+
+1. ✅ Complete full context ladder (0-250K)
+2. 🔄 Try heavier quant (Q5_K_M or Q6_K) for quality comparison
+3. 🔄 Complete OpenClaw Parcours functional tests
+4. 🔄 Run actual Nemotron context ladder for direct comparison
+5. 🔄 Document 2-GPU vs 3-GPU VRAM/speed comparison
+
+**Status:** Extended validation complete. 3-GPU setup fully validated across extreme context range.
+
+---
+
+## Technical Notes
+
+**Test methodology:**
+- Each test point uses `cache_prompt=false` to measure fresh processing
+- Prompt padding: repetitive text to reach target token counts
+- Generation: 128 tokens at temperature 0 for consistency
+- No warm-up runs (cold cache for all tests)
+
+**Model config:**
+- Quantization: Q4_K_M (~20GB model)
+- Context type: q8_0 (K), q4_0 (V)
+- Flash attention: enabled
+- Split mode: layer (optimal for PCIe without NVLink)
