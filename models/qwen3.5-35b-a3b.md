@@ -59,18 +59,60 @@ Observed runtime memory during active service stayed just under the cliff:
 - GPU0: ~11.9 GB / 12 GB
 - GPU1: ~11.3 GB / 12 GB
 
-## Performance notes (retest)
+## Performance
 
-From live serving logs at ~32k prompt depth:
-- Prompt eval: ~725–984 tok/s (cache/checkpoint dependent)
-- Generation eval: ~44–45 tok/s
+### Production Serving (March 2026)
 
-Vision preprocessing time scales hard with input size:
+Tested on 3× RTX 3060 12GB (36GB total) with native thinking mode (no `--reasoning-format` flag).
+
+**Configuration:**
+```bash
+--ctx-size 262144 --parallel 1 --split-mode layer 
+--gpu-layers 99 --cache-type-k q8_0 --cache-type-v q4_0 
+--flash-attn on --jinja
+```
+
+**15-minute production session** (text + web research tasks):
+
+| Metric | Value | Range |
+|--------|-------|-------|
+| **PP speed** | 835.9 tok/s avg | 544-1016 tok/s |
+| **TG speed** | 42.4 tok/s avg | 35-50 tok/s |
+| **Total requests** | 12 | |
+| **Context range** | 21K → 64K | No compaction needed |
+
+### Speed Degradation by Context
+
+| Context Range | Avg TG Speed | Change from Baseline |
+|---------------|--------------|---------------------|
+| **<25K** | 49.4 tok/s | Baseline |
+| **36-40K** | 42.3 tok/s | -14% |
+| **>40K** | 39.7 tok/s | -20% |
+
+**Key findings:**
+- Clean 20% degradation curve from fresh to 64K context (predictable, stable)
+- Web content fetches caused +14K and +23K context spikes
+- Thinking token overhead ~15% (all responses included thinking content)
+- No crashes, hangs, or errors during extended session
+
+### Vision Processing
+
+Vision preprocessing time scales with input resolution:
 - ~128px image class: ~0.3 s
 - ~512px image class: ~5.3 s
 - ~1024px image class: ~32 s
 
-**Operational takeaway:** keep interactive images small/medium unless high latency is acceptable.
+**Operational takeaway:** Keep interactive images small/medium unless high latency is acceptable.
+
+### Benchmark Comparison
+
+| Metric | Expected (llama-bench) | Actual (serving) | Delta |
+|--------|------------------------|------------------|-------|
+| PP speed | 900-1100 tok/s | 836 tok/s | -7% to -24% |
+| TG speed (fresh) | 55-60 tok/s | 49 tok/s | -10% to -18% |
+| TG speed (filled) | 45-50 tok/s | 35 tok/s | -22% to -30% |
+
+Delta explained by: server overhead + thinking tokens + context depth overhead.
 
 ## Agentic behavior
 
@@ -94,4 +136,6 @@ Vision preprocessing time scales hard with input size:
 ## Changelog
 
 - **2026-02-25/26:** Initial evaluation and loop-failure finding.
-- **2026-03-03:** Retest confirms 24GB text+tools+vision viability with tuned runtime profile; verdict updated to pilot/lab-only.
+- **2026-03-03 (early):** Retest confirms 24GB text+tools+vision viability with tuned runtime profile; verdict updated to pilot/lab-only.
+- **2026-03-03 (late):** Fixed reasoning loop issue by removing `--reasoning-format deepseek` flag (incompatible with Qwen3.5). Native thinking mode works correctly.
+- **2026-03-04:** Production serving performance benchmarked on 3×RTX 3060 (36GB). Added detailed speed metrics, context degradation analysis, and thinking overhead quantification.
