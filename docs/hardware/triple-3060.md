@@ -16,7 +16,7 @@
 | **GPU0** | RTX 3060 12GB | 12,288 MiB | x16 from CPU | Full | Primary compute GPU |
 | **GPU1** | RTX 3060 12GB | 12,288 MiB | x4 from chipset | Reduced | Secondary |
 | **GPU2** | RTX 3060 12GB | 12,288 MiB | x4 from chipset | Reduced | Secondary |
-| *(slot 4)* | *(empty)* | — | x1 available | — | Future expansion possible |
+| *(slot 4)* | *(empty)* | — | x1 Gen 3 available | — | Future expansion possible |
 
 **Total VRAM:** 36,864 MiB (36 GB)
 
@@ -39,9 +39,11 @@ Chipset (PCIe lanes)
 ### System Context
 
 - **Host Type:** LXC container on Proxmox VE
-- **CUDA Version:** 12.5
-- **Driver:** 555.42.02 (or compatible)
-- **Cooling:** Standard case ventilation (monitor temps during sustained load)
+- **GPU variant:** GA106 (Lite Hash Rate), compute capability 8.6
+- **CUDA Toolkit:** 12.5.1
+- **Driver:** 580.105.08
+- **PCIe:** Gen 3, x16/x4/x4 (idle power saving drops to Gen 1)
+- **Cooling:** Open case (no side panel), standard fans — GPU temps 37–49°C at idle
 
 ---
 
