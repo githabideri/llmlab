@@ -1,0 +1,314 @@
+{
+  "concurrency": 2,
+  "model": "Qwen3.5-27B-Q5_K_XL",
+  "results": [
+    {
+      "target": 64,
+      "actual_ctx": 50,
+      "avg_pp": 206.345,
+      "avg_tg": 9.58,
+      "tg_per_slot": [
+        9.51,
+        9.65
+      ],
+      "slots": {
+        "0": {
+          "pp_tokens": 50,
+          "tg_tokens": 128,
+          "pp_speed": 230.98,
+          "tg_speed": 9.51,
+          "pp_ms": 216.5,
+          "tg_ms": 13466.0
+        },
+        "1": {
+          "pp_tokens": 50,
+          "tg_tokens": 128,
+          "pp_speed": 181.71,
+          "tg_speed": 9.65,
+          "pp_ms": 275.2,
+          "tg_ms": 13270.3
+        }
+      }
+    },
+    {
+      "target": 3200,
+      "actual_ctx": 2462,
+      "avg_pp": 260.075,
+      "avg_tg": 7.37,
+      "tg_per_slot": [
+        7.8,
+        6.94
+      ],
+      "slots": {
+        "1": {
+          "pp_tokens": 2462,
+          "tg_tokens": 128,
+          "pp_speed": 289.71,
+          "tg_speed": 6.94,
+          "pp_ms": 8498.3,
+          "tg_ms": 18440.3
+        },
+        "0": {
+          "pp_tokens": 2462,
+          "tg_tokens": 128,
+          "pp_speed": 230.44,
+          "tg_speed": 7.8,
+          "pp_ms": 10683.9,
+          "tg_ms": 16410.4
+        }
+      }
+    },
+    {
+      "target": 6400,
+      "actual_ctx": 4924,
+      "avg_pp": 478.16499999999996,
+      "avg_tg": 7.380000000000001,
+      "tg_per_slot": [
+        7.11,
+        7.65
+      ],
+      "slots": {
+        "0": {
+          "pp_tokens": 4924,
+          "tg_tokens": 128,
+          "pp_speed": 412.43,
+          "tg_speed": 7.11,
+          "pp_ms": 11939.0,
+          "tg_ms": 18007.1
+        },
+        "1": {
+          "pp_tokens": 4924,
+          "tg_tokens": 128,
+          "pp_speed": 543.9,
+          "tg_speed": 7.65,
+          "pp_ms": 9053.2,
+          "tg_ms": 16722.0
+        }
+      }
+    },
+    {
+      "target": 9600,
+      "actual_ctx": 7385,
+      "avg_pp": 701.675,
+      "avg_tg": 8.434999999999999,
+      "tg_per_slot": [
+        6.18,
+        10.69
+      ],
+      "slots": {
+        "0": {
+          "pp_tokens": 7385,
+          "tg_tokens": 40,
+          "pp_speed": 596.83,
+          "tg_speed": 6.18,
+          "pp_ms": 12373.7,
+          "tg_ms": 6470.9
+        },
+        "1": {
+          "pp_tokens": 7385,
+          "tg_tokens": 128,
+          "pp_speed": 806.52,
+          "tg_speed": 10.69,
+          "pp_ms": 9156.7,
+          "tg_ms": 11972.6
+        }
+      }
+    },
+    {
+      "target": 12800,
+      "actual_ctx": 9847,
+      "avg_pp": 911.4200000000001,
+      "avg_tg": 7.1899999999999995,
+      "tg_per_slot": [
+        7.46,
+        6.92
+      ],
+      "slots": {
+        "1": {
+          "pp_tokens": 9847,
+          "tg_tokens": 128,
+          "pp_speed": 785.32,
+          "tg_speed": 6.92,
+          "pp_ms": 12538.8,
+          "tg_ms": 18504.8
+        },
+        "0": {
+          "pp_tokens": 9847,
+          "tg_tokens": 128,
+          "pp_speed": 1037.52,
+          "tg_speed": 7.46,
+          "pp_ms": 9490.9,
+          "tg_ms": 17163.5
+        }
+      }
+    },
+    {
+      "target": 19200,
+      "actual_ctx": 14770,
+      "avg_pp": 832.98,
+      "avg_tg": 6.295,
+      "tg_per_slot": [
+        5.28,
+        7.31
+      ],
+      "slots": {
+        "0": {
+          "pp_tokens": 14770,
+          "tg_tokens": 128,
+          "pp_speed": 768.59,
+          "tg_speed": 5.28,
+          "pp_ms": 19216.9,
+          "tg_ms": 24234.5
+        },
+        "1": {
+          "pp_tokens": 14770,
+          "tg_tokens": 128,
+          "pp_speed": 897.37,
+          "tg_speed": 7.31,
+          "pp_ms": 16459.3,
+          "tg_ms": 17520.9
+        }
+      }
+    },
+    {
+      "target": 24000,
+      "actual_ctx": 18462,
+      "avg_pp": 1210.875,
+      "avg_tg": 6.27,
+      "tg_per_slot": [
+        7.14,
+        5.4
+      ],
+      "slots": {
+        "1": {
+          "pp_tokens": 18462,
+          "tg_tokens": 128,
+          "pp_speed": 1257.61,
+          "tg_speed": 5.4,
+          "pp_ms": 14680.3,
+          "tg_ms": 23709.5
+        },
+        "0": {
+          "pp_tokens": 18462,
+          "tg_tokens": 128,
+          "pp_speed": 1164.14,
+          "tg_speed": 7.14,
+          "pp_ms": 15858.9,
+          "tg_ms": 17918.3
+        }
+      }
+    },
+    {
+      "target": 32000,
+      "actual_ctx": 24616,
+      "avg_pp": 1125.015,
+      "avg_tg": 5.85,
+      "tg_per_slot": [
+        6.94,
+        4.76
+      ],
+      "slots": {
+        "1": {
+          "pp_tokens": 24616,
+          "tg_tokens": 128,
+          "pp_speed": 946.87,
+          "tg_speed": 4.76,
+          "pp_ms": 25997.2,
+          "tg_ms": 26895.9
+        },
+        "0": {
+          "pp_tokens": 24616,
+          "tg_tokens": 128,
+          "pp_speed": 1303.16,
+          "tg_speed": 6.94,
+          "pp_ms": 18889.5,
+          "tg_ms": 18432.2
+        }
+      }
+    },
+    {
+      "target": 64000,
+      "actual_ctx": 49231,
+      "avg_pp": 625.905,
+      "avg_tg": 3.955,
+      "tg_per_slot": [
+        6.38,
+        1.53
+      ],
+      "slots": {
+        "1": {
+          "pp_tokens": 49231,
+          "tg_tokens": 128,
+          "pp_speed": 600.68,
+          "tg_speed": 1.53,
+          "pp_ms": 81958.5,
+          "tg_ms": 83622.9
+        },
+        "0": {
+          "pp_tokens": 49231,
+          "tg_tokens": 128,
+          "pp_speed": 651.13,
+          "tg_speed": 6.38,
+          "pp_ms": 75608.9,
+          "tg_ms": 20067.5
+        }
+      }
+    },
+    {
+      "target": 95000,
+      "actual_ctx": 73077,
+      "avg_pp": 812.6500000000001,
+      "avg_tg": 4.26,
+      "tg_per_slot": [
+        0.55,
+        7.97
+      ],
+      "slots": {
+        "0": {
+          "pp_tokens": 73077,
+          "tg_tokens": 45,
+          "pp_speed": 814.46,
+          "tg_speed": 0.55,
+          "pp_ms": 89724.6,
+          "tg_ms": 82475.5
+        },
+        "1": {
+          "pp_tokens": 73077,
+          "tg_tokens": 128,
+          "pp_speed": 810.84,
+          "tg_speed": 7.97,
+          "pp_ms": 90125.1,
+          "tg_ms": 16066.5
+        }
+      }
+    },
+    {
+      "target": 128000,
+      "actual_ctx": 98462,
+      "avg_pp": 900.655,
+      "avg_tg": 3.085,
+      "tg_per_slot": [
+        5.01,
+        1.16
+      ],
+      "slots": {
+        "0": {
+          "pp_tokens": 98462,
+          "tg_tokens": 55,
+          "pp_speed": 915.55,
+          "tg_speed": 5.01,
+          "pp_ms": 107544.0,
+          "tg_ms": 10980.1
+        },
+        "1": {
+          "pp_tokens": 98462,
+          "tg_tokens": 128,
+          "pp_speed": 885.76,
+          "tg_speed": 1.16,
+          "pp_ms": 111161.3,
+          "tg_ms": 110386.5
+        }
+      }
+    }
+  ]
+}
