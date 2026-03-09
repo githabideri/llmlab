@@ -36,25 +36,27 @@ This design significantly reduces KV cache requirements compared to pure transfo
 
 All benchmarks performed on 3× RTX 3060 12GB with optimal configuration (see Multi-GPU Configuration below).
 
-### Prompt Processing (PP) Speed
+### Context Ladder (2026-03-09)
 
-| Context Depth | PP tok/s | Notes |
-|---------------|----------|-------|
-| **32K tokens** | **441** | Excellent for medium-context workloads |
-| **128K tokens** | **355** | Still very fast at extended context |
-| **250K tokens** | **270** | Solid performance at near-max context |
+Measured with `run_context_ladder.py`, `--parallel 3 --ctx-size 393216 --tensor-split 0.30,0.37,0.33`, 128 output tokens per test:
 
-**Key insight:** Performance degrades gracefully with context depth due to flash-attention optimization and efficient KV cache utilization.
+| Context | PP tok/s | TG tok/s |
+|--------:|---------:|---------:|
+| 10 | 72 | 13.5 |
+| 3,213 | 446 | 13.3 |
+| 6,413 | 445 | 13.1 |
+| 9,613 | 439 | 12.9 |
+| 12,813 | 432 | 12.6 |
+| 19,213 | 420 | 12.3 |
+| 24,013 | 411 | 12.0 |
+| 32,013 | 395 | 11.5 |
+| 64,013 | 347 | 9.8 |
+| 95,013 | 309 | 8.6 |
+| 128,013 | 277 | 7.6 |
 
-### Text Generation (TG) Speed
+**TG degradation: 13.5 → 7.6 tok/s (−44% across 128K).** The hybrid architecture (48 DeltaNet + 16 attention layers) keeps TG degradation moderate — only the 16 attention layers contribute to KV cache growth.
 
-| Context State | TG tok/s | Notes |
-|---------------|----------|-------|
-| **Fresh context (0K)** | **60-62** | Real serving speed with 131K allocated context |
-| **Mid-context (14K)** | **85** | Improved speed with warmed KV cache |
-| **Low parallel usage** | **60-84** | Typical range for interactive serving |
-
-**Note:** `llama-bench` reports ~96 tok/s, but real serving with allocated KV cache shows 60-62 tok/s at low context. This is expected overhead for production configurations with large context windows.
+**PP scales well:** 446 tok/s at 3K → 277 tok/s at 128K (−38%). The low PP at 10 tokens (72 tok/s) is expected — too few tokens to amortize batch overhead.
 
 ---
 
