@@ -43,7 +43,7 @@ We run agentic LLM workloads on **3× RTX 3060 12 GB (36 GB VRAM)** and document
 
 | Model | Arch | Active | Speed @0 | Verdict | Notes |
 |-------|------|--------|----------|---------|-------|
-| [Qwen3.5-27B](models/qwen3.5-27b.md) | Hybrid (DeltaNet+Attn) | 27B | TBD | ✅ Production | 3×131K parallel, cheap KV (16/64 layers) |
+| [Qwen3.5-27B](models/qwen3.5-27b.md) | Hybrid (DeltaNet+Attn) | 27B | 13.5 tok/s | ✅ Production | 3×131K parallel, -44% @128K, cheap KV (16/64 layers) |
 | [GLM-4.7-Flash](models/glm-4.7-flash.md) | MoE ~4B | ~4B | 71 tok/s | ✅ Production | Best tool-calling quality, always-on thinking |
 | [Nemotron-3-Nano-30B](models/nemotron-3-nano-30b-a3b.md) | MoE (Mamba-2) | 3B | 96 tok/s | ✅ Production | Best speed retention at depth, controllable reasoning |
 | [Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md) | MoE | 3B | ~95 tok/s | 🟡 Pilot | Fits 24GB with vision; historical tool-loop risk |
