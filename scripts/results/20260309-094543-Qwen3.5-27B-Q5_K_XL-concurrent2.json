@@ -1,0 +1,266 @@
+{
+  "concurrency": 2,
+  "model": "Qwen3.5-27B-Q5_K_XL",
+  "results": [
+    {
+      "target": 64,
+      "actual_ctx": 50,
+      "avg_pp": 143.095,
+      "avg_tg": 7.85,
+      "tg_per_slot": [
+        7.85,
+        7.85
+      ],
+      "slots": {
+        "0": {
+          "pp_tokens": 50,
+          "tg_tokens": 128,
+          "pp_speed": 142.2,
+          "tg_speed": 7.85,
+          "pp_ms": 351.6,
+          "tg_ms": 16303.8
+        },
+        "1": {
+          "pp_tokens": 50,
+          "tg_tokens": 128,
+          "pp_speed": 143.99,
+          "tg_speed": 7.85,
+          "pp_ms": 347.2,
+          "tg_ms": 16303.8
+        }
+      }
+    },
+    {
+      "target": 3200,
+      "actual_ctx": 2462,
+      "avg_pp": 245.14,
+      "avg_tg": 8.74,
+      "tg_per_slot": [
+        9.34,
+        8.14
+      ],
+      "slots": {
+        "1": {
+          "pp_tokens": 2462,
+          "tg_tokens": 128,
+          "pp_speed": 271.51,
+          "tg_speed": 8.14,
+          "pp_ms": 9067.8,
+          "tg_ms": 15731.4
+        },
+        "0": {
+          "pp_tokens": 2462,
+          "tg_tokens": 128,
+          "pp_speed": 218.77,
+          "tg_speed": 9.34,
+          "pp_ms": 11254.0,
+          "tg_ms": 13706.2
+        }
+      }
+    },
+    {
+      "target": 6400,
+      "actual_ctx": 4924,
+      "avg_pp": 461.57000000000005,
+      "avg_tg": 8.865,
+      "tg_per_slot": [
+        9.26,
+        8.47
+      ],
+      "slots": {
+        "1": {
+          "pp_tokens": 4924,
+          "tg_tokens": 128,
+          "pp_speed": 395.69,
+          "tg_speed": 8.47,
+          "pp_ms": 12444.1,
+          "tg_ms": 15112.0
+        },
+        "0": {
+          "pp_tokens": 4924,
+          "tg_tokens": 128,
+          "pp_speed": 527.45,
+          "tg_speed": 9.26,
+          "pp_ms": 9335.5,
+          "tg_ms": 13827.5
+        }
+      }
+    },
+    {
+      "target": 9600,
+      "actual_ctx": 7385,
+      "avg_pp": 676.14,
+      "avg_tg": 8.685,
+      "tg_per_slot": [
+        8.3,
+        9.07
+      ],
+      "slots": {
+        "0": {
+          "pp_tokens": 7385,
+          "tg_tokens": 128,
+          "pp_speed": 579.48,
+          "tg_speed": 8.3,
+          "pp_ms": 12744.2,
+          "tg_ms": 15418.2
+        },
+        "1": {
+          "pp_tokens": 7385,
+          "tg_tokens": 128,
+          "pp_speed": 772.8,
+          "tg_speed": 9.07,
+          "pp_ms": 9556.1,
+          "tg_ms": 14105.1
+        }
+      }
+    },
+    {
+      "target": 12800,
+      "actual_ctx": 9847,
+      "avg_pp": 878.525,
+      "avg_tg": 8.565,
+      "tg_per_slot": [
+        8.18,
+        8.95
+      ],
+      "slots": {
+        "0": {
+          "pp_tokens": 9847,
+          "tg_tokens": 128,
+          "pp_speed": 753.12,
+          "tg_speed": 8.18,
+          "pp_ms": 13075.0,
+          "tg_ms": 15645.4
+        },
+        "1": {
+          "pp_tokens": 9847,
+          "tg_tokens": 128,
+          "pp_speed": 1003.93,
+          "tg_speed": 8.95,
+          "pp_ms": 9808.5,
+          "tg_ms": 14299.4
+        }
+      }
+    },
+    {
+      "target": 19200,
+      "actual_ctx": 14770,
+      "avg_pp": 791.995,
+      "avg_tg": 7.324999999999999,
+      "tg_per_slot": [
+        8.7,
+        5.95
+      ],
+      "slots": {
+        "1": {
+          "pp_tokens": 14770,
+          "tg_tokens": 128,
+          "pp_speed": 735.09,
+          "tg_speed": 5.95,
+          "pp_ms": 20092.7,
+          "tg_ms": 21530.1
+        },
+        "0": {
+          "pp_tokens": 14770,
+          "tg_tokens": 128,
+          "pp_speed": 848.9,
+          "tg_speed": 8.7,
+          "pp_ms": 17399.0,
+          "tg_ms": 14710.0
+        }
+      }
+    },
+    {
+      "target": 24000,
+      "actual_ctx": 18462,
+      "avg_pp": 1131.3400000000001,
+      "avg_tg": 7.26,
+      "tg_per_slot": [
+        6.06,
+        8.46
+      ],
+      "slots": {
+        "0": {
+          "pp_tokens": 18462,
+          "tg_tokens": 128,
+          "pp_speed": 1170.05,
+          "tg_speed": 6.06,
+          "pp_ms": 15778.8,
+          "tg_ms": 21112.9
+        },
+        "1": {
+          "pp_tokens": 18462,
+          "tg_tokens": 128,
+          "pp_speed": 1092.63,
+          "tg_speed": 8.46,
+          "pp_ms": 16896.8,
+          "tg_ms": 15137.7
+        }
+      }
+    },
+    {
+      "target": 32000,
+      "actual_ctx": 24616,
+      "avg_pp": 1075.25,
+      "avg_tg": 6.685,
+      "tg_per_slot": [
+        8.12,
+        5.25
+      ],
+      "slots": {
+        "1": {
+          "pp_tokens": 24616,
+          "tg_tokens": 128,
+          "pp_speed": 911.06,
+          "tg_speed": 5.25,
+          "pp_ms": 27019.0,
+          "tg_ms": 24361.3
+        },
+        "0": {
+          "pp_tokens": 24616,
+          "tg_tokens": 128,
+          "pp_speed": 1239.44,
+          "tg_speed": 8.12,
+          "pp_ms": 19860.5,
+          "tg_ms": 15767.9
+        }
+      }
+    },
+    {
+      "target": 64000,
+      "actual_ctx": 49231,
+      "avg_pp": 602.8399999999999,
+      "avg_tg": 4.295,
+      "tg_per_slot": [
+        7.06,
+        1.53
+      ],
+      "slots": {
+        "1": {
+          "pp_tokens": 49231,
+          "tg_tokens": 128,
+          "pp_speed": 581.62,
+          "tg_speed": 1.53,
+          "pp_ms": 84645.0,
+          "tg_ms": 83912.9
+        },
+        "0": {
+          "pp_tokens": 49231,
+          "tg_tokens": 128,
+          "pp_speed": 624.06,
+          "tg_speed": 7.06,
+          "pp_ms": 78888.1,
+          "tg_ms": 18137.7
+        }
+      }
+    },
+    {
+      "target": 95000,
+      "error": true
+    },
+    {
+      "target": 128000,
+      "error": true
+    }
+  ]
+}
