@@ -1,0 +1,610 @@
+{
+  "model": "Qwen3.5-35B-A3B-Q4_K_M-mainline-layer",
+  "results": [
+    {
+      "label": "1\u00d72K (baseline)",
+      "concurrency": 1,
+      "ctx_configs": [
+        2000
+      ],
+      "results": [
+        {
+          "slot": 0,
+          "target_ctx": 2000,
+          "actual_ctx": 2013,
+          "pp_toks": 776.19,
+          "tg_toks": 64.28,
+          "pp_tokens": 2013,
+          "tg_tokens": 8,
+          "pp_ms": 2593.445,
+          "tg_ms": 124.447,
+          "wall_s": 3.61
+        }
+      ],
+      "aggregate_tg": 64.28,
+      "min_tg": 64.28,
+      "max_tg": 64.28,
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used": 9957,
+          "util": 23
+        },
+        {
+          "index": 1,
+          "mem_used": 10019,
+          "util": 26
+        },
+        {
+          "index": 2,
+          "mem_used": 8751,
+          "util": 30
+        }
+      ],
+      "timestamp": "2026-03-14T14:29:55.873744+00:00"
+    },
+    {
+      "label": "2\u00d72K (symmetric)",
+      "concurrency": 2,
+      "ctx_configs": [
+        2000,
+        2000
+      ],
+      "results": [
+        {
+          "slot": 0,
+          "target_ctx": 2000,
+          "actual_ctx": 2013,
+          "pp_toks": 600.53,
+          "tg_toks": 38.78,
+          "pp_tokens": 2013,
+          "tg_tokens": 8,
+          "pp_ms": 3352.046,
+          "tg_ms": 206.3,
+          "wall_s": 5.43
+        },
+        {
+          "slot": 1,
+          "target_ctx": 2000,
+          "actual_ctx": 2013,
+          "pp_toks": 451.65,
+          "tg_toks": 8.51,
+          "pp_tokens": 2013,
+          "tg_tokens": 8,
+          "pp_ms": 4456.999,
+          "tg_ms": 940.06,
+          "wall_s": 5.41
+        }
+      ],
+      "aggregate_tg": 47.29,
+      "min_tg": 8.51,
+      "max_tg": 38.78,
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used": 9957,
+          "util": 27
+        },
+        {
+          "index": 1,
+          "mem_used": 10019,
+          "util": 26
+        },
+        {
+          "index": 2,
+          "mem_used": 8751,
+          "util": 39
+        }
+      ],
+      "timestamp": "2026-03-14T14:30:06.410718+00:00"
+    },
+    {
+      "label": "3\u00d72K (full slots)",
+      "concurrency": 3,
+      "ctx_configs": [
+        2000,
+        2000,
+        2000
+      ],
+      "results": [
+        {
+          "slot": 0,
+          "target_ctx": 2000,
+          "actual_ctx": 2013,
+          "pp_toks": 441.58,
+          "tg_toks": 2.37,
+          "pp_tokens": 2013,
+          "tg_tokens": 8,
+          "pp_ms": 4558.643,
+          "tg_ms": 3378.319,
+          "wall_s": 7.95
+        },
+        {
+          "slot": 1,
+          "target_ctx": 2000,
+          "actual_ctx": 2013,
+          "pp_toks": 345.39,
+          "tg_toks": 29.73,
+          "pp_tokens": 2013,
+          "tg_tokens": 8,
+          "pp_ms": 5828.205,
+          "tg_ms": 269.094,
+          "wall_s": 8.0
+        },
+        {
+          "slot": 2,
+          "target_ctx": 2000,
+          "actual_ctx": 2013,
+          "pp_toks": 395.03,
+          "tg_toks": 7.78,
+          "pp_tokens": 2013,
+          "tg_tokens": 8,
+          "pp_ms": 5095.875,
+          "tg_ms": 1028.212,
+          "wall_s": 7.98
+        }
+      ],
+      "aggregate_tg": 39.88,
+      "min_tg": 2.37,
+      "max_tg": 29.73,
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used": 9957,
+          "util": 30
+        },
+        {
+          "index": 1,
+          "mem_used": 10019,
+          "util": 30
+        },
+        {
+          "index": 2,
+          "mem_used": 8751,
+          "util": 32
+        }
+      ],
+      "timestamp": "2026-03-14T14:30:19.521607+00:00"
+    },
+    {
+      "label": "1\u00d716K (baseline)",
+      "concurrency": 1,
+      "ctx_configs": [
+        16000
+      ],
+      "results": [
+        {
+          "slot": 0,
+          "target_ctx": 16000,
+          "actual_ctx": 16013,
+          "pp_toks": 781.04,
+          "tg_toks": 57.65,
+          "pp_tokens": 16013,
+          "tg_tokens": 8,
+          "pp_ms": 20502.135,
+          "tg_ms": 138.772,
+          "wall_s": 20.68
+        }
+      ],
+      "aggregate_tg": 57.65,
+      "min_tg": 57.65,
+      "max_tg": 57.65,
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used": 9957,
+          "util": 29
+        },
+        {
+          "index": 1,
+          "mem_used": 10019,
+          "util": 30
+        },
+        {
+          "index": 2,
+          "mem_used": 8751,
+          "util": 33
+        }
+      ],
+      "timestamp": "2026-03-14T14:30:45.309043+00:00"
+    },
+    {
+      "label": "2\u00d716K (symmetric)",
+      "concurrency": 2,
+      "ctx_configs": [
+        16000,
+        16000
+      ],
+      "results": [
+        {
+          "slot": 0,
+          "target_ctx": 16000,
+          "actual_ctx": 16013,
+          "pp_toks": 671.48,
+          "tg_toks": 57.07,
+          "pp_tokens": 16013,
+          "tg_tokens": 8,
+          "pp_ms": 23847.252,
+          "tg_ms": 140.174,
+          "wall_s": 42.13
+        },
+        {
+          "slot": 1,
+          "target_ctx": 16000,
+          "actual_ctx": 16013,
+          "pp_toks": 670.0,
+          "tg_toks": 0.46,
+          "pp_tokens": 16013,
+          "tg_tokens": 8,
+          "pp_ms": 23899.854,
+          "tg_ms": 17256.687,
+          "wall_s": 41.2
+        }
+      ],
+      "aggregate_tg": 57.53,
+      "min_tg": 0.46,
+      "max_tg": 57.07,
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used": 9957,
+          "util": 24
+        },
+        {
+          "index": 1,
+          "mem_used": 10019,
+          "util": 19
+        },
+        {
+          "index": 2,
+          "mem_used": 8751,
+          "util": 34
+        }
+      ],
+      "timestamp": "2026-03-14T14:31:32.551209+00:00"
+    },
+    {
+      "label": "3\u00d716K (full slots)",
+      "concurrency": 3,
+      "ctx_configs": [
+        16000,
+        16000,
+        16000
+      ],
+      "results": [
+        {
+          "slot": 0,
+          "target_ctx": 16000,
+          "actual_ctx": 16013,
+          "pp_toks": 668.87,
+          "tg_toks": 0.42,
+          "pp_tokens": 16013,
+          "tg_tokens": 8,
+          "pp_ms": 23940.225,
+          "tg_ms": 19046.977,
+          "wall_s": 43.03
+        },
+        {
+          "slot": 1,
+          "target_ctx": 16000,
+          "actual_ctx": 16013,
+          "pp_toks": 578.0,
+          "tg_toks": 0.48,
+          "pp_tokens": 16013,
+          "tg_tokens": 8,
+          "pp_ms": 27704.04,
+          "tg_ms": 16659.011,
+          "wall_s": 62.52
+        },
+        {
+          "slot": 2,
+          "target_ctx": 16000,
+          "actual_ctx": 16013,
+          "pp_toks": 690.46,
+          "tg_toks": 57.15,
+          "pp_tokens": 16013,
+          "tg_tokens": 8,
+          "pp_ms": 23191.777,
+          "tg_ms": 139.993,
+          "wall_s": 63.46
+        }
+      ],
+      "aggregate_tg": 58.05,
+      "min_tg": 0.42,
+      "max_tg": 57.15,
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used": 9957,
+          "util": 22
+        },
+        {
+          "index": 1,
+          "mem_used": 10019,
+          "util": 30
+        },
+        {
+          "index": 2,
+          "mem_used": 8751,
+          "util": 27
+        }
+      ],
+      "timestamp": "2026-03-14T14:32:41.117130+00:00"
+    },
+    {
+      "label": "2\u00d7 asymmetric (2K+32K)",
+      "concurrency": 2,
+      "ctx_configs": [
+        2000,
+        32000
+      ],
+      "results": [
+        {
+          "slot": 0,
+          "target_ctx": 2000,
+          "actual_ctx": 2013,
+          "pp_toks": 395.27,
+          "tg_toks": 0.42,
+          "pp_tokens": 2013,
+          "tg_tokens": 8,
+          "pp_ms": 5092.664,
+          "tg_ms": 18864.859,
+          "wall_s": 24.15
+        },
+        {
+          "slot": 1,
+          "target_ctx": 32000,
+          "actual_ctx": 32013,
+          "pp_toks": 697.29,
+          "tg_toks": 51.05,
+          "pp_tokens": 32013,
+          "tg_tokens": 8,
+          "pp_ms": 45910.554,
+          "tg_ms": 156.706,
+          "wall_s": 46.26
+        }
+      ],
+      "aggregate_tg": 51.47,
+      "min_tg": 0.42,
+      "max_tg": 51.05,
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used": 9957,
+          "util": 19
+        },
+        {
+          "index": 1,
+          "mem_used": 10019,
+          "util": 34
+        },
+        {
+          "index": 2,
+          "mem_used": 8751,
+          "util": 22
+        }
+      ],
+      "timestamp": "2026-03-14T14:33:32.486400+00:00"
+    },
+    {
+      "label": "2\u00d7 asymmetric (8K+64K)",
+      "concurrency": 2,
+      "ctx_configs": [
+        8000,
+        64000
+      ],
+      "results": [
+        {
+          "slot": 0,
+          "target_ctx": 8000,
+          "actual_ctx": 8013,
+          "pp_toks": 610.84,
+          "tg_toks": 0.43,
+          "pp_tokens": 8013,
+          "tg_tokens": 8,
+          "pp_ms": 13117.984,
+          "tg_ms": 18670.389,
+          "wall_s": 32.1
+        },
+        {
+          "slot": 1,
+          "target_ctx": 64000,
+          "actual_ctx": 64013,
+          "pp_toks": 657.13,
+          "tg_toks": 42.25,
+          "pp_tokens": 64013,
+          "tg_tokens": 8,
+          "pp_ms": 97412.345,
+          "tg_ms": 189.354,
+          "wall_s": 105.55
+        }
+      ],
+      "aggregate_tg": 42.68,
+      "min_tg": 0.43,
+      "max_tg": 42.25,
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used": 9957,
+          "util": 31
+        },
+        {
+          "index": 1,
+          "mem_used": 10019,
+          "util": 34
+        },
+        {
+          "index": 2,
+          "mem_used": 8751,
+          "util": 19
+        }
+      ],
+      "timestamp": "2026-03-14T14:35:23.142720+00:00"
+    },
+    {
+      "label": "3\u00d7 mixed (2K+16K+64K)",
+      "concurrency": 3,
+      "ctx_configs": [
+        2000,
+        16000,
+        64000
+      ],
+      "results": [
+        {
+          "slot": 0,
+          "target_ctx": 2000,
+          "actual_ctx": 2013,
+          "pp_toks": 395.44,
+          "tg_toks": 0.43,
+          "pp_tokens": 2013,
+          "tg_tokens": 8,
+          "pp_ms": 5090.468,
+          "tg_ms": 18635.656,
+          "wall_s": 23.74
+        },
+        {
+          "slot": 1,
+          "target_ctx": 16000,
+          "actual_ctx": 16013,
+          "pp_toks": 682.23,
+          "tg_toks": 57.36,
+          "pp_tokens": 16013,
+          "tg_tokens": 8,
+          "pp_ms": 23471.503,
+          "tg_ms": 139.482,
+          "wall_s": 119.57
+        },
+        {
+          "slot": 2,
+          "target_ctx": 64000,
+          "actual_ctx": 64013,
+          "pp_toks": 641.74,
+          "tg_toks": 0.49,
+          "pp_tokens": 64013,
+          "tg_tokens": 8,
+          "pp_ms": 99749.365,
+          "tg_ms": 16394.969,
+          "wall_s": 118.64
+        }
+      ],
+      "aggregate_tg": 58.28,
+      "min_tg": 0.43,
+      "max_tg": 57.36,
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used": 9983,
+          "util": 21
+        },
+        {
+          "index": 1,
+          "mem_used": 10045,
+          "util": 30
+        },
+        {
+          "index": 2,
+          "mem_used": 8777,
+          "util": 26
+        }
+      ],
+      "timestamp": "2026-03-14T14:37:27.820107+00:00"
+    },
+    {
+      "label": "1\u00d764K (baseline)",
+      "concurrency": 1,
+      "ctx_configs": [
+        64000
+      ],
+      "results": [
+        {
+          "slot": 0,
+          "target_ctx": 64000,
+          "actual_ctx": 64013,
+          "pp_toks": 677.12,
+          "tg_toks": 42.04,
+          "pp_tokens": 64013,
+          "tg_tokens": 8,
+          "pp_ms": 94537.038,
+          "tg_ms": 190.316,
+          "wall_s": 94.86
+        }
+      ],
+      "aggregate_tg": 42.04,
+      "min_tg": 42.04,
+      "max_tg": 42.04,
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used": 9983,
+          "util": 23
+        },
+        {
+          "index": 1,
+          "mem_used": 10045,
+          "util": 32
+        },
+        {
+          "index": 2,
+          "mem_used": 8777,
+          "util": 26
+        }
+      ],
+      "timestamp": "2026-03-14T14:39:07.791213+00:00"
+    },
+    {
+      "label": "2\u00d732K (symmetric)",
+      "concurrency": 2,
+      "ctx_configs": [
+        32000,
+        32000
+      ],
+      "results": [
+        {
+          "slot": 0,
+          "target_ctx": 32000,
+          "actual_ctx": 32013,
+          "pp_toks": 684.11,
+          "tg_toks": 0.43,
+          "pp_tokens": 32013,
+          "tg_tokens": 8,
+          "pp_ms": 46795.148,
+          "tg_ms": 18806.156,
+          "wall_s": 65.82
+        },
+        {
+          "slot": 1,
+          "target_ctx": 32000,
+          "actual_ctx": 32013,
+          "pp_toks": 699.73,
+          "tg_toks": 51.32,
+          "pp_tokens": 32013,
+          "tg_tokens": 8,
+          "pp_ms": 45750.493,
+          "tg_ms": 155.884,
+          "wall_s": 87.0
+        }
+      ],
+      "aggregate_tg": 51.75,
+      "min_tg": 0.43,
+      "max_tg": 51.32,
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used": 9983,
+          "util": 27
+        },
+        {
+          "index": 1,
+          "mem_used": 10045,
+          "util": 27
+        },
+        {
+          "index": 2,
+          "mem_used": 8777,
+          "util": 36
+        }
+      ],
+      "timestamp": "2026-03-14T14:40:39.904879+00:00"
+    }
+  ]
+}

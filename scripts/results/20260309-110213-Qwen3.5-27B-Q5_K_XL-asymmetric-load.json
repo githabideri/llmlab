@@ -1,0 +1,83 @@
+{
+  "model": "Qwen3.5-27B-Q5_K_XL",
+  "config": "ubatch=128, parallel=3",
+  "results": [
+    {
+      "high_target": 60000,
+      "low_target": 5000,
+      "high_ctx": 46154,
+      "low_ctx": 3847,
+      "high_tg": 8.14,
+      "low_tg": 1.77,
+      "total_tg": 9.91
+    },
+    {
+      "high_target": 60000,
+      "low_target": 20000,
+      "high_ctx": 46154,
+      "low_ctx": 15385,
+      "high_tg": 7.1,
+      "low_tg": 7.7,
+      "total_tg": 14.8
+    },
+    {
+      "high_target": 60000,
+      "low_target": 30000,
+      "high_ctx": 46154,
+      "low_ctx": 23077,
+      "high_tg": 5.95,
+      "low_tg": 7.51,
+      "total_tg": 13.46
+    },
+    {
+      "high_target": 80000,
+      "low_target": 5000,
+      "high_ctx": 61539,
+      "low_ctx": 3847,
+      "high_tg": 7.62,
+      "low_tg": 1.86,
+      "total_tg": 9.48
+    },
+    {
+      "high_target": 80000,
+      "low_target": 20000,
+      "high_ctx": 61539,
+      "low_ctx": 15385,
+      "high_tg": 7.59,
+      "low_tg": 0.99,
+      "total_tg": 8.58
+    },
+    {
+      "high_target": 80000,
+      "low_target": 30000,
+      "high_ctx": 61539,
+      "low_ctx": 23077,
+      "high_tg": 7.16,
+      "low_tg": 8.24,
+      "total_tg": 15.4
+    },
+    {
+      "high_target": 100000,
+      "low_target": 5000,
+      "high_ctx": 76924,
+      "low_ctx": 3847,
+      "high_tg": 8.48,
+      "low_tg": 0.74,
+      "total_tg": 9.22
+    },
+    {
+      "high_target": 100000,
+      "low_target": 20000,
+      "high_ctx": 76924,
+      "low_ctx": 15385,
+      "high_tg": 7.27,
+      "low_tg": 0.69,
+      "total_tg": 7.959999999999999
+    },
+    {
+      "high_target": 100000,
+      "low_target": 30000,
+      "error": true
+    }
+  ]
+}
