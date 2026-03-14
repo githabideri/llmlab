@@ -1,0 +1,760 @@
+{
+  "model": "unknown-model",
+  "timestamp": "2026-03-12T22:10:57.764187Z",
+  "results": [
+    {
+      "target_ctx": 64,
+      "actual_ctx": 10,
+      "pp_toks": 128.89,
+      "tg_toks": 52.24,
+      "pp_ms": 77.586,
+      "tg_ms": 2373.826,
+      "total_time_s": 2.53,
+      "cpu_ram_pre": {},
+      "cpu_ram_post": {},
+      "gpu_pre": [
+        {
+          "index": 0,
+          "mem_used_mb": 7283,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 11.45
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7175,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 11.32
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6165,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 13.69
+        }
+      ],
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used_mb": 7283,
+          "mem_total_mb": 12288,
+          "util_percent": 27,
+          "power_watts": 58.3
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7175,
+          "mem_total_mb": 12288,
+          "util_percent": 33,
+          "power_watts": 56.42
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6165,
+          "mem_total_mb": 12288,
+          "util_percent": 38,
+          "power_watts": 63.57
+        }
+      ],
+      "timestamp": "2026-03-12T21:59:47.768896Z"
+    },
+    {
+      "target_ctx": 3200,
+      "actual_ctx": 3213,
+      "pp_toks": 733.11,
+      "tg_toks": 51.79,
+      "pp_ms": 4382.671,
+      "tg_ms": 2471.399,
+      "total_time_s": 6.91,
+      "cpu_ram_pre": {},
+      "cpu_ram_post": {},
+      "gpu_pre": [
+        {
+          "index": 0,
+          "mem_used_mb": 7283,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 37.72
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7175,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 32.76
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6165,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 35.95
+        }
+      ],
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used_mb": 7289,
+          "mem_total_mb": 12288,
+          "util_percent": 31,
+          "power_watts": 58.38
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7181,
+          "mem_total_mb": 12288,
+          "util_percent": 32,
+          "power_watts": 66.83
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6171,
+          "mem_total_mb": 12288,
+          "util_percent": 34,
+          "power_watts": 68.1
+        }
+      ],
+      "timestamp": "2026-03-12T21:59:56.816388Z"
+    },
+    {
+      "target_ctx": 6400,
+      "actual_ctx": 6413,
+      "pp_toks": 754.06,
+      "tg_toks": 50.5,
+      "pp_ms": 8504.664,
+      "tg_ms": 2534.815,
+      "total_time_s": 11.06,
+      "cpu_ram_pre": {},
+      "cpu_ram_post": {},
+      "gpu_pre": [
+        {
+          "index": 0,
+          "mem_used_mb": 7289,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 36.69
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7181,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 35.29
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6171,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 38.51
+        }
+      ],
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used_mb": 7295,
+          "mem_total_mb": 12288,
+          "util_percent": 29,
+          "power_watts": 59.31
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7187,
+          "mem_total_mb": 12288,
+          "util_percent": 33,
+          "power_watts": 64.83
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6177,
+          "mem_total_mb": 12288,
+          "util_percent": 36,
+          "power_watts": 69.89
+        }
+      ],
+      "timestamp": "2026-03-12T22:00:10.012362Z"
+    },
+    {
+      "target_ctx": 9600,
+      "actual_ctx": 9613,
+      "pp_toks": 760.95,
+      "tg_toks": 49.81,
+      "pp_ms": 12632.812,
+      "tg_ms": 2569.66,
+      "total_time_s": 15.23,
+      "cpu_ram_pre": {},
+      "cpu_ram_post": {},
+      "gpu_pre": [
+        {
+          "index": 0,
+          "mem_used_mb": 7295,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 37.18
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7187,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 30.53
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6177,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 39.24
+        }
+      ],
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used_mb": 7301,
+          "mem_total_mb": 12288,
+          "util_percent": 29,
+          "power_watts": 61.38
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7193,
+          "mem_total_mb": 12288,
+          "util_percent": 34,
+          "power_watts": 65.64
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6183,
+          "mem_total_mb": 12288,
+          "util_percent": 29,
+          "power_watts": 77.69
+        }
+      ],
+      "timestamp": "2026-03-12T22:00:27.379414Z"
+    },
+    {
+      "target_ctx": 12800,
+      "actual_ctx": 12813,
+      "pp_toks": 758.98,
+      "tg_toks": 48.69,
+      "pp_ms": 16881.837,
+      "tg_ms": 2628.902,
+      "total_time_s": 19.55,
+      "cpu_ram_pre": {},
+      "cpu_ram_post": {},
+      "gpu_pre": [
+        {
+          "index": 0,
+          "mem_used_mb": 7301,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 39.62
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7193,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 31.09
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6183,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 39.37
+        }
+      ],
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used_mb": 7307,
+          "mem_total_mb": 12288,
+          "util_percent": 30,
+          "power_watts": 64.06
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7199,
+          "mem_total_mb": 12288,
+          "util_percent": 32,
+          "power_watts": 61.62
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6189,
+          "mem_total_mb": 12288,
+          "util_percent": 34,
+          "power_watts": 79.57
+        }
+      ],
+      "timestamp": "2026-03-12T22:00:49.060125Z"
+    },
+    {
+      "target_ctx": 19200,
+      "actual_ctx": 19213,
+      "pp_toks": 748.86,
+      "tg_toks": 50.54,
+      "pp_ms": 25656.246,
+      "tg_ms": 158.288,
+      "total_time_s": 25.86,
+      "cpu_ram_pre": {},
+      "cpu_ram_post": {},
+      "gpu_pre": [
+        {
+          "index": 0,
+          "mem_used_mb": 7307,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 39.96
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7199,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 35.11
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6189,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 39.32
+        }
+      ],
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used_mb": 7319,
+          "mem_total_mb": 12288,
+          "util_percent": 61,
+          "power_watts": 68.88
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7211,
+          "mem_total_mb": 12288,
+          "util_percent": 35,
+          "power_watts": 85.0
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6201,
+          "mem_total_mb": 12288,
+          "util_percent": 24,
+          "power_watts": 70.66
+        }
+      ],
+      "timestamp": "2026-03-12T22:01:17.058794Z"
+    },
+    {
+      "target_ctx": 24000,
+      "actual_ctx": 24013,
+      "pp_toks": 738.35,
+      "tg_toks": 49.88,
+      "pp_ms": 32522.63,
+      "tg_ms": 160.37,
+      "total_time_s": 32.74,
+      "cpu_ram_pre": {},
+      "cpu_ram_post": {},
+      "gpu_pre": [
+        {
+          "index": 0,
+          "mem_used_mb": 7319,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 43.28
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7211,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 45.01
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6201,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 40.29
+        }
+      ],
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used_mb": 7331,
+          "mem_total_mb": 12288,
+          "util_percent": 36,
+          "power_watts": 73.99
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7223,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 85.63
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6213,
+          "mem_total_mb": 12288,
+          "util_percent": 54,
+          "power_watts": 70.98
+        }
+      ],
+      "timestamp": "2026-03-12T22:01:51.934968Z"
+    },
+    {
+      "target_ctx": 32000,
+      "actual_ctx": 32013,
+      "pp_toks": 719.85,
+      "tg_toks": 47.12,
+      "pp_ms": 44471.756,
+      "tg_ms": 169.786,
+      "total_time_s": 44.72,
+      "cpu_ram_pre": {},
+      "cpu_ram_post": {},
+      "gpu_pre": [
+        {
+          "index": 0,
+          "mem_used_mb": 7331,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 43.4
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7223,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 37.7
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6213,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 47.56
+        }
+      ],
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used_mb": 7347,
+          "mem_total_mb": 12288,
+          "util_percent": 6,
+          "power_watts": 69.7
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7239,
+          "mem_total_mb": 12288,
+          "util_percent": 24,
+          "power_watts": 88.2
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6229,
+          "mem_total_mb": 12288,
+          "util_percent": 62,
+          "power_watts": 67.31
+        }
+      ],
+      "timestamp": "2026-03-12T22:02:38.787373Z"
+    },
+    {
+      "target_ctx": 64000,
+      "actual_ctx": 64013,
+      "pp_toks": 655.01,
+      "tg_toks": 39.35,
+      "pp_ms": 97728.953,
+      "tg_ms": 203.293,
+      "total_time_s": 98.07,
+      "cpu_ram_pre": {},
+      "cpu_ram_post": {},
+      "gpu_pre": [
+        {
+          "index": 0,
+          "mem_used_mb": 7347,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 45.47
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7239,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 45.02
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6229,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 41.18
+        }
+      ],
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used_mb": 7409,
+          "mem_total_mb": 12288,
+          "util_percent": 75,
+          "power_watts": 68.97
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7301,
+          "mem_total_mb": 12288,
+          "util_percent": 80,
+          "power_watts": 90.14
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6291,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 60.8
+        }
+      ],
+      "timestamp": "2026-03-12T22:04:19.009607Z"
+    },
+    {
+      "target_ctx": 95000,
+      "actual_ctx": 95013,
+      "pp_toks": 603.22,
+      "tg_toks": 33.87,
+      "pp_ms": 157510.491,
+      "tg_ms": 236.181,
+      "total_time_s": 157.96,
+      "cpu_ram_pre": {},
+      "cpu_ram_post": {},
+      "gpu_pre": [
+        {
+          "index": 0,
+          "mem_used_mb": 7409,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 48.84
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7301,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 36.54
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6291,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 48.63
+        }
+      ],
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used_mb": 7469,
+          "mem_total_mb": 12288,
+          "util_percent": 40,
+          "power_watts": 81.12
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7361,
+          "mem_total_mb": 12288,
+          "util_percent": 57,
+          "power_watts": 91.71
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6351,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 63.99
+        }
+      ],
+      "timestamp": "2026-03-12T22:06:59.100277Z"
+    },
+    {
+      "target_ctx": 128000,
+      "actual_ctx": 128013,
+      "pp_toks": 559.52,
+      "tg_toks": 29.54,
+      "pp_ms": 228790.372,
+      "tg_ms": 270.844,
+      "total_time_s": 229.34,
+      "cpu_ram_pre": {},
+      "cpu_ram_post": {},
+      "gpu_pre": [
+        {
+          "index": 0,
+          "mem_used_mb": 7469,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 41.12
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7361,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 49.93
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6351,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 42.21
+        }
+      ],
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used_mb": 7535,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 78.31
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7427,
+          "mem_total_mb": 12288,
+          "util_percent": 36,
+          "power_watts": 87.42
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6417,
+          "mem_total_mb": 12288,
+          "util_percent": 31,
+          "power_watts": 73.36
+        }
+      ],
+      "timestamp": "2026-03-12T22:10:50.578439Z"
+    },
+    {
+      "target_ctx": 192000,
+      "actual_ctx": 0,
+      "pp_toks": 0,
+      "tg_toks": 0,
+      "pp_ms": 0,
+      "tg_ms": 0,
+      "total_time_s": 0.39,
+      "cpu_ram_pre": {},
+      "cpu_ram_post": {},
+      "gpu_pre": [
+        {
+          "index": 0,
+          "mem_used_mb": 7535,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 50.31
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7427,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 48.74
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6417,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 50.39
+        }
+      ],
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used_mb": 7535,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 42.42
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7427,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 37.01
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6417,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 41.87
+        }
+      ],
+      "timestamp": "2026-03-12T22:10:53.102929Z"
+    },
+    {
+      "target_ctx": 250000,
+      "actual_ctx": 0,
+      "pp_toks": 0,
+      "tg_toks": 0,
+      "pp_ms": 0,
+      "tg_ms": 0,
+      "total_time_s": 0.51,
+      "cpu_ram_pre": {},
+      "cpu_ram_post": {},
+      "gpu_pre": [
+        {
+          "index": 0,
+          "mem_used_mb": 7535,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 41.66
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7427,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 35.43
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6417,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 38.75
+        }
+      ],
+      "gpu_post": [
+        {
+          "index": 0,
+          "mem_used_mb": 7535,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 41.63
+        },
+        {
+          "index": 1,
+          "mem_used_mb": 7427,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 35.43
+        },
+        {
+          "index": 2,
+          "mem_used_mb": 6417,
+          "mem_total_mb": 12288,
+          "util_percent": 0,
+          "power_watts": 38.32
+        }
+      ],
+      "timestamp": "2026-03-12T22:10:55.752100Z"
+    }
+  ]
+}

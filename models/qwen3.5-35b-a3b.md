@@ -114,6 +114,42 @@ Vision preprocessing time scales with input resolution:
 
 Delta explained by: server overhead + thinking tokens + context depth overhead.
 
+## vLLM PP=3 profile (3× RTX 3060)
+
+### Tested model/engine
+- **Model:** `Qwen/Qwen3.5-35B-A3B-GPTQ-Int4` (official)
+- **Engine:** vLLM 0.17.1
+- **Parallelism:** `--pipeline-parallel-size 3`
+- **KV dtype:** `fp8_e4m3`
+
+### Stable high-throughput profile
+
+```bash
+--max-model-len 131072 \
+--max-num-seqs 3 \
+--max-num-batched-tokens 8192 \
+--performance-mode interactivity \
+--mamba-cache-mode align --mamba-block-size 8 \
+--enable-prefix-caching --enable-chunked-prefill \
+--gpu-memory-utilization 0.88 \
+--compilation-config '{"cudagraph_capture_sizes": [1,2,3]}'
+```
+
+### Key observations
+- **Post-warmup TG:** ~58–62 tok/s (single request)
+- **KV cache size:** 88,032 tokens (reported by vLLM)
+- **Available KV cache memory:** ~1.91 GiB
+- **Reported max concurrency @ 131K context:** 2.48×
+- Warmup can be slow due to JIT + CUDAGraph capture.
+
+### Concurrency benchmark highlights
+- `8K in / 256 out`, 50 prompts, 10 RPS:
+  - Peak concurrent requests: **50**
+  - Output throughput: **54.3 tok/s avg**, **130 tok/s peak**
+  - Total token throughput: **1790 tok/s**
+
+Reference experiment: `../experiments/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concurrency.md`
+
 ## Agentic behavior
 
 - Historical risk remains: we have prior sessions with runaway repeated tool calls.
@@ -139,3 +175,4 @@ Delta explained by: server overhead + thinking tokens + context depth overhead.
 - **2026-03-03 (early):** Retest confirms 24GB text+tools+vision viability with tuned runtime profile; verdict updated to pilot/lab-only.
 - **2026-03-03 (late):** Fixed reasoning loop issue by removing `--reasoning-format deepseek` flag (incompatible with Qwen3.5). Native thinking mode works correctly.
 - **2026-03-04:** Production serving performance benchmarked on 3×RTX 3060 (36GB). Added detailed speed metrics, context degradation analysis, and thinking overhead quantification.
+- **2026-03-14:** Added vLLM PP=3 deployment profile (official GPTQ-Int4), CUDAGraph tuning, KV/concurrency metrics, and high-concurrency benchmark results.
