@@ -2,7 +2,7 @@
 
 **Configuration:** Triple GPU consumer setup  
 **Total VRAM:** 36 GB (3 × 12,288 MiB)  
-**Use Case:** Multi-GPU LLM inference with llama.cpp  
+**Use Case:** Multi-GPU LLM inference with llama.cpp and vLLM  
 **Status:** Production-validated for models up to ~27B dense / ~35B MoE
 
 ---
@@ -130,6 +130,28 @@ llama-server \
 - This configuration was the production baseline before Qwen3.5-27B optimization
 - Demonstrated that 24GB MoE models are at the capacity limit for this hardware
 - Single-slot only (no headroom for `--parallel >1`)
+
+### vLLM with Tensor Parallel (Validated)
+
+vLLM works on this 3× GPU setup using tensor parallelism (TP=3), despite the asymmetric PCIe topology.
+
+**Validated model:** Qwen3-30B-A3B-GPTQ-Int4
+
+**Configuration:**
+```bash
+vllm serve Qwen/Qwen3-30B-A3B-GPTQ-Int4 \
+  --tensor-parallel-size 3 \
+  --max-model-len 32768 \
+  --gpu-memory-utilization 0.92
+```
+
+**Notes:**
+- TP=3 works across all 3 GPUs despite mixed x16/x4 PCIe lanes
+- GPTQ-Int4 quantization required (FP16 is too large for 36 GB)
+- Shorter context limits than llama.cpp (vLLM's memory management is less granular)
+- FlashInfer JIT compilation on first request can take 60-90s (cold start)
+- Suitable for GPTQ/AWQ quantized models where llama.cpp doesn't support the format
+- Not currently used in production (llama.cpp is faster for our workloads), but available as an option
 
 ---
 
@@ -302,9 +324,9 @@ Trade concurrency for total context capacity:
 **Current:** 3× RTX 3060 = 36 GB  
 **Potential:** 4× RTX 3060 = 48 GB
 
-**Limitation:** The 4th slot is PCIe x1 on this motherboard — insufficient bandwidth for LLM inference.
+**Limitation:** The 4th slot is PCIe x1 on this motherboard — likely insufficient bandwidth for LLM inference, though untested. Even the x4 slots already show bottlenecks at high context loads.
 
-**Workaround:** Requires motherboard upgrade to add a 4th usable GPU. Current system maxes out at 3 GPUs.
+**Status:** Impractical without motherboard upgrade. Current system maxes out at 3 usable GPUs.
 
 ---
 
@@ -352,19 +374,17 @@ Trade concurrency for total context capacity:
 
 ### Upgrading Individual GPUs
 
-**Option:** Replace 3× RTX 3060 12GB with 3× RTX 3060 Ti 16GB (if available).
+**Most realistic option:** Replace one or more RTX 3060 12GB with an RTX 3090 24GB.
 
-**Benefit:** 48 GB total VRAM (same as 4× 12GB), better performance per GPU.
+- 1× 3090 + 2× 3060 = 48 GB (mixed config, needs tensor-split adjustment)
+- 1× 3090 alone = 24 GB (simpler, faster per-token, less total VRAM)
+- Used market: €500-700 for a 3090 (prices fluctuate — watch for deals)
 
-**Cost:** ~$1,200-1,500 (3× $400-500).
+**Other options:**
+- **RTX 4090 24GB** — faster architecture, same 24 GB VRAM, ~€1,800+
+- **A6000 48GB** — workstation card, 48 GB in one slot, ~€3,500+ (used ~€2,000)
 
-### Switching to Larger Single GPU
-
-**Option:** Sell 3× 3060s, buy 1× RTX 4090 24GB or A6000 48GB.
-
-**Benefit:** Simpler configuration, no tensor-split tuning, better single-threaded performance.
-
-**Drawback:** Less total VRAM (4090) or very expensive (A6000 ~$4,000+).
+**Trade-off:** A single large GPU is simpler (no tensor-split), but multi-GPU gives more total VRAM per euro.
 
 ---
 
