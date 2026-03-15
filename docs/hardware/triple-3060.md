@@ -378,7 +378,7 @@ Trade concurrency for total context capacity:
 
 - 1× 3090 + 2× 3060 = 48 GB (mixed config, needs tensor-split adjustment)
 - 1× 3090 alone = 24 GB (simpler, faster per-token, less total VRAM)
-- Used market: €500-700 for a 3090 (prices fluctuate — watch for deals)
+- Austrian used market: €700-900 for a 3090 (prices fluctuate — watch willhaben/eBay Kleinanzeigen for deals)
 
 **Other options:**
 - **RTX 4090 24GB** — faster architecture, same 24 GB VRAM, ~€1,800+
