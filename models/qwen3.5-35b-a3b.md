@@ -1,8 +1,8 @@
 # Qwen3.5-35B-A3B
 
-**Base model:** [Qwen/Qwen3.5-35B-A3B](https://huggingface.co/Qwen/Qwen3.5-35B-A3B)  
-**Architecture:** DeltaNet linear attention + MoE (35B total, ~3B active)  
-**Quant used:** `Qwen_Qwen3.5-35B-A3B-Q4_K_M.gguf` (≈20 GB on disk)  
+**Base model:** [Qwen/Qwen3.5-35B-A3B](https://huggingface.co/Qwen/Qwen3.5-35B-A3B)
+**Architecture:** DeltaNet linear attention + MoE (35B total, ~3B active)
+**Quant used:** `Qwen_Qwen3.5-35B-A3B-Q4_K_M.gguf` (≈20 GB on disk)
 **Vision projector:** `mmproj-Qwen_Qwen3.5-35B-A3B-f16.gguf` (858 MB)
 
 ## Quick Facts
@@ -43,16 +43,16 @@ llama-server \
 
 The key was not changing the model quant; it was changing runtime pressure points:
 
-1. **Lowered context to 96k (`--ctx-size 98304`)**  
+1. **Lowered context to 96k (`--ctx-size 98304`)**
    Lower KV/cache footprint than 131k+ profiles.
 
-2. **Used `split-mode layer`**  
+2. **Used `split-mode layer`**
    Better memory balance for this dual-3060 PCIe setup.
 
-3. **Kept `parallel=1`**  
+3. **Kept `parallel=1`**
    Avoids extra slot overhead.
 
-4. **Used `--no-mmproj-offload`**  
+4. **Used `--no-mmproj-offload`**
    Prevents additional projector-offload pressure on already-tight VRAM.
 
 Observed runtime memory during active service stayed just under the cliff:
@@ -67,8 +67,8 @@ Tested on 3× RTX 3060 12GB (36GB total) with native thinking mode (no `--reason
 
 **Configuration:**
 ```bash
---ctx-size 262144 --parallel 1 --split-mode layer 
---gpu-layers 99 --cache-type-k q8_0 --cache-type-v q4_0 
+--ctx-size 262144 --parallel 1 --split-mode layer
+--gpu-layers 99 --cache-type-k q8_0 --cache-type-v q4_0
 --flash-attn on --jinja
 ```
 
@@ -136,7 +136,7 @@ Delta explained by: server overhead + thinking tokens + context depth overhead.
 ```
 
 ### Key observations
-- **Post-warmup TG:** ~58–62 tok/s (single request)
+- **Post-warmup TG:** ~58-62 tok/s (single request)
 - **KV cache size:** 88,032 tokens (reported by vLLM)
 - **Available KV cache memory:** ~1.91 GiB
 - **Reported max concurrency @ 131K context:** 2.48×
@@ -155,6 +155,27 @@ Reference experiment: `../experiments/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concur
 - Historical risk remains: we have prior sessions with runaway repeated tool calls.
 - In short retest prompts, tool usage was sane (single-call behavior where expected), but this is not yet enough to declare it fully stable under long mixed workloads.
 
+## vLLM Observations (2026-03-15)
+
+### Vision: NOT available via vLLM
+The vLLM start script uses `--language-model-only` to conserve VRAM for KV cache. Attempting image input returns `"At most 0 image(s) may be provided in one prompt."` This is a config choice, not a model limitation — removing the flag would enable vision but reduce available context.
+
+### Reasoning tokens compete with output budget
+The model returns `"content": null` with a `"reasoning"` field even for simple prompts. With low `max_tokens` (e.g. 10), all tokens go to reasoning → empty visible output. Minimum recommended: 8192+, production: 32768.
+
+### Agentic quality (extended session)
+During a ~2-hour agentic session (text + web research + tool calling):
+- ✅ Successfully chained multi-step tool workflows
+- ⚠️ Notably more scattered than frontier models: redundant API calls (same tool 4× in a row), 6+ failed approaches before finding solutions, verbose reasoning with less actionable output
+- Tool calling itself is functional and correct in format
+
+### LMCache: NOT compatible (as of vLLM 0.17.1 + LMCache 0.3.13)
+Enabling `--kv-transfer-config` with `LMCacheConnectorV1` crashes during model weight loading (`ValueError: could not determine the shape of object type 'torch.storage.UntypedStorage'`). Two separate issues:
+1. LMCache connector lacks `SupportsHMA` interface for hybrid models (upstream [#36771](https://github.com/vllm-project/vllm/issues/36771))
+2. LMCache 0.3.13 CUDA IPC wrappers leak `UntypedStorage` into safetensors loader
+
+Prefix caching (`--enable-prefix-caching`) works fine without LMCache.
+
 ## Verdict
 
 **🟡 PILOT / LAB-ONLY**
@@ -162,7 +183,7 @@ Reference experiment: `../experiments/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concur
 - ✅ Strong capability: one model for text + tools + vision on 24GB is possible.
 - ⚠️ Reliability caveat: tool-loop pathology still requires guardrails and soak observation.
 - ✅ Good fit for controlled llmlab experiments.
-- ❌ Not yet “set-and-forget production” without loop controls.
+- ❌ Not yet "set-and-forget production" without loop controls.
 
 ## References
 
@@ -176,3 +197,4 @@ Reference experiment: `../experiments/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concur
 - **2026-03-03 (late):** Fixed reasoning loop issue by removing `--reasoning-format deepseek` flag (incompatible with Qwen3.5). Native thinking mode works correctly.
 - **2026-03-04:** Production serving performance benchmarked on 3×RTX 3060 (36GB). Added detailed speed metrics, context degradation analysis, and thinking overhead quantification.
 - **2026-03-14:** Added vLLM PP=3 deployment profile (official GPTQ-Int4), CUDAGraph tuning, KV/concurrency metrics, and high-concurrency benchmark results.
+- **2026-03-15:** Added vLLM observations: vision disabled by config, reasoning token budget behavior, agentic quality notes, LMCache incompatibility (upstream #36771 + LMCache 0.3.13 regression).
