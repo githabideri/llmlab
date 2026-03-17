@@ -35,6 +35,7 @@ Chipset (PCIe lanes)
 - **GPU0:** Best for compute-heavy layers (input processing, first layers)
 - **GPU1/GPU2:** Equal priority, slightly slower inter-GPU transfers during prompt processing
 - **No NVLink:** Must use `--split-mode layer` (row-split unusably slow on PCIe)
+- **Observed in practice:** the x4 links on GPU1/GPU2 are a real constraint, but with the validated serving profile they are usually **not** the dominant bottleneck. Live `nvtop` monitoring during vLLM PP=3 load showed only brief saturation spikes with short utilization dips, rather than sustained bandwidth starvation.
 
 ### System Context
 
