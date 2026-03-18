@@ -14,7 +14,7 @@ We run agentic LLM workloads on **3× RTX 3060 12 GB (36 GB VRAM)** and document
 - **Real serving metrics** — `llama-bench` numbers are a starting point. Real-world serving with prompt caches, thinking tokens, and growing context tells a different story. We measure both.
 - **Multi-GPU optimization** — tensor-split tuning, compute buffer analysis, and [practical guides](docs/multi-gpu-tensor-split.md) for squeezing maximum context and parallelism out of consumer GPUs without NVLink.
 
-## Current setup
+## Hardware and serving setup
 
 ### Hardware
 - **GPU server:** 3× RTX 3060 12 GB (36 GB total), Intel i5-7400, PCIe x16 + x4 + x4 — [detailed hardware profile](docs/hardware/triple-3060.md)
@@ -24,7 +24,7 @@ We run agentic LLM workloads on **3× RTX 3060 12 GB (36 GB VRAM)** and document
 - **llama.cpp** remains the reference path for GGUF-based serving, tensor-split tuning, and long-context fitment work.
 - **vLLM** is now part of the documented production story as well, especially for GPTQ-based serving and higher aggregate concurrency with native prefix caching.
 
-### Currently validated highlights
+### Validated highlights
 - **[Qwen3.5-27B](models/qwen3.5-27b.md)** on llama.cpp (Dense, Q5_K_XL, ~19 GB) — `--parallel 3 --ctx-size 393216` = **3 concurrent sessions × 131K context**.
 - **[Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md)** on vLLM (GPTQ-Int4, PP=3) — dedicated validation in [the PP=3 experiment](experiments/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concurrency.md).
 - **CPU fallback:** [Nemotron-3-Nano-30B-A3B](models/nemotron-3-nano-30b-a3b.md).
