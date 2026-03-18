@@ -37,6 +37,8 @@ Chipset (PCIe lanes)
 - **No NVLink:** Must use `--split-mode layer` (row-split unusably slow on PCIe)
 - **Observed in practice:** the x4 links on GPU1/GPU2 are a real constraint, but with the validated serving profile they are usually **not** the dominant bottleneck. Live `nvtop` monitoring during vLLM PP=3 load showed only brief saturation spikes with short utilization dips, rather than sustained bandwidth starvation.
 
+<img src="../../experiments/assets/vllm-pp3-nvtop-pcie-2026-03-17.png" alt="nvtop snapshot during vLLM PP=3 load. GPU1/GPU2 briefly touch their PCIe ceiling, but the system is not pinned there continuously." width="50%" />
+
 ### System Context
 
 - **Host Type:** LXC container on Proxmox VE
@@ -132,47 +134,47 @@ llama-server \
 - Demonstrated that 24GB MoE models are at the capacity limit for this hardware
 - Single-slot only (no headroom for `--parallel >1`)
 
-### vLLM with Tensor Parallel (Validated)
+### vLLM with Pipeline Parallel (Validated)
 
-vLLM works on this 3× GPU setup using tensor parallelism (TP=3), despite the asymmetric PCIe topology.
+vLLM works on this 3× GPU setup using **pipeline parallelism (PP=3)** despite the asymmetric PCIe topology.
 
-**Validated model:** Qwen3-30B-A3B-GPTQ-Int4
+**Validated model:** Qwen3.5-35B-A3B-GPTQ-Int4
 
-**Configuration:**
+**Configuration (validated profile):**
 ```bash
-vllm serve Qwen/Qwen3-30B-A3B-GPTQ-Int4 \
-  --tensor-parallel-size 3 \
-  --max-model-len 32768 \
-  --gpu-memory-utilization 0.92
+vllm serve Qwen/Qwen3.5-35B-A3B-GPTQ-Int4 \
+  --pipeline-parallel-size 3 \
+  --max-model-len 131072 \
+  --max-num-seqs 3 \
+  --max-num-batched-tokens 8192 \
+  --gpu-memory-utilization 0.88
 ```
 
 **Notes:**
-- TP=3 works across all 3 GPUs despite mixed x16/x4 PCIe lanes
-- GPTQ-Int4 quantization required (FP16 is too large for 36 GB)
-- Shorter context limits than llama.cpp (vLLM's memory management is less granular)
+- PP=3 works across all 3 GPUs despite mixed x16/x4 PCIe lanes
+- GPTQ-Int4 quantization required for this class of model on 36 GB total VRAM
 - FlashInfer JIT compilation on first request can take 60-90s (cold start)
-- Suitable for GPTQ/AWQ quantized models where llama.cpp doesn't support the format
-- Not currently used in production (llama.cpp is faster for our workloads), but available as an option
+- Native prefix caching is an important part of the serving profile
+- See `experiments/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concurrency.md` for the dedicated validation write-up and measured throughput
 
 ---
 
 ## Capacity Planning Matrix
 
-### What Fits on 3× RTX 3060 12GB
+### What Fits on 3× RTX 3060 12GB (**llama.cpp profiles**)
 
 | Model Size (on GPU) | Quant | Example Model | Fit? | Max Context | Parallel Slots | Notes |
 |---------------------|-------|---------------|------|-------------|----------------|-------|
-| **~13 GB** | Q5_K_M | LLaMA-2-13B | ✅ Excellent | 262K+ | 4-6 | Plenty of headroom |
 | **~19 GB** | Q5_K_XL | Qwen3.5-27B (dense) | ✅ Good | 393K (3×131K) | 3 | Validated config |
 | **~22 GB** | Q4_K_M | Nemotron-30B-A3B | ✅ Tight | 262K | 1-2 | <1GB headroom |
 | **~24 GB** | Q4_K_M | Qwen3.5-35B-A3B | ⚠️ Very tight | 262K | 1 | <500MB margin |
 | **~28 GB+** | Any | 70B+ models | ❌ No fit | — | — | Exceeds capacity |
 
-**General guidelines:**
+**General guidelines for the llama.cpp configurations above:**
 - **<19 GB model:** Comfortable fit, multi-slot serving viable
 - **19-22 GB model:** Fits well, 2-3 slots possible with tuning
 - **22-24 GB model:** Tight fit, single-slot only, <500 MiB margins
-- **>24 GB model:** Does not fit (requires 4× GPUs or larger GPUs)
+- **>24 GB model:** Does not fit comfortably in the current 3-GPU llama.cpp layouts without changing the hardware story or serving strategy
 
 ### Quantization Trade-offs
 
@@ -327,7 +329,7 @@ Trade concurrency for total context capacity:
 
 **Limitation:** The 4th slot is PCIe x1 on this motherboard — likely insufficient bandwidth for LLM inference, though untested. Even the x4 slots already show bottlenecks at high context loads.
 
-**Status:** Impractical without motherboard upgrade. Current system maxes out at 3 usable GPUs.
+**Status:** Not part of the validated profile yet. The current documented setup uses 3 GPUs, but further expansion via the remaining x1 Gen3 slots is still an open experiment rather than a ruled-out path.
 
 ---
 
@@ -341,7 +343,7 @@ Trade concurrency for total context capacity:
 | **Max model size** | ~24 GB | ~20 GB |
 | **TG speed** | 60-85 tok/s | 80-120 tok/s (faster per GPU) |
 | **PP speed** | 270-441 tok/s | 500-800 tok/s (better bandwidth) |
-| **Cost** | ~$900 (3× $300) | ~$1,200 (used market) |
+| **Cost** | ~€600-900 (3× €200-300, Austrian used market) | ~€800-900 (Austrian used market) |
 | **Power draw** | ~510W (3× 170W) | ~350W |
 
 **Trade-off:** 3× 3060 provides more total VRAM and better cost-per-GB, but single 3090 is faster per operation and more power-efficient.
@@ -354,9 +356,9 @@ Trade concurrency for total context capacity:
 | **Architecture** | Ampere (3000 series) | Ada (4000 series) |
 | **TG speed** | 60-85 tok/s | ~100-130 tok/s (newer arch) |
 | **PP speed** | 270-441 tok/s | ~600-900 tok/s (better bandwidth) |
-| **Cost** | ~$900 | ~$1,000 (2× $500) |
+| **Cost** | ~€600-900 | ~€800-1000 (2× €400-500) |
 
-**Trade-off:** 4060 Ti is faster but has 4 GB less total VRAM. Better for speed-critical workloads; 3× 3060 better for fitting larger models.
+**Trade-off:** 4060 Ti offers a newer architecture but only 288 GB/s memory bandwidth versus 360 GB/s on the RTX 3060 12GB, so it is not automatically a token-generation win despite looking newer on paper. It also has 4 GB less total VRAM in the 2-card comparison. The 3× 3060 setup remains attractive for larger-model fitment and balanced local-LLM serving.
 
 ---
 
