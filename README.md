@@ -19,15 +19,16 @@ We run agentic LLM workloads on **3× RTX 3060 12 GB (36 GB VRAM)** and document
 ### Hardware
 - **GPU server:** 3× RTX 3060 12 GB (36 GB total), Intel i5-7400, PCIe x16 + x4 + x4 — [detailed hardware profile](docs/hardware/triple-3060.md)
 - **CPU fallback:** Intel i5-8400T, 64 GB DDR4-2667, llama.cpp
-- **Runtime:** llama.cpp (`llama-server`) with `-sm layer -fa 1 -ctk q8_0 -ctv q4_0`
 
-### Active model focus (March 2026)
-- **[Qwen3.5-27B](models/qwen3.5-27b.md)** (Dense, Q5_K_XL, 19 GB) — 48 DeltaNet recurrent + 16 attention layers. Running `--parallel 3 --ctx-size 393216` = **3 concurrent sessions × 131K context**. KV cache is cheap (only 16/64 layers use it).
-- **Fallbacks:**
-  - [Nemotron-3-Nano-30B-A3B](models/nemotron-3-nano-30b-a3b.md) on CPU (~5 tok/s)
-- **Previous configs (24 GB era):**
-  - [Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md) (Q4_K_M) — MoE, single slot, `ctx=98k`
-  - [GLM-4.7-Flash](models/glm-4.7-flash.md) for high-trust tool workflows
+### Runtime profiles
+- **llama.cpp** remains the reference path for GGUF-based serving, tensor-split tuning, and long-context fitment work.
+- **vLLM** is now part of the documented production story as well, especially for GPTQ-based serving and higher aggregate concurrency with native prefix caching.
+
+### Currently validated highlights
+- **[Qwen3.5-27B](models/qwen3.5-27b.md)** on llama.cpp (Dense, Q5_K_XL, ~19 GB) — `--parallel 3 --ctx-size 393216` = **3 concurrent sessions × 131K context**.
+- **[Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md)** on vLLM (GPTQ-Int4, PP=3) — dedicated validation in [the PP=3 experiment](experiments/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concurrency.md).
+- **CPU fallback:** [Nemotron-3-Nano-30B-A3B](models/nemotron-3-nano-30b-a3b.md).
+- **Earlier 24 GB-era baselines:** [GLM-4.7-Flash](models/glm-4.7-flash.md), [Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md).
 
 ### Key findings
 
@@ -41,16 +42,16 @@ We run agentic LLM workloads on **3× RTX 3060 12 GB (36 GB VRAM)** and document
 
 ### Models tested
 
-| Model | Arch | Active | Speed @0 | Verdict | Notes |
-|-------|------|--------|----------|---------|-------|
-| [Qwen3.5-27B](models/qwen3.5-27b.md) | Hybrid (DeltaNet+Attn) | 27B | 13.5 tok/s | ✅ Production | 3×131K parallel, -44% @128K, cheap KV (16/64 layers) |
-| [GLM-4.7-Flash](models/glm-4.7-flash.md) | MoE ~4B | ~4B | 71 tok/s | ✅ Production | Best tool-calling quality, always-on thinking |
-| [Nemotron-3-Nano-30B](models/nemotron-3-nano-30b-a3b.md) | MoE (Mamba-2) | 3B | 96 tok/s | ✅ Production | Best speed retention at depth, controllable reasoning |
-| [Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md) | MoE | 3B | ~95 tok/s | 🟡 Pilot | Fits 24GB with vision; historical tool-loop risk |
-| [LFM2-24B-A2B](models/lfm2-24b-a2b.md) | MoE | 2B | 115 tok/s | ❌ Failed | Speed king but hallucinates freely, abandons tools |
-| [Nanbeige4.1-3B](models/nanbeige4.1-3b.md) | Dense | 3B | ~80 tok/s | ❌ Failed | Leaks `<think>` blocks, can't disable reasoning |
-| [ZwZ-4B](models/zwz-4b.md) | Dense | 4B | 77 tok/s | 🟡 Parked | Multimodal arch, untested for agentic |
-| [Qwen3-Coder-REAP](models/qwen3-coder-next-reap-40b-a3b.md) | MoE | 3B | ~90 tok/s | 🟡 Mixed | Good code, context degradation issues |
+| Model | Main validated serving path | Arch | Verdict | Notes |
+|-------|-----------------------------|------|---------|-------|
+| [Qwen3.5-27B](models/qwen3.5-27b.md) | llama.cpp | Hybrid (DeltaNet+Attn) | ✅ Production | 3×131K parallel, strong fit for the 3×3060 GGUF path |
+| [Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md) | vLLM + llama.cpp | MoE | ✅/🟡 Mixed by backend | Important current model: validated on vLLM PP=3; historically tighter and riskier on 24 GB llama.cpp configs |
+| [GLM-4.7-Flash](models/glm-4.7-flash.md) | llama.cpp | MoE ~4B | ✅ Production | Best tool-calling quality in earlier 24 GB-era work |
+| [Nemotron-3-Nano-30B](models/nemotron-3-nano-30b-a3b.md) | llama.cpp / CPU fallback | MoE (Mamba-2) | ✅ Production | Excellent speed retention at depth; useful fallback profile |
+| [LFM2-24B-A2B](models/lfm2-24b-a2b.md) | llama.cpp | MoE | ❌ Failed | Extremely fast but unreliable for agentic work |
+| [Nanbeige4.1-3B](models/nanbeige4.1-3b.md) | llama.cpp | Dense | ❌ Failed | Leaks `<think>` blocks, can't disable reasoning |
+| [ZwZ-4B](models/zwz-4b.md) | llama.cpp | Dense | 🟡 Parked | Multimodal arch, untested for agentic |
+| [Qwen3-Coder-REAP](models/qwen3-coder-next-reap-40b-a3b.md) | llama.cpp | MoE | 🟡 Mixed | Good code, context degradation issues |
 
 ### Context degradation (the number that actually matters)
 
@@ -76,11 +77,12 @@ From a 79-request GLM production session:
 
 | Guide | Description |
 |-------|-------------|
-| [Multi-GPU Tensor-Split](docs/multi-gpu-tensor-split.md) | How to optimize layer distribution across GPUs — ceiling testing, `output.weight` gotcha, `--parallel` effects |
-| [Hardware: Triple 3060](docs/hardware/triple-3060.md) | Our specific 3×3060 setup — validated configs, VRAM budgets, capacity planning |
+| [Multi-GPU Tensor-Split](docs/multi-gpu-tensor-split.md) | How to optimize layer distribution across GPUs for llama.cpp — ceiling testing, `output.weight` gotcha, `--parallel` effects |
+| [Hardware: Triple 3060](docs/hardware/triple-3060.md) | Our specific 3×3060 setup — validated llama.cpp configs, vLLM PP=3 note, VRAM budgets, capacity planning |
 | [Architecture](docs/architecture.md) | System architecture overview |
 | [Runbook](docs/runbook.md) | Start/stop servers, common operations |
 | [Troubleshooting](docs/troubleshooting.md) | Common issues and fixes |
+| [Qwen3.5-35B-A3B vLLM PP=3 experiment](experiments/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concurrency.md) | Dedicated write-up for the validated vLLM deployment profile and concurrency behavior |
 
 ## Repo structure
 
