@@ -8,9 +8,9 @@ The project has three goals: keep runtime configs and results in one place, make
 
 The repository is organized around day-to-day operations and durable learning. Runbooks cover service lifecycle and standard checks, benchmarks document flags and interpretation, and experiments follow a consistent structure (goal → setup → commands → metrics → conclusion). For policy-level behavior, see `docs/thinking-policy.md`; for command-level control, see `docs/localbot.md`.
 
-## Current focus (Feb 2026)
+## Current focus
 
-The current emphasis is Nemotron reasoning-profile tuning (A/B/C) and fair comparison discipline across two run classes: `reduced-thinking-balanced` and `non-thinking-speed`. The practical objective is clear operating guidance for speed-versus-quality tradeoffs in daily use.
+The current emphasis is practical local serving on constrained hardware: multi-GPU llama.cpp fitment, validated vLLM deployment profiles, context-depth behavior, and realistic agent-style workloads rather than toy chat benchmarks. The aim is durable operating guidance for what actually works on consumer hardware once context growth, prompt reuse, and scheduler behavior are taken seriously.
 
 ## What is intentionally excluded
 
