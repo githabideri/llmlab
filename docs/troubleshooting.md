@@ -1,5 +1,9 @@
 # Troubleshooting
 
+## Grammar parsing errors
+- Symptom: "failed to parse grammar" with tool-call schemas
+- Fix: increase `MAX_REPETITION_THRESHOLD` in source → [llama-cpp-grammar-workaround.md](./llama-cpp-grammar-workaround.md)
+
 ## Flash‑Attn disabled
 - Symptom: log shows “Flash Attention was auto, set to disabled”
 - Fix: rebuild llama.cpp with **FA all‑quants** support
