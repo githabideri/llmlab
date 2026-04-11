@@ -3,6 +3,8 @@
 *.swp
 .DS_Store
 scripts/.env
+scripts/forensics/.env
+scripts/forensics/.env.local
 
 # Python
 __pycache__/
