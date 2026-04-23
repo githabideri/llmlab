@@ -4,12 +4,12 @@ A hobbyist's notebook for running local LLMs on consumer GPUs — focused on wha
 
 ## What this is
 
-We run agentic LLM workloads on **3× RTX 3060 12 GB (36 GB VRAM)** and document everything: configs that work, models that don't, performance numbers from real serving (not just `llama-bench`), and the weird edge cases you only find by actually using these things.
+We run agentic LLM workloads on **2× RTX 3060 12 GB + 1× RTX 3090 24 GB (48 GB VRAM)** and document everything: configs that work, models that don't, performance numbers from real serving (not just `llama-bench`), and the weird edge cases you only find by actually using these things.
 
-> *We started with a dual 3060 setup (24 GB) and upgraded to triple in early March 2026 — unlocking dense 27B models and 3-way parallel serving that wasn't possible before.*
+> *We started with a dual 3060 setup (24 GB) and added an RTX 3090 (24 GB) in early March 2026 — unlocking dense 27B models and multi-GPU parallel serving.*
 
 **Focus areas:**
-- **MoE and hybrid models** — the sweet spot for interactive use on limited VRAM. Small active parameters = fast generation, large total parameters = good quality. Dense models are on the table too now that we have 36 GB to play with.
+- **MoE and hybrid models** — the sweet spot for interactive use on limited VRAM. Small active parameters = fast generation, large total parameters = good quality. Dense models are on the table too now that we have 48 GB to play with.
 - **Agentic tool-calling** — not just chat, but models driving multi-step tool chains (web search → fetch → analyze → file ops). We test with [OpenClaw](https://github.com/openclaw/openclaw), which is demanding enough that if a model works here, it'll work in any general-purpose agentic setup.
 - **Real serving metrics** — `llama-bench` numbers are a starting point. Real-world serving with prompt caches, thinking tokens, and growing context tells a different story. We measure both.
 - **Multi-GPU optimization** — tensor-split tuning, compute buffer analysis, and [practical guides](docs/multi-gpu-tensor-split.md) for squeezing maximum context and parallelism out of consumer GPUs without NVLink.
@@ -17,7 +17,7 @@ We run agentic LLM workloads on **3× RTX 3060 12 GB (36 GB VRAM)** and document
 ## Hardware and serving setup
 
 ### Hardware
-- **GPU server:** 3× RTX 3060 12 GB (36 GB total), Intel i5-7400, PCIe x16 + x4 + x4 — [detailed hardware profile](docs/hardware/triple-3060.md)
+- **GPU server:** 2× RTX 3060 12 GB + 1× RTX 3090 24 GB (48 GB total), Intel i5-7400, PCIe x16 + x4 + x4 — [detailed hardware profile](docs/hardware/triple-3060.md)
 - **CPU fallback:** Intel i5-8400T, 64 GB DDR4-2667, llama.cpp
 
 ### Runtime profiles
@@ -25,6 +25,7 @@ We run agentic LLM workloads on **3× RTX 3060 12 GB (36 GB VRAM)** and document
 - **vLLM** is now part of the documented production story as well, especially for GPTQ-based serving and higher aggregate concurrency with native prefix caching.
 
 ### Validated highlights
+- **[Qwen3.6-27B](models/qwen3.6-27b-rtx3090.md)** on llama.cpp (Dense, Q4_K_M, ~16 GB) — **single RTX 3090**, long-context profile at 204K context.
 - **[Qwen3.5-27B](models/qwen3.5-27b.md)** on llama.cpp (Dense, Q5_K_XL, ~19 GB) — `--parallel 3 --ctx-size 393216` = **3 concurrent sessions × 131K context**.
 - **[Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md)** on vLLM (GPTQ-Int4, PP=3) — dedicated validation in [the PP=3 experiment](experiments/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concurrency.md).
 - **CPU fallback:** [Nemotron-3-Nano-30B-A3B](models/nemotron-3-nano-30b-a3b.md).
@@ -36,7 +37,7 @@ We run agentic LLM workloads on **3× RTX 3060 12 GB (36 GB VRAM)** and document
 
 **`output.weight` lands on the last GPU.** In llama.cpp's split-mode layer, the output projection (~1+ GB) is hardcoded to the last GPU. This creates asymmetric VRAM pressure that must be compensated with tensor-split ratios. See our [multi-GPU tensor-split guide](docs/multi-gpu-tensor-split.md).
 
-**`--parallel N` shrinks compute buffers.** More slots = smaller per-slot compute buffers, which frees VRAM for KV cache. On our 3×3060 setup, going from parallel 1→3 freed enough headroom for 3× the concurrent sessions at 131K each. The tradeoff: per-slot context shrinks proportionally.
+**`--parallel N` shrinks compute buffers.** More slots = smaller per-slot compute buffers, which frees VRAM for KV cache. On our 2×3060 setup, going from parallel 1→3 freed enough headroom for 3× the concurrent sessions at 131K each. The tradeoff: per-slot context shrinks proportionally.
 
 ## What we've learned
 
@@ -44,7 +45,7 @@ We run agentic LLM workloads on **3× RTX 3060 12 GB (36 GB VRAM)** and document
 
 | Model | Main validated serving path | Arch | Verdict | Notes |
 |-------|-----------------------------|------|---------|-------|
-| [Qwen3.5-27B](models/qwen3.5-27b.md) | llama.cpp | Hybrid (DeltaNet+Attn) | ✅ Production | 3×131K parallel, strong fit for the 3×3060 GGUF path |
+| [Qwen3.6-27B](models/qwen3.6-27b-rtx3090.md) | llama.cpp | Hybrid (recurrent+attn) | ✅ Production | Single RTX 3090, 204K long-context, multimodal tested |
 | [Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md) | vLLM + llama.cpp | MoE | ✅/🟡 Mixed by backend | Important current model: validated on vLLM PP=3; historically tighter and riskier on 24 GB llama.cpp configs |
 | [GLM-4.7-Flash](models/glm-4.7-flash.md) | llama.cpp | MoE ~4B | ✅ Production | Best tool-calling quality in earlier 24 GB-era work |
 | [Nemotron-3-Nano-30B](models/nemotron-3-nano-30b-a3b.md) | llama.cpp / CPU fallback | MoE (Mamba-2) | ✅ Production | Excellent speed retention at depth; useful fallback profile |
@@ -78,7 +79,7 @@ From a 79-request GLM production session:
 | Guide | Description |
 |-------|-------------|
 | [Multi-GPU Tensor-Split](docs/multi-gpu-tensor-split.md) | How to optimize layer distribution across GPUs for llama.cpp — ceiling testing, `output.weight` gotcha, `--parallel` effects |
-| [Hardware: Triple 3060](docs/hardware/triple-3060.md) | Our specific 3×3060 setup — validated llama.cpp configs, vLLM PP=3 note, VRAM budgets, capacity planning |
+| [Hardware: Triple 3060](docs/hardware/triple-3060.md) | Our 2×3060 + 3090 setup — validated llama.cpp configs, vLLM PP=3 note, VRAM budgets, capacity planning |
 | [Architecture](docs/architecture.md) | System architecture overview |
 | [Runbook](docs/runbook.md) | Start/stop servers, common operations |
 | [Troubleshooting](docs/troubleshooting.md) | Common issues and fixes |
@@ -138,9 +139,10 @@ KV cache per token varies wildly between architectures (Nemotron: 2.25 KiB, Qwen
 | Period | Setup | VRAM | Key models |
 |--------|-------|------|------------|
 | Jan–Feb 2026 | 2× RTX 3060 12 GB | 24 GB | GLM-4.7-Flash, Nemotron-30B, Qwen3.5-35B-A3B |
-| Mar 2026+ | 3× RTX 3060 12 GB | 36 GB | Qwen3.5-27B (dense), 3-slot parallel serving |
+| Mar 2026+ | 2× RTX 3060 + 1× RTX 3090 | 48 GB | Qwen3.5-27B (dense), 3-slot parallel serving |
+| Apr 2026 | 1× RTX 3090 24 GB | 24 GB | Qwen3.6-27B (dense), 204K long-context |
 
-The third GPU opened up dense models and multi-session serving that wasn't feasible at 24 GB. See [hardware profile](docs/hardware/triple-3060.md) for the full story.
+The RTX 3090 addition opened up dense models and multi-session serving that wasn't feasible at 24 GB. See [hardware profile](docs/hardware/triple-3060.md) for the full story.
 
 ## Safety note
 
