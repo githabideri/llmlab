@@ -47,6 +47,7 @@ We run agentic LLM workloads on **2× RTX 3060 12 GB + 1× RTX 3090 24 GB (48 GB
 |-------|-----------------------------|------|---------|-------|
 | [Qwen3.6-27B](models/qwen3.6-27b-rtx3090.md) | llama.cpp | Hybrid (recurrent+attn) | ✅ Production | Single RTX 3090, 204K long-context, multimodal tested |
 | [Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md) | vLLM + llama.cpp | MoE | ✅/🟡 Mixed by backend | Important current model: validated on vLLM PP=3; historically tighter and riskier on 24 GB llama.cpp configs |
+| [Gemma 4 26B-A4B](models/gemma-4-26b-a4b.md) | llama.cpp | Hybrid attention / A4B MoE-style sparse activation | 🟡 Pilot | Dual-3060 text-only path validated; `q8_0/q8_0` KV was dramatically better than `q8_0/q4_0` on this setup |
 | [GLM-4.7-Flash](models/glm-4.7-flash.md) | llama.cpp | MoE ~4B | ✅ Production | Best tool-calling quality in earlier 24 GB-era work |
 | [Nemotron-3-Nano-30B](models/nemotron-3-nano-30b-a3b.md) | llama.cpp / CPU fallback | MoE (Mamba-2) | ✅ Production | Excellent speed retention at depth; useful fallback profile |
 | [LFM2-24B-A2B](models/lfm2-24b-a2b.md) | llama.cpp | MoE | ❌ Failed | Extremely fast but unreliable for agentic work |
