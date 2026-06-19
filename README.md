@@ -22,10 +22,11 @@ We run agentic LLM workloads on **2× RTX 3060 12 GB + 1× RTX 3090 24 GB (48 GB
 
 ### Runtime profiles
 - **llama.cpp** remains the reference path for GGUF-based serving, tensor-split tuning, and long-context fitment work.
+- **BeeLlama.cpp** ([fork](https://github.com/Anbeeld/beellama.cpp)) is now the production path for Qwen3.6-27B on the RTX 3090 — adds DFlash speculative decoding (2-3× on structured output) and TCQ KV-cache compression. See [backend docs](docs/backend-beellama.md).
 - **vLLM** is now part of the documented production story as well, especially for GPTQ-based serving and higher aggregate concurrency with native prefix caching.
 
 ### Validated highlights
-- **[Qwen3.6-27B](models/qwen3.6-27b-rtx3090.md)** on llama.cpp (Dense, Q4_K_M, ~16 GB) — **single RTX 3090**, long-context profile at 204K context.
+- **[Qwen3.6-27B](models/qwen3.6-27b-rtx3090.md)** on BeeLlama.cpp (Dense, Q5_K_S + DFlash, ~19 GB) — **single RTX 3090**, 160K context, 2-3× decode speedup on structured output. [Cutover experiment](experiments/2026-06-19-beellama-dflash-cutover.md).
 - **[Qwen3.5-27B](models/qwen3.5-27b.md)** on llama.cpp (Dense, Q5_K_XL, ~19 GB) — `--parallel 3 --ctx-size 393216` = **3 concurrent sessions × 131K context**.
 - **[Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md)** on vLLM (GPTQ-Int4, PP=3) — dedicated validation in [the PP=3 experiment](experiments/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concurrency.md).
 - **CPU fallback:** [Nemotron-3-Nano-30B-A3B](models/nemotron-3-nano-30b-a3b.md).
@@ -45,7 +46,7 @@ We run agentic LLM workloads on **2× RTX 3060 12 GB + 1× RTX 3090 24 GB (48 GB
 
 | Model | Main validated serving path | Arch | Verdict | Notes |
 |-------|-----------------------------|------|---------|-------|
-| [Qwen3.6-27B](models/qwen3.6-27b-rtx3090.md) | llama.cpp | Hybrid (recurrent+attn) | ✅ Production | Single RTX 3090, 204K long-context, multimodal tested |
+| [Qwen3.6-27B](models/qwen3.6-27b-rtx3090.md) | BeeLlama.cpp + DFlash | Hybrid (recurrent+attn) | ✅ Production | Single RTX 3090, 160K context, DFlash 2-3× decode speedup, vision deployed |
 | [Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md) | vLLM + llama.cpp | MoE | ✅/🟡 Mixed by backend | Important current model: validated on vLLM PP=3; historically tighter and riskier on 24 GB llama.cpp configs |
 | [Gemma 4 26B-A4B](models/gemma-4-26b-a4b.md) | llama.cpp | Hybrid attention / A4B MoE-style sparse activation | 🟡 Pilot | Dual-3060 text-only path validated; `q8_0/q8_0` KV was dramatically better than `q8_0/q4_0` on this setup |
 | [GLM-4.7-Flash](models/glm-4.7-flash.md) | llama.cpp | MoE ~4B | ✅ Production | Best tool-calling quality in earlier 24 GB-era work |
@@ -142,6 +143,7 @@ KV cache per token varies wildly between architectures (Nemotron: 2.25 KiB, Qwen
 | Jan–Feb 2026 | 2× RTX 3060 12 GB | 24 GB | GLM-4.7-Flash, Nemotron-30B, Qwen3.5-35B-A3B |
 | Mar 2026+ | 2× RTX 3060 + 1× RTX 3090 | 48 GB | Qwen3.5-27B (dense), 3-slot parallel serving |
 | Apr 2026 | 1× RTX 3090 24 GB | 24 GB | Qwen3.6-27B (dense), 204K long-context |
+| Jun 2026 | 1× RTX 3090 24 GB | 24 GB | Qwen3.6-27B + DFlash (BeeLlama), 160K context, vision deployed |
 
 The RTX 3090 addition opened up dense models and multi-session serving that wasn't feasible at 24 GB. See [hardware profile](docs/hardware/triple-3060.md) for the full story.
 

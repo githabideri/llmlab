@@ -3,7 +3,8 @@
 **Compute layout**
 - **Host:** Proxmox + ZFS
 - **Containers:**
-  - **llama.cpp** (inference)
+  - **llama.cpp** (inference, mainline — reference path)
+  - **BeeLlama.cpp** (inference, production — DFlash speculative decoding, TCQ KV cache)
   - **vLLM** (optional UI/serving)
   - **Ollama** (optional quick‑run service)
 
@@ -15,7 +16,8 @@
   - `hf/` (HF cache)
 
 **GPU topology**
-- Dual RTX 3060 12GB, row‑split across GPUs (`--split-mode row`, `--tensor-split A/B`)
+- 1x RTX 3090 24GB (single-GPU: Qwen3.6-27B, BeeLlama + DFlash)
+- 2x RTX 3060 12GB (multi-GPU: layer-split via `--split-mode layer`, `--tensor-split A/B`)
 
 **Key assumptions**
 - 10 GbE or local access not required (single‑host)
