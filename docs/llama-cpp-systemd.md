@@ -1,15 +1,77 @@
-# llama.cpp systemd Service Configuration
+# llama.cpp / BeeLlama.cpp systemd Service Configuration
 
-**Service:** `llama-server.service`  
-**Logs:** `/var/log/llama-server.log`
+**Services:** `beellama-qwen3.6-27b.service` (production), `llama-server-qwen3.6-vision.service` (vision), plus legacy units  
+**Logs:** `journalctl -u <service>`
 
 ---
 
-## Service File Location
+## Production Services
 
-`/etc/systemd/system/llama-server.service`
+### BeeLlama Qwen3.6-27B (Port 8080, RTX 3090)
 
-## Current Configuration
+**Service:** `beellama-qwen3.6-27b.service`  
+**Unit:** `/etc/systemd/system/beellama-qwen3.6-27b.service`  
+**Status:** ✅ Active, enabled  
+**Cutover:** 2026-06-19 (replaced mainline llama.cpp Q4_K_M)
+
+```ini
+[Unit]
+Description=BeeLlama Qwen3.6-27B with DFlash (3090, 160K ctx)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/beellama.cpp
+Environment=LD_LIBRARY_PATH=/opt/beellama.cpp/build/bin
+Environment=CUDA_VISIBLE_DEVICES=0
+ExecStart=/opt/beellama.cpp/build/bin/llama-server \
+  --device CUDA0 \
+  -m /mnt/models/gguf/qwen3.6-27b/Qwen3.6-27B-Q5_K_S.gguf \
+  --mmproj /mnt/models/gguf/qwen3.6-27b/mmproj-Qwen_Qwen3.6-27B-f16.gguf \
+  --no-mmproj-offload \
+  --spec-draft-model /mnt/models/gguf/qwen3.6-27b-dflash/Qwen3.6-27B-DFlash-Q4_K_M.gguf \
+  --spec-type dflash \
+  --spec-dflash-cross-ctx 1024 \
+  -ngl all \
+  --spec-draft-ngl all \
+  --kv-unified \
+  -np 1 \
+  -b 2048 -ub 512 \
+  --ctx-size 163840 \
+  --cache-type-k q5_0 --cache-type-v q4_1 \
+  --flash-attn on \
+  --jinja \
+  --no-mmap --mlock \
+  --reasoning on \
+  --chat-template-kwargs '{"preserve_thinking":true}' \
+  --temp 0.6 --top-k 20 --top-p 1.0 --min-p 0.0 \
+  --host 0.0.0.0 \
+  --port 8080
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Qwen3.6-35B-A3B Vision (Port 8081, Dual RTX 3060)
+
+**Service:** `llama-server-qwen3.6-vision.service`  
+**Status:** ✅ Active, enabled  
+**Model:** Qwen3.6-35B-A3B-UD-IQ4_XS + Vision (mainline llama.cpp)
+
+### Legacy Service (Rollback)
+
+**Service:** `llama-server-qwen3.6-27b-longctx.service`  
+**Status:** Enabled, inactive — kept for boot safety / rollback  
+**Model:** Qwen3.6-27B-Q4_K_M (mainline llama.cpp, 204K context)
+
+### Legacy Reference Unit
+
+**Service:** `llama-server.service`  
+**Status:** Disabled — old reference config (GLM-4.7-Flash), no longer used
 
 ```ini
 [Unit]
@@ -144,12 +206,14 @@ curl -s http://localhost:8080/metrics | grep tokens_seconds
 
 ## Model History
 
-| Date | Model | Notes |
-|------|-------|-------|
-| 2026-02-24 | GLM-4.7-Flash Q4_K_XL | Current (MLA, 4.7B active) |
-| 2026-02-23 | ZwZ-4B Q6_K | Vision model test |
-| 2026-02-19 | Nemotron-30B-A3B IQ4_NL | MoE baseline |
-| 2026-02-19 | Qwen3-30B-A3B Q4_K_M | Dense 30B test |
+| Date | Service | Model | Notes |
+|------|---------|-------|-------|
+| 2026-06-19 | `beellama-qwen3.6-27b` | Qwen3.6-27B-Q5_K_S + DFlash | Production cutover, BeeLlama.cpp b10102 |
+| 2026-04-23 | `llama-server-qwen3.6-27b-longctx` | Qwen3.6-27B-Q4_K_M | Mainline llama.cpp, 204K context (now rollback only) |
+| 2026-02-24 | `llama-server` | GLM-4.7-Flash Q4_K_XL | Old reference config (disabled) |
+| 2026-02-23 | — | ZwZ-4B Q6_K | Vision model test |
+| 2026-02-19 | — | Nemotron-30B-A3B IQ4_NL | MoE baseline |
+| 2026-02-19 | — | Qwen3-30B-A3B Q4_K_M | Dense 30B test |
 
 ---
 

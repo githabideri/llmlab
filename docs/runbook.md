@@ -1,5 +1,49 @@
 # Runbook
 
+## BeeLlama Qwen3.6-27B — Production (Port 8080, RTX 3090)
+
+**Service:** `beellama-qwen3.6-27b.service` (CT 327, wgpx15)
+
+```bash
+# Status
+systemctl status beellama-qwen3.6-27b
+
+# Restart (after config change)
+systemctl daemon-reload && systemctl restart beellama-qwen3.6-27b
+
+# Health
+curl -s http://localhost:8080/health
+
+# Logs
+journalctl -u beellama-qwen3.6-27b -f
+
+# Rollback to old service (mainline llama.cpp Q4_K_M)
+systemctl stop beellama-qwen3.6-27b
+systemctl start llama-server-qwen3.6-27b-longctx
+curl -s http://localhost:8080/health
+```
+
+### DFlash Debugging
+
+```bash
+# Enable DFlash profiling (set before starting service or via env override)
+export GGML_DFLASH_PROFILE=1    # summary + timing
+export GGML_DFLASH_DEBUG=1      # prefill route, capture decisions
+export GGML_DFLASH_KV_CACHE_MODE=both  # control drafter KV cache
+
+# Check draft acceptance in logs
+journalctl -u beellama-qwen3.6-27b | grep -i 'draft\|dflash'
+```
+
+### Common Issues
+
+| Symptom | Check | Fix |
+|---------|-------|-----|
+| ~11 tok/s (not 40+) | GDN warning in logs | Add `-ngl all` — required for Qwen3.5/3.6 |
+| Slow prefill (~200 tok/s) | `-ub` flag | Use `-ub 512` (not 128) |
+| CUDA OOM on start | `nvidia-smi` | Reduce `--ctx-size` or check for other processes on GPU |
+| Draft acceptance 0% | `--spec-draft-model` path | Verify draft GGUF exists and is correct model |
+
 ## llama.cpp — start (Nemotron recommended profile)
 
 ```bash
