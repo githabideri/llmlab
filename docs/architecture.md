@@ -3,8 +3,7 @@
 **Compute layout**
 - **Host:** Proxmox + ZFS
 - **Containers:**
-  - **llama.cpp** (inference, mainline — reference path)
-  - **BeeLlama.cpp** (inference, production — DFlash speculative decoding, TCQ KV cache)
+  - **CT 327 (llama-cpp):** Primary inference — BeeLlama.cpp (production), llama.cpp (reference/fallback)
   - **vLLM** (optional UI/serving)
   - **Ollama** (optional quick‑run service)
 
@@ -20,7 +19,7 @@
 - 2x RTX 3060 12GB (multi-GPU: layer-split via `--split-mode layer`, `--tensor-split A/B`)
 
 **Key assumptions**
-- 10 GbE or local access not required (single‑host)
-- Batch sizes tuned for single‑user latency
+- Batch sizes tuned for single-user latency
+- BeeLlama is production path for structured output (code, JSON, tool calls). llama.cpp remains reference path and fallback.
 
 > If you adapt this, replace paths with your local equivalents.
