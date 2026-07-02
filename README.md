@@ -40,6 +40,8 @@ We run agentic LLM workloads on **2× RTX 3060 12 GB + 1× RTX 3090 24 GB (48 GB
 
 **`--parallel N` shrinks compute buffers.** More slots = smaller per-slot compute buffers, which frees VRAM for KV cache. On our 2×3060 setup, going from parallel 1→3 freed enough headroom for 3× the concurrent sessions at 131K each. The tradeoff: per-slot context shrinks proportionally.
 
+**KV cache is tiny for hybrid models.** Qwen3.6-35B-A3B has 40 layers but only 10 are full_attention — the other 30 are linear attention (DeltaNet) with zero KV cache. At q8_0/q4_0 quantization, 128K context uses only 938 MiB of VRAM. See [KV cache sizing guide](docs/kv-cache-sizing.md) for per-model calculations.
+
 ## What we've learned
 
 ### Models tested
@@ -86,6 +88,14 @@ From a 79-request GLM production session:
 | [Runbook](docs/runbook.md) | Start/stop servers, common operations |
 | [Troubleshooting](docs/troubleshooting.md) | Common issues and fixes |
 | [Qwen3.5-35B-A3B vLLM PP=3 experiment](experiments/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concurrency.md) | Dedicated write-up for the validated vLLM deployment profile and concurrency behavior |
+
+## Reports
+
+Date-stamped write-ups of investigations and deployments — snapshots of what we knew at the time, no future maintenance needed.
+
+| Report | Description |
+|--------|-------------|
+| [Qwen3.6-35B-A3B-MTP on Single 3060](reports/2026-06-30-qwen3.6-35b-a3b-mtp-single-3060.md) | MoE offload mechanics, n-cpu-moe sweep, practical config for RTX 3060 12GB |
 
 ## Repo structure
 
