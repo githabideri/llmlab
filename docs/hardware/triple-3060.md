@@ -266,6 +266,8 @@ Understanding where VRAM goes helps optimize configurations.
 
 **Do NOT use `q3_0` for K-cache** — K projections are sensitive to quantization, degrades retrieval quality significantly.
 
+**See also:** `../kv-cache-sizing.md` for per-model cache calculations, architecture breakdown, and quality benchmarks.
+
 ### 3. Parallel Slot Tuning
 
 Trade concurrency for total context capacity:

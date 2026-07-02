@@ -62,6 +62,53 @@ WantedBy=multi-user.target
 **Status:** ✅ Active, enabled  
 **Model:** Qwen3.6-35B-A3B-UD-IQ4_XS + Vision (mainline llama.cpp)
 
+### Qwen3.6-35B-A3B-MTP (Port 8080, RTX 3060, llama-backup)
+
+**Host:** llama-backup (LXC 382, 192.168.0.82, on backup Proxmox)  
+**Service:** `llama-server.service`  
+**Unit:** `/etc/systemd/system/llama-server.service`  
+**Status:** ✅ Active, enabled  
+**Deployed:** 2026-07-02  
+**Model:** Qwen3.6-35B-A3B-UD-Q4_K_XL (22 GB, MoE, MTP)  
+**GPU:** RTX 3060 12GB, CUDA 13.1, llama.cpp b9850  
+**Context:** 128K, hybrid CPU+GPU offload
+
+```ini
+[Unit]
+Description=llama.cpp Qwen3.6-35B-A3B-MTP (RTX 3060, 128K ctx)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/llama.cpp
+Environment=LD_LIBRARY_PATH=/opt/llama.cpp/build/bin
+Environment=CUDA_VISIBLE_DEVICES=0
+ExecStart=/opt/llama.cpp/build/bin/llama-server \
+  -m /mnt/models/qwen3.6-35b-a3b-mtp-q4/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf \
+  --spec-type draft-mtp --spec-draft-n-max 2 \
+  -ngl 99 --n-cpu-moe 28 \
+  -c 131072 \
+  -ctk q8_0 -ctv q4_0 \
+  -b 4096 -ub 1536 \
+  --flash-attn on \
+  --no-mmap \
+  -np 1 \
+  --jinja \
+  --reasoning-preserve \
+  --host 0.0.0.0 \
+  --port 8080 \
+  --metrics
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**VRAM:** ~9.9 / 12.3 GiB | **CPU RAM:** ~15-18 / 20 GiB
+
 ### Legacy Service (Rollback)
 
 **Service:** `llama-server-qwen3.6-27b-longctx.service`  
