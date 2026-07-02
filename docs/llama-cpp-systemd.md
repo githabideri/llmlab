@@ -64,7 +64,7 @@ WantedBy=multi-user.target
 
 ### Qwen3.6-35B-A3B-MTP (Port 8080, RTX 3060, llama-backup)
 
-**Host:** llama-backup (LXC 382, REDACTED-IP, on backup Proxmox)  
+**Host:** llama-backup (LXC, private homelab)  
 **Service:** `llama-server.service`  
 **Unit:** `/etc/systemd/system/llama-server.service`  
 **Status:** ✅ Active, enabled  
