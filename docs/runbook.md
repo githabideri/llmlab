@@ -101,7 +101,7 @@ curl -sS http://127.0.0.1:8080/v1/models | head
 ```
 
 ## Common adjustments
-- **Lower memory:** reduce `--ctx-size`, reduce `--parallel`, or tune KV cache types
+- **Lower memory:** reduce `--ctx-size`, reduce `--parallel`, or tune KV cache types (see `kv-cache-sizing.md` for per-model calculations)
 - **Balance GPUs:** adjust `--tensor-split A,B`
 - **Reasoning volume:** keep `--reasoning-format deepseek`; tune prompt policy before forcing budget 0
 
