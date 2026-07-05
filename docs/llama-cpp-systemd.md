@@ -42,7 +42,7 @@ ExecStart=/opt/beellama.cpp/build/bin/llama-server \
   --cache-type-k q5_0 --cache-type-v q4_1 \
   --flash-attn on \
   --jinja \
-  --no-mmap --mlock \
+  --mmap --mlock \
   --reasoning on \
   --chat-template-kwargs '{"preserve_thinking":true}' \
   --temp 0.6 --top-k 20 --top-p 1.0 --min-p 0.0 \

@@ -102,7 +102,7 @@ llama-server \
   --cache-type-k q5_0 --cache-type-v q4_1 \
   --flash-attn on \
   --jinja \
-  --no-mmap --mlock \
+  --mmap --mlock \
   --no-host \
   --reasoning on \
   --chat-template-kwargs '{"preserve_thinking":true}' \
