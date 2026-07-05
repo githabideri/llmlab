@@ -42,7 +42,7 @@ ExecStart=/opt/beellama.cpp/build/bin/llama-server \
   --cache-type-k q5_0 --cache-type-v q4_1 \
   --flash-attn on \
   --jinja \
-  --no-mmap --mlock \
+  --mmap --mlock \
   --reasoning on \
   --chat-template-kwargs '{"preserve_thinking":true}' \
   --temp 0.6 --top-k 20 --top-p 1.0 --min-p 0.0 \
@@ -64,7 +64,7 @@ WantedBy=multi-user.target
 
 ### Qwen3.6-35B-A3B-MTP (Port 8080, RTX 3060, llama-backup)
 
-**Host:** llama-backup (LXC 382, 192.168.0.82, on backup Proxmox)  
+**Host:** llama-backup (LXC 382, REDACTED-IP, on backup Proxmox)  
 **Service:** `llama-server.service`  
 **Unit:** `/etc/systemd/system/llama-server.service`  
 **Status:** ✅ Active, enabled  

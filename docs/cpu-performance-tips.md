@@ -92,7 +92,7 @@ llama-server --model model.gguf --threads -1
 - Slower model load
 - Higher initial memory footprint
 
-**Recommendation:** Use `--mmap` by default; switch to `--no-mmap` only if you get OOM errors.
+**Recommendation:** Use `--mmap` by default. Switch to `--no-mmap` only if memory-mapped files cause I/O stalls (rare with sufficient RAM and `--mlock`).
 
 ---
 
@@ -178,8 +178,8 @@ cat /proc/cpuinfo | grep avx2
 # 1. Reduce context size
 llama-server --model model.gguf --ctx-size 4096
 
-# 2. Disable mmap
-llama-server --model model.gguf --no-mmap
+# 2. Ensure mmap is enabled (default) — it keeps model in page cache, not anonymous RSS
+# (if accidentally set to --no-mmap, remove it)
 
 # 3. Use smaller quantization
 # Download IQ3_M or IQ4_XS instead of Q4_K_M
@@ -188,9 +188,11 @@ llama-server --model model.gguf --no-mmap
 ### OOM Errors
 
 1. **Reduce context size** - KV cache is often the culprit
-2. **Use `--no-mmap`** - More predictable memory
-3. **Smaller quantization** - IQ3_S, IQ2_KS
+2. **Use `--mmap`** (default) - Lets the OS page-cache the model file and reclaim under pressure. Only switch to `--no-mmap` when memory-mapped files cause I/O stalls.
+3. **KV cache quantization** - Lower KV cache precision (`q4_0`/`q4_0`, `turbo3_tcq`)
 4. **Smaller model** - Drop down a size class
+
+**Important:** `--no-mmap` loads the entire model into anonymous CPU memory, which can *cause* OOM on memory-constrained systems (e.g., 18-19GB models on 30GB containers). With `--mmap`, the model stays in the page cache and the kernel can reclaim pages under pressure. Combined with `--mlock`, actively-touched pages stay resident while untouched pages are evictable.
 
 ---
 
