@@ -86,6 +86,9 @@ Environment=LD_LIBRARY_PATH=/opt/llama.cpp/build/bin
 Environment=CUDA_VISIBLE_DEVICES=0
 ExecStart=/opt/llama.cpp/build/bin/llama-server \
   -m /mnt/models/qwen3.6-35b-a3b-mtp-q4/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf \
+  --mmproj /mnt/models/qwen3.6-35b-a3b-mtp-q4/mmproj-F16.gguf \
+  --no-mmproj-offload \
+  --image-min-tokens 1024 \
   --spec-type draft-mtp --spec-draft-n-max 2 \
   -ngl 99 --n-cpu-moe 28 \
   -c 131072 \
