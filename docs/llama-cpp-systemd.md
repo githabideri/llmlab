@@ -12,6 +12,8 @@
 **Service:** `beellama-qwen3.6-27b.service`  
 **Unit:** `/etc/systemd/system/beellama-qwen3.6-27b.service`  
 **Status:** ✅ Active, enabled  
+**GPU:** RTX 3090 24GB (CUDA0)  
+**Context:** 160K, DFlash speculative decoding  
 **Cutover:** 2026-06-19 (replaced mainline llama.cpp Q4_K_M)
 
 ```ini
@@ -59,8 +61,50 @@ WantedBy=multi-user.target
 ### Qwen3.6-35B-A3B Vision (Port 8081, Dual RTX 3060)
 
 **Service:** `llama-server-qwen3.6-vision.service`  
+**Unit:** `/etc/systemd/system/llama-server-qwen3.6-vision.service`  
 **Status:** ✅ Active, enabled  
-**Model:** Qwen3.6-35B-A3B-UD-IQ4_XS + Vision (mainline llama.cpp)
+**Model:** Qwen3.6-35B-A3B-UD-IQ4_XS + Vision (mainline llama.cpp)  
+**GPU:** 2× RTX 3060 12GB (tensor-split 50,50, CUDA1,CUDA2)  
+**Context:** 256K, 2 parallel slots
+
+```ini
+[Unit]
+Description=Qwen 3.6-35B-A3B IQ4_XS Vision Server (Dual 3060, 256K, 2 slots)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/llama.cpp
+Environment=LD_LIBRARY_PATH=/opt/llama.cpp/build/bin
+Environment=CUDA_VISIBLE_DEVICES=1,2
+ExecStart=/opt/llama.cpp/build/bin/llama-server \
+  --device CUDA0,CUDA1 \
+  -m /mnt/models/gguf/qwen3.6-35b-unsloth/Qwen3.6-35B-A3B-UD-IQ4_XS.gguf \
+  --mmproj /mnt/models/gguf/qwen3.6-35b-unsloth/mmproj-BF16.gguf \
+  --host 0.0.0.0 \
+  --port 8081 \
+  -c 262144 \
+  --parallel 2 \
+  --tensor-split 50,50 \
+  --cache-type-k q8_0 \
+  --cache-type-v q4_0 \
+  --batch-size 1024 \
+  --ubatch-size 128 \
+  --flash-attn on \
+  --jinja \
+  --metrics \
+  --cache-prompt \
+  --cache-ram 2048
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Drop-in:** `10-wait-for-8080.conf` — `ExecStartPre` waits for 27B (:8080) health before starting, avoids boot-time IO storm.
 
 ### Qwen3.6-35B-A3B-MTP (Port 8080, RTX 3060, llama-backup)
 
