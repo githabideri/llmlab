@@ -1,31 +1,12 @@
----
-title: "Running Qwen3.6-35B at 28 tok/s on a Laptop — MTP + Vulkan iGPU"
-date: 2026-07-24
-tags:
-  - llama-cpp
-  - mtp
-  - qwen3.6
-  - vulkan
-  - laptop
-  - amd-igpu
-  - benchmark
-type: report
-status: done
----
-
 # Running Qwen3.6-35B at 28 tok/s on a Laptop — MTP + Vulkan iGPU
 
 ## Overview
 
-This report documents running a 35B-parameter MoE model (Qwen3.6-35B-A3B) at **28.7 tokens/second** on a consumer laptop with integrated graphics — no discrete GPU required. The key is combining three techniques: **Multi-Token Prediction (MTP)**, **APEX quantization**, and **KV cache quantization** on AMD's Vulkan iGPU backend.
+Notes on running Qwen3.6-35B-A3B (MoE, 35B total / 3B active) on a laptop with integrated graphics using llama.cpp's Vulkan backend. Peak generation reaches ~28 tok/s with MTP speculative decoding enabled.
 
-**Hardware:** AMD Ryzen 7 7840U (8C/16T), Radeon 780M iGPU, 90 GB DDR5 — a mid-range 2024 laptop.
+**Hardware:** AMD Ryzen 7 7840U (8C/16T), Radeon 780M iGPU, 90 GB DDR5.
 
-**TL;DR:** MTP (speculative decoding using auxiliary prediction heads) gives 13× speedup over baseline. APEX quantization beats Q4_K_M on MoE models. q8_0 KV cache is essential on iGPU — q4_0 kills performance via dequantization overhead.
-
-## Why This Matters
-
-35B models were previously impractical on laptops without discrete GPUs. Even with quantization, generation speeds of 2-4 tok/s made interactive use painful. MTP changes this by predicting multiple tokens per forward pass, dramatically reducing the number of expensive attention computations.
+**Key findings:** MTP gives large speedups when available. q4_0 KV cache is slow on iGPU due to dequantization overhead — q8_0 is the practical choice. APEX quantization is smaller and faster than Q4_K_M on this MoE model.
 
 ## Setup
 
@@ -81,7 +62,7 @@ threads-batch = 8
 | Non-MTP Q4_K_M + q8_0 + ngl99 | 2.14 | 6.75 | — |
 | Non-MTP Q4_K_M + q4_0 + split | 1.30 | 4.71 | — |
 
-**MTP + APEX is 13× faster** than the non-MTP Q4_K_M baseline.
+MTP with APEX quant is ~13× the non-MTP Q4_K_M baseline on this hardware.
 
 ### What MTP Does
 
@@ -89,16 +70,14 @@ Multi-Token Prediction uses auxiliary "draft" prediction heads trained alongside
 
 **MTP requires GGUF files with grafted prediction heads.** Standard GGUFs won't work — you need MTP-converted variants.
 
-## KV Cache Quantization — The Hidden Killer
+## KV Cache Quantization
 
-KV cache quantization is the most impactful and most misunderstood optimization for iGPU setups.
+Quantized KV caches must be dequantized during attention. On iGPU this overhead is significant:
+- `q4_0`: Saves memory but dequantization is expensive → 1-2 tok/s
+- `q8_0`: Halves memory, minimal dequant overhead → 28 tok/s with MTP
+- `f16`: No dequant cost but too heavy for 64K context on 90 GB RAM
 
-**The problem:** Quantized KV caches must be dequantized during attention computation. On integrated GPUs sharing system RAM, the dequantization overhead dominates:
-- `q4_0` cache: Saves memory but requires expensive dequantization → **1-2 tok/s**
-- `q8_0` cache: Halves memory with minimal dequant overhead → **28 tok/s with MTP**
-- `f16` cache: No dequant cost but too heavy for 64K context on 90 GB RAM
-
-This is specific to iGPU/Vulkan. Discrete GPUs with fast VRAM handle q4_0 dequant much better. The research from [OmniForge](https://omniforge.online/blog/your-local-llm-is-slow-because-of-five-config-flags) confirms up to 92% slowdown at long context with q4_0 on integrated graphics.
+This is iGPU-specific. Discrete GPUs with fast VRAM handle q4_0 better. [OmniForge](https://omniforge.online/blog/your-local-llm-is-slow-because-of-five-config-flags) documents up to 92% slowdown at long context with q4_0 on integrated graphics.
 
 ## APEX vs Q4_K_M
 
@@ -141,11 +120,9 @@ For managing multiple models, llama.cpp's router mode (`--models-preset`) loads 
 - **Memory pressure:** 35B MoE models need ~17-21 GB. With router mode and `--models-max 2`, expect 35-40 GB peak with two models loaded.
 - **Prompt eval is slower** (~22 tok/s) than generation (~28 tok/s) on iGPU — this is hardware-bound.
 
-## Conclusion
+## Notes
 
-35B models are now practical on mid-range laptops with integrated graphics, thanks to MTP speculative decoding. The combination of MTP (13× speedup), APEX quantization (better quality/size), and q8_0 KV cache (avoiding dequant bottleneck) makes interactive use viable at 28 tok/s.
-
-At these speeds the model is usable for actual work — coding assistance, research, tool-calling — not just a demo.
+MTP speculative decoding makes 35B MoE models feasible on iGPU hardware when the GGUF has prediction heads. Without MTP, generation is slow (~2 tok/s) and only suitable for batch work. With MTP and q8_0 cache, ~28 tok/s is enough for basic interactive use.
 
 ## References
 
