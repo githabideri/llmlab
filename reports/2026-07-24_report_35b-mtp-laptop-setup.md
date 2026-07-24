@@ -145,7 +145,7 @@ For managing multiple models, llama.cpp's router mode (`--models-preset`) loads 
 
 35B models are now practical on mid-range laptops with integrated graphics, thanks to MTP speculative decoding. The combination of MTP (13× speedup), APEX quantization (better quality/size), and q8_0 KV cache (avoiding dequant bottleneck) makes interactive use viable at 28 tok/s.
 
-This isn't just a benchmark — it's a daily-driver setup for agentic workloads (coding assistance, research, tool-calling) on consumer hardware.
+At these speeds the model is usable for actual work — coding assistance, research, tool-calling — not just a demo.
 
 ## References
 
