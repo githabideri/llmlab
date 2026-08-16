@@ -253,5 +253,5 @@ On our test system (typical consumer motherboard):
 ## Related Documentation
 
 - **General tensor-split optimization:** See `docs/multi-gpu-tensor-split.md`
-- **Hardware profile:** See `docs/hardware/triple-3060.md`
+- **Hardware profile:** See `docs/hardware/gpu-server.md`
 - **Model inventory:** See `models/inventory-gpu.md`

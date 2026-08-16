@@ -14,3 +14,4 @@ __pycache__/
 .Python
 web/venv/
 web/.env
+scripts/.env.local

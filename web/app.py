@@ -31,7 +31,7 @@ app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), na
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 # Configuration
-LLAMA_SERVER_URL = os.getenv("LLAMA_SERVER_URL", "http://192.168.0.27:8080")
+LLAMA_SERVER_URL = os.getenv("LLAMA_SERVER_URL", "http://10.0.0.27:8080")
 RESULTS_DIR = Path(__file__).parent.parent / "scripts" / "results"
 RESULTS_DIR.mkdir(exist_ok=True)
 

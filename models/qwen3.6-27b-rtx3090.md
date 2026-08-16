@@ -28,7 +28,7 @@
 
 **Runtime:** BeeLlama.cpp b10102 (commit `85e22ea0b`)  
 **Build:** CUDA 12.5, compute 86, `GGML_CUDA_FA_ALL_QUANTS=ON`  
-**See:** [`docs/backend-beellama.md`](docs/backend-beellama.md) for build details and feature overview.
+**See:** [`docs/backend-beellama.md`](../docs/backend-beellama.md) for build details and feature overview.
 
 ```bash
 llama-server \
@@ -239,7 +239,7 @@ llama-server \
 - Context reduced from 204K to 160K to fit DFlash drafter + vision in 24 GB VRAM
 - KV cache changed from `q8_0/q8_0` to `q5_0/q4_1` (BeeLlama recommendation)
 - Decode speedup: 2.0-2.2× on structured output vs mainline baseline
-- See `experiments/2026-06-19-beellama-dflash-cutover.md` for full experiment log
+- See `reports/2026-06-19-beellama-dflash-cutover.md` for full experiment log
 
 ### 2026-04-23: Initial Report (mainline llama.cpp)
 - Benchmarked Q4_K_M on single RTX 3090
@@ -251,9 +251,9 @@ llama-server \
 
 ## Related Documentation
 
-- **BeeLlama backend setup:** [`docs/backend-beellama.md`](docs/backend-beellama.md)
-- **Cutover experiment:** [`experiments/2026-06-19-beellama-dflash-cutover.md`](experiments/2026-06-19-beellama-dflash-cutover.md)
+- **BeeLlama backend setup:** [`docs/backend-beellama.md`](../docs/backend-beellama.md)
+- **Cutover experiment:** [`reports/2026-06-19-beellama-dflash-cutover.md`](reports/2026-06-19-beellama-dflash-cutover.md)
 - **Qwen3.5-27B (3× RTX 3060):** See [`qwen3.5-27b.md`](qwen3.5-27b.md)
-- **Multi-GPU Tensor-Split:** See [`docs/multi-gpu-tensor-split.md`](docs/multi-gpu-tensor-split.md)
+- **Multi-GPU Tensor-Split:** See [`docs/multi-gpu-tensor-split.md`](../docs/multi-gpu-tensor-split.md)
 - **BeeLlama upstream:** <https://github.com/Anbeeld/beellama.cpp>
 - **DFlash draft model:** <https://huggingface.co/Anbeeld/Qwen3.6-27B-DFlash-GGUF>

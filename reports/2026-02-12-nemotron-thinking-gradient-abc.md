@@ -77,5 +77,5 @@ Best speed-only mode:
 
 ## Artifacts
 - Raw run data:
-  - `llmlab/experiments/2026-02-12-nemotron-abc-budget-minus1.json`
-  - `llmlab/experiments/2026-02-12-nemotron-abc-budget-0.json`
+  - `llmlab/reports/2026-02-12-nemotron-abc-budget-minus1.json`
+  - `llmlab/reports/2026-02-12-nemotron-abc-budget-0.json`

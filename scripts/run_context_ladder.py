@@ -11,7 +11,7 @@ Usage:
     ./run_context_ladder.py [--config path/to/.env]
     
 Environment variables:
-    LLAMA_ENDPOINT  - completions endpoint (default: http://192.168.0.27:8080/v1/completions)
+    LLAMA_ENDPOINT  - completions endpoint (default: http://10.0.0.27:8080/v1/completions)
     LLAMA_SSH_HOST  - SSH host for GPU stats (default: llama-cpp)
     MODEL_NAME      - model identifier for filenames
     OUTPUT_DIR      - results directory (default: results)
@@ -37,7 +37,7 @@ except ImportError:
     pass
 
 # Configuration from environment
-ENDPOINT = os.getenv("LLAMA_ENDPOINT", "http://192.168.0.27:8080/v1/completions")
+ENDPOINT = os.getenv("LLAMA_ENDPOINT", "http://10.0.0.27:8080/v1/completions")
 SSH_HOST = os.getenv("LLAMA_SSH_HOST", "llama-cpp")
 MODEL_NAME = os.getenv("MODEL_NAME", "unknown-model")
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", "results")

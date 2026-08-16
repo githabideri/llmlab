@@ -95,7 +95,7 @@ See: `notes/matrix/agent-to-agent-mentions.md`
 **Context:** 131k
 
 ### What LocalBot accomplished:
-1. ✅ Created wrapper script at `/var/lib/clawdbot/.local/bin/faster-whisper`
+1. ✅ Created wrapper script at `~/.local/bin/faster-whisper`
 2. ❌ `faster-whisper --help` failed: `ModuleNotFoundError: No module named 'av._core'` (FFmpeg dependency issue)
 3. ✅ Spawned sub-agent for skill creation
 4. 🔴 **Context exhausted** at 131072 tokens mid-thought
