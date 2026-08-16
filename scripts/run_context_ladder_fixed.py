@@ -27,10 +27,10 @@ if env_file.exists():
             os.environ[key.strip()] = val.strip()
 
 # Configuration
-ENDPOINT = os.getenv("LLAMA_ENDPOINT", "http://192.168.0.27:8080/v1/completions")
+ENDPOINT = os.getenv("LLAMA_ENDPOINT", "http://10.0.0.27:8080/v1/completions")
 SSH_HOST = os.getenv("LLAMA_SSH_HOST", "llama-cpp")
 MODEL_NAME = os.getenv("MODEL_NAME", "unknown-model")
-OUTPUT_DIR = os.getenv("OUTPUT_DIR", "/var/lib/clawdbot/workspace/llmlab/experiments")
+OUTPUT_DIR = os.getenv("OUTPUT_DIR", "/path/to/llmlab/experiments")
 MONITOR_MODE = os.getenv("MONITOR_MODE", "ssh")
 
 # Fetch model name from API

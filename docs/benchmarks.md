@@ -34,8 +34,8 @@ On a single RTX 3060 12GB with `ggml-org/gpt-oss-20b-GGUF`, measured generation 
 `reduced-thinking-balanced` uses reasoning-budget `-1` with constrained brief reasoning. `non-thinking-speed` uses reasoning-budget `0`; it is faster but more prone to output-cleanliness artifacts.
 
 Detailed artifacts:
-- `experiments/2026-02-12-nemotron-abc-executive-summary.md`
-- `experiments/2026-02-12-nemotron-abc-timing-token-breakdown.md`
+- `reports/2026-02-12-nemotron-abc-executive-summary.md`
+- `reports/2026-02-12-nemotron-abc-timing-token-breakdown.md`
 
 ---
 
@@ -63,7 +63,7 @@ A cross-runtime comparison campaign is in progress for:
 DeepSeek on ik dual-GPU showed clear fill degradation in sweep mode, roughly from ~111 tok/s at low fill to ~65 tok/s near full fill at ctx 32768.
 
 See detailed run log and closure checklist:
-- `experiments/2026-02-12-ik-llama-cpp-vs-main-preliminary.md`
+- `reports/2026-02-12-ik-llama-cpp-vs-main-preliminary.md`
 
 ---
 
@@ -71,7 +71,7 @@ See detailed run log and closure checklist:
 
 ## 5) BeeLlama.cpp — Qwen3.6-27B Q5_K_S + DFlash (RTX 3090)
 
-BeeLlama.cpp is a llama.cpp fork with DFlash speculative decoding. Benchmarks measured via live server API (`/v1/chat/completions`), not `llama-bench`. Model finishes naturally (`stop`). See [backend docs](docs/backend-beellama.md) and [cutover experiment](experiments/2026-06-19-beellama-dflash-cutover.md).
+BeeLlama.cpp is a llama.cpp fork with DFlash speculative decoding. Benchmarks measured via live server API (`/v1/chat/completions`), not `llama-bench`. Model finishes naturally (`stop`). See [backend docs](docs/backend-beellama.md) and [cutover experiment](reports/2026-06-19-beellama-dflash-cutover.md).
 
 **Config:** Q5_K_S target + Q4_K_M DFlash drafter, `-ub 512`, `q5_0/q4_1` KV cache, `--reasoning on`, 160K context, RTX 3090 24 GB.
 

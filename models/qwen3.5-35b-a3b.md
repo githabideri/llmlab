@@ -148,7 +148,7 @@ Delta explained by: server overhead + thinking tokens + context depth overhead.
   - Output throughput: **54.3 tok/s avg**, **130 tok/s peak**
   - Total token throughput: **1790 tok/s**
 
-Reference experiment: `../experiments/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concurrency.md`
+Reference experiment: `../reports/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concurrency.md`
 
 ## Agentic behavior
 
@@ -187,8 +187,8 @@ Prefix caching (`--enable-prefix-caching`) works fine without LMCache.
 
 ## References
 
-- Preliminary run with loop failures: `../experiments/2026-02-26-qwen3.5-35b-a3b-llmlab-preliminary.md`
-- 24GB vision retest: `../experiments/2026-03-03-qwen3.5-35b-a3b-24gb-vision-retest.md`
+- Preliminary run with loop failures: `../reports/2026-02-26-qwen3.5-35b-a3b-llmlab-preliminary.md`
+- 24GB vision retest: `../reports/2026-03-03-qwen3.5-35b-a3b-24gb-vision-retest.md`
 
 ## Changelog
 

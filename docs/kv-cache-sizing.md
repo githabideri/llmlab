@@ -97,7 +97,7 @@ The KV cache follows the layer assignment:
 - Layers on CPU → KV cache in system RAM
 
 For our setups:
-- **wgpx15 (dual 3060, tensor-split):** All layers on GPU → entire KV cache in VRAM, split across GPUs
+- **primary GPU server (dual 3060, tensor-split):** All layers on GPU → entire KV cache in VRAM, split across GPUs
 - **llama-backup (single 3060, --n-cpu-moe):** Dense layers (including all full_attention) on GPU → KV cache in VRAM. Only expert weights move to CPU.
 
 ---
@@ -114,6 +114,6 @@ Google Research's extreme KV cache quantization — under 3 bits per value with 
 
 ## Related
 
-- `hardware/triple-3060.md` — VRAM budget breakdown with KV cache allocations
+- `hardware/gpu-server.md` — GPU server hardware profile and what's deployed per GPU
 - `llama-cpp-systemd.md` — Service configs with cache quantization flags
 - `runbook.md` — Operational reference

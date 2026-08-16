@@ -4,7 +4,7 @@ This directory contains per-model documentation for local LLMs tested in llmlab.
 
 ## Purpose
 
-Experiments in `experiments/` are dated raw logs. This directory **distills findings** into reusable model profiles that document:
+Experiments in `reports/` are dated raw logs. This directory **distills findings** into reusable model profiles that document:
 
 - Performance characteristics (speed, VRAM, context)
 - Known issues and failure modes

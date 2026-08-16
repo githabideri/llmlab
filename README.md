@@ -17,8 +17,9 @@ We run agentic LLM workloads on **2× RTX 3060 12 GB + 1× RTX 3090 24 GB (48 GB
 ## Hardware and serving setup
 
 ### Hardware
-- **GPU server:** 2× RTX 3060 12 GB + 1× RTX 3090 24 GB (48 GB total), Intel i5-7400, PCIe x16 + x4 + x4 — [detailed hardware profile](docs/hardware/triple-3060.md)
-- **CPU fallback:** Intel i5-8400T, 64 GB DDR4-2667, llama.cpp
+- **GPU server:** 1× RTX 3090 24 GB + 2× RTX 3060 12 GB (48 GB), AMD Ryzen 5 5600X, PCIe x16 + x8 + x4 — [hardware profile](docs/hardware/gpu-server.md)
+- **Full fleet** (backup/inference box, laptop, planned secondary GPU server): [hardware index](docs/hardware/README.md)
+- **CPU fallback:** not currently running — revisit pending (target: compact ~1 L box, i5-8500t)
 
 ### Runtime profiles
 - **llama.cpp** remains the reference path for GGUF-based serving, tensor-split tuning, and long-context fitment work.
@@ -28,9 +29,9 @@ We run agentic LLM workloads on **2× RTX 3060 12 GB + 1× RTX 3090 24 GB (48 GB
 
 ### Validated highlights
 - **[Qwen3.8-27B](models/qwen3.8-27b-rtx3090.md)** on stock llama.cpp 5f754ea (Dense, Q4_K_M, ~17 GB) — **single RTX 3090**, 160K context, native MTP + vision. **Current production** (cutover 2026-08-15).
-- **[Qwen3.6-27B](models/qwen3.6-27b-rtx3090.md)** on BeeLlama.cpp (Dense, Q5_K_S + DFlash, ~19 GB) — **single RTX 3090**, 160K context. Historic (superseded 2026-08-15). [Cutover experiment](experiments/2026-06-19-beellama-dflash-cutover.md).
+- **[Qwen3.6-27B](models/qwen3.6-27b-rtx3090.md)** on BeeLlama.cpp (Dense, Q5_K_S + DFlash, ~19 GB) — **single RTX 3090**, 160K context. Historic (superseded 2026-08-15). [Cutover experiment](reports/2026-06-19-beellama-dflash-cutover.md).
 - **[Qwen3.5-27B](models/qwen3.5-27b.md)** on llama.cpp (Dense, Q5_K_XL, ~19 GB) — `--parallel 3 --ctx-size 393216` = **3 concurrent sessions × 131K context**.
-- **[Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md)** on vLLM (GPTQ-Int4, PP=3) — dedicated validation in [the PP=3 experiment](experiments/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concurrency.md).
+- **[Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md)** on vLLM (GPTQ-Int4, PP=3) — dedicated validation in [the PP=3 experiment](reports/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concurrency.md).
 - **CPU fallback:** [Nemotron-3-Nano-30B-A3B](models/nemotron-3-nano-30b-a3b.md).
 - **Earlier 24 GB-era baselines:** [GLM-4.7-Flash](models/glm-4.7-flash.md), [Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md).
 
@@ -86,11 +87,11 @@ From a 79-request GLM production session:
 | Guide | Description |
 |-------|-------------|
 | [Multi-GPU Tensor-Split](docs/multi-gpu-tensor-split.md) | How to optimize layer distribution across GPUs for llama.cpp — ceiling testing, `output.weight` gotcha, `--parallel` effects |
-| [Hardware: Triple 3060](docs/hardware/triple-3060.md) | Our 2×3060 + 3090 setup — validated llama.cpp configs, vLLM PP=3 note, VRAM budgets, capacity planning |
+| [Hardware fleet](docs/hardware/README.md) | All inference machines by role — GPU server (3090 + 2×3060), backup/inference box (single 3060), laptop (Ryzen APU), planned secondary |
 | [Architecture](docs/architecture.md) | System architecture overview |
 | [Runbook](docs/runbook.md) | Start/stop servers, common operations |
 | [Troubleshooting](docs/troubleshooting.md) | Common issues and fixes |
-| [Qwen3.5-35B-A3B vLLM PP=3 experiment](experiments/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concurrency.md) | Dedicated write-up for the validated vLLM deployment profile and concurrency behavior |
+| [Qwen3.5-35B-A3B vLLM PP=3 experiment](reports/2026-03-14-qwen3.5-35b-a3b-vllm-pp3-concurrency.md) | Dedicated write-up for the validated vLLM deployment profile and concurrency behavior |
 
 ## Reports
 
@@ -104,7 +105,7 @@ Date-stamped write-ups of investigations and deployments — snapshots of what w
 
 ```
 models/          Model profiles (GLM, Nemotron, Qwen3.5-27B, Qwen3.5-35B, LFM2, ...)
-experiments/     Experiment logs (context sweeps, quant comparisons, speed tests)
+reports/     Experiment logs (context sweeps, quant comparisons, speed tests)
 benchmarks/      Agentic benchmark suite (L0-L4: read/write → config → tool chains)
 docs/            Guides, runbook, troubleshooting, hardware profiles
 scripts/         Context sweep benchmarking, model info fetcher, server start scripts
@@ -159,7 +160,7 @@ KV cache per token varies wildly between architectures (Nemotron: 2.25 KiB, Qwen
 | Jun 2026 | 1× RTX 3090 24 GB | 24 GB | Qwen3.6-27B + DFlash (BeeLlama), 160K context, vision deployed |
 | Aug 2026 | 1× RTX 3090 24 GB | 24 GB | Qwen3.8-27B + MTP (stock llama.cpp 5f754ea), 160K context, vision |
 
-The RTX 3090 addition opened up dense models and multi-session serving that wasn't feasible at 24 GB. See [hardware profile](docs/hardware/triple-3060.md) for the full story.
+The RTX 3090 addition opened up dense models and multi-session serving that wasn't feasible at 24 GB. See [the hardware fleet](docs/hardware/README.md) for the full story.
 
 ## Safety note
 

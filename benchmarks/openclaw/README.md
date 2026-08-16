@@ -1,3 +1,5 @@
+> **Legacy:** this suite targeted OpenClaw, which is no longer in use. Retained for reference; future agent benchmarks will target pi.
+
 # OpenClaw Parcours (v1)
 
 A small, OpenClaw‑specific benchmark ladder focused on tool reliability, doc comprehension, and deterministic outputs.

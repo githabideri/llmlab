@@ -1,7 +1,7 @@
 {
   "model": "Qwen3.5-35B-A3B-Q4_K_M-mainline-layer",
   "timestamp": "2026-03-14T14:29:06.338597+00:00",
-  "endpoint": "http://192.168.0.27:8080/v1/completions",
+  "endpoint": "http://10.0.0.27:8080/v1/completions",
   "max_ctx": 131072,
   "results": [
     {

@@ -54,5 +54,5 @@
 
 ## References
 
-- Experiment log: `llmlab/experiments/2026-02-23-nanbeige4.1-3b-quant-sweep.md`
+- Experiment log: `llmlab/reports/2026-02-23-nanbeige4.1-3b-quant-sweep.md`
 - Raw datasets: `nanbeige_bench_complete.json`, `nanbeige_highctx_complete.json`

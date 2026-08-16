@@ -2,7 +2,7 @@
 
 ## Qwen3.8-27B — Production (Port 8080, RTX 3090)
 
-**Service:** `llama-qwen3.8-27b.service` (CT 327) — stock llama.cpp 5f754ea + native MTP
+**Service:** `llama-qwen3.8-27b.service` — stock llama.cpp 5f754ea + native MTP
 
 ```bash
 # Status

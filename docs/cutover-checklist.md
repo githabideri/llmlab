@@ -87,7 +87,7 @@ Reusable checklist for swapping models or runtimes (llama.cpp → BeeLlama, mode
   - [ ] `~/.pi/agent/settings.json` (defaultModel)
   - [ ] `~/.pi-matrix-agent/agent/models.json` (Matrix bot — separate)
   - [ ] `/etc/llama-swap/config.yaml` (model router on GPU server)
-  - [ ] Any other services/scripts that hit `192.168.0.27:8080` or `:8081`
+  - [ ] Any other services/scripts that hit `10.0.0.27:8080` or `:8081`
 - [ ] **Update fields that changed:**
   - [ ] Model ID (quant name)
   - [ ] Model display name
@@ -96,7 +96,7 @@ Reusable checklist for swapping models or runtimes (llama.cpp → BeeLlama, mode
   - [ ] Service name references (in llama-swap metadata)
 - [ ] **Verify with a live request:**
   ```bash
-  curl -s http://192.168.0.27:8080/v1/chat/completions \
+  curl -s http://10.0.0.27:8080/v1/chat/completions \
     -H "Authorization: Bearer <key>" \
     -d '{"model":"<new-model-id>","messages":[{"role":"user","content":"hi"}],"max_tokens":10}'
   # Check: model in response matches new model, fingerprint is correct
@@ -107,7 +107,7 @@ Reusable checklist for swapping models or runtimes (llama.cpp → BeeLlama, mode
 - [ ] **Update model card** (`llmlab/models/<model>.md`) — add changelog entry
 - [ ] **Update host doc** (`infra/<location>/<host>.md`) — service table, GPU workload
 - [ ] **Update systemd doc** (`llmlab/docs/llama-cpp-systemd.md`) — add new service, update model history
-- [ ] **Write experiment log** (`llmlab/experiments/YYYY-MM-DD-<name>.md`) — what was tried, results
+- [ ] **Write experiment log** (`llmlab/reports/YYYY-MM-DD-<name>.md`) — what was tried, results
 - [ ] **Write report** (`reports/YYYY-MM-DD_report_<name>.md`) — if operation was significant
 - [ ] **Check for stale references** — grep for old model names / service names / port assignments
 

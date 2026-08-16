@@ -126,4 +126,4 @@ cmake . -B build \
 
 ---
 
-*Source: Migrated from locmox-private/llama-cpp-lxc-setup.md (2026-04-11)*
+*Source: Migrated from a private internal repo (2026-04-11)*

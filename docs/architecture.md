@@ -1,11 +1,10 @@
-# Architecture (sanitized)
+# Architecture
 
 **Compute layout**
 - **Host:** Proxmox + ZFS
 - **Containers:**
-  - **CT 327 (llama-cpp):** Primary inference — llama.cpp (production, Qwen3.8-27B + MTP), BeeLlama.cpp (historic/rollback)
+  - **llama-cpp (primary inference host):** llama.cpp (production, Qwen3.8-27B + MTP), BeeLlama.cpp (historic/rollback)
   - **vLLM** (optional UI/serving)
-  - **Ollama** (optional quick‑run service)
 
 **Storage layout**
 - **NVMe (OS/root):** ZFS datasets, container rootfs

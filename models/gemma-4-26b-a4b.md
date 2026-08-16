@@ -159,4 +159,4 @@ At least on this hardware, the best validated text-serving profile was **64K con
 
 ## Related experiment
 
-Full write-up: [`experiments/2026-04-12-gemma-4-26b-a4b-dual-3060-llama-cpp.md`](../experiments/2026-04-12-gemma-4-26b-a4b-dual-3060-llama-cpp.md)
+Full write-up: [`reports/2026-04-12-gemma-4-26b-a4b-dual-3060-llama-cpp.md`](../reports/2026-04-12-gemma-4-26b-a4b-dual-3060-llama-cpp.md)

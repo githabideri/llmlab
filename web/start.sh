@@ -8,7 +8,7 @@ cd "$(dirname "$0")"
 source venv/bin/activate
 
 # Set defaults if not configured
-export LLAMA_SERVER_URL="${LLAMA_SERVER_URL:-http://192.168.0.27:8080}"
+export LLAMA_SERVER_URL="${LLAMA_SERVER_URL:-http://10.0.0.27:8080}"
 export PORT="${PORT:-8000}"
 export HOST="${HOST:-0.0.0.0}"
 

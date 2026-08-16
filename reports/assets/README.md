@@ -39,9 +39,9 @@ MLA's bursty pattern suggests:
 - Different optimization strategy than Mamba-2's constant-time attention
 
 Related experiments:
-- `experiments/2026-03-03-glm-3x3060-full-ladder.md` (when complete)
-- `experiments/2026-03-03-nemotron-3x3060-full-ladder.md`
-- `experiments/2026-03-03-qwen3.5-35b-q4km-context-ladder.md`
+- `reports/2026-03-03-glm-3x3060-full-ladder.md` (when complete)
+- `reports/2026-03-03-nemotron-3x3060-full-ladder.md`
+- `reports/2026-03-03-qwen3.5-35b-q4km-context-ladder.md`
 
 ### Nemotron-3-Nano-30B nvtop Screenshots
 

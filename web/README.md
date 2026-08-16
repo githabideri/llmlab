@@ -17,7 +17,7 @@ Web interface for running context ladder benchmarks on llama.cpp servers.
 Create a virtual environment and install dependencies:
 
 ```bash
-cd /var/lib/clawdbot/workspace/agents/labmaster/llmlab/web
+cd /path/to/llmlab/web
 python3 -m venv venv
 ./venv/bin/pip install -r requirements.txt
 ```
@@ -27,7 +27,7 @@ python3 -m venv venv
 Set environment variables to customize the setup:
 
 ```bash
-export LLAMA_SERVER_URL="http://192.168.0.27:8080"  # Default
+export LLAMA_SERVER_URL="http://10.0.0.27:8080"  # Default
 export PORT=8000                                      # Default
 export HOST="0.0.0.0"                                # Default
 ```
@@ -162,10 +162,10 @@ After=network.target
 [Service]
 Type=simple
 User=clawdbot
-WorkingDirectory=/var/lib/clawdbot/workspace/agents/labmaster/llmlab/web
-Environment="LLAMA_SERVER_URL=http://192.168.0.27:8080"
+WorkingDirectory=/path/to/llmlab/web
+Environment="LLAMA_SERVER_URL=http://10.0.0.27:8080"
 Environment="PORT=8000"
-ExecStart=/var/lib/clawdbot/workspace/agents/labmaster/llmlab/web/venv/bin/python app.py
+ExecStart=/path/to/llmlab/web/venv/bin/python app.py
 Restart=on-failure
 
 [Install]

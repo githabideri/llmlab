@@ -78,7 +78,7 @@ Compared to Qwen3.5-35B (similar ~3B active params, tested same hardware):
 
 **Mamba-2 hybrid architecture delivers nearly 2× throughput at long context** compared to traditional GQA attention.
 
-**Full experiment report:** `llmlab/experiments/2026-03-03-nemotron-3x3060-full-ladder.md`
+**Full experiment report:** `llmlab/reports/2026-03-03-nemotron-3x3060-full-ladder.md`
 
 
 
