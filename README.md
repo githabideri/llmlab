@@ -18,7 +18,7 @@ The primary box runs **1× RTX 3090 24 GB + 2× RTX 3060 12 GB (48 GB)** on an *
 | Model | Quant | GPU | Context | Backend |
 |-------|-------|-----|---------|---------|
 | [Qwen3.8-27B](models/qwen3.8-27b-rtx3090.md) | Q4_K_M | 1× RTX 3090 | 160K | llama.cpp (stock) + MTP + vision |
-| [Qwen3.5-35B-A3B](models/qwen3.5-35b-a3b.md) | UD-IQ3_S | 2× RTX 3060 (tensor-split 52/48) | 512K ×2 | llama.cpp + vision |
+| [Qwen3.6-35B-A3B](models/qwen3.5-35b-a3b.md) | UD-IQ4_XS | 2× RTX 3060 (tensor-split 50/50) | 256K ×2 | llama.cpp + vision |
 
 The quant is the highest-quality that still leaves 100K+ context headroom; each model card shows the full comparison with exact sizes. Per-model write-ups and every model tested live in [models/](models/README.md).
 
@@ -27,7 +27,7 @@ The quant is the highest-quality that still leaves 100K+ context headroom; each 
 - **`-sm layer` beats `-sm row`.** On PCIe multi-GPU without NVLink, split mode matters more than the model; `-sm layer` gives ~2.5× the throughput of `-sm row`.
 - **`output.weight` lands on the last GPU.** In split-mode layer the output projection (~1+ GB) is hardcoded to the last GPU, creating asymmetric VRAM pressure that must be balanced with tensor-split ratios ([details](docs/multi-gpu-tensor-split.md)).
 - **`--parallel N` shrinks compute buffers.** More slots mean smaller per-slot compute buffers, which frees VRAM for KV cache — but per-slot context shrinks proportionally.
-- **Hybrid models use almost no KV cache.** Qwen3.5-35B-A3B has 40 layers but only 10 full-attention; the rest are linear attention with zero KV cache, so 128K context uses under 1 GB at q8_0/q4_0 ([per-model math](docs/kv-cache-sizing.md)).
+- **Hybrid models use almost no KV cache.** Qwen3.6-35B-A3B has 40 layers but only 10 full-attention; the rest are linear attention with zero KV cache, so 128K context uses under 1 GB at q8_0/q4_0 ([per-model math](docs/kv-cache-sizing.md)).
 - **Throughput degrades as context fills** — and differently by architecture:
 
 | Arch | @0 | @16K | @32K | @64K | @64K drop |
