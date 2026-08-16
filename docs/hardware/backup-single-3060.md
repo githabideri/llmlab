@@ -18,7 +18,7 @@
 
 ## Why it exists
 
-The x16 slot was vacant and a single inference machine is a single point of failure, so the backup box doubles as a secondary llama.cpp MTP endpoint on the 3060. Many people run a single 3060, so the results here are broadly relevant.
+The x16 slot was vacant and a single inference machine is a single point of failure, so the box doubles as a secondary llama.cpp MTP endpoint on the 3060.
 
 ## Related
 
