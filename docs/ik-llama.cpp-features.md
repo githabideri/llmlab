@@ -1,5 +1,7 @@
 # ik_llama.cpp Features and Optimizations
 
+> **Reference only** — ik_llama.cpp is not in production (the 3090 runs stock llama.cpp; the dual-3060 runs a mainline build). Kept for the CPU flash-attention and low-bit quant notes.
+
 **Purpose:** Document CPU-specific optimizations in ik_llama.cpp fork
 
 ## Overview

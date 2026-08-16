@@ -1,5 +1,7 @@
 # BeeLlama.cpp — Backend Setup and Features
 
+> **Historic / rollback-only** (since the 2026-08-15 cutover to stock llama.cpp + native MTP on Qwen3.8-27B). Kept as the rollback reference. One documented downside: the DFlash drafter can reinforce a wrong tool-call path and loop without self-correcting — [2026-06-19 cutover report](../reports/2026-06-19-beellama-dflash-cutover.md).
+
 **Purpose:** Document the BeeLlama.cpp fork — a performance-focused llama.cpp derivative with DFlash speculative decoding and TurboQuant/TCQ KV-cache compression.
 
 **Upstream:** <https://github.com/Anbeeld/beellama.cpp>
