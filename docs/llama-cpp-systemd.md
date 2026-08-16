@@ -1,53 +1,53 @@
 # llama.cpp / BeeLlama.cpp systemd Service Configuration
 
-**Services:** `beellama-qwen3.6-27b.service` (production), `llama-server-qwen3.6-vision.service` (vision), plus legacy units  
+**Services:** `llama-qwen3.8-27b.service` (production), `llama-server-qwen3.6-vision.service` (vision), plus legacy/historic units  
 **Logs:** `journalctl -u <service>`
 
 ---
 
 ## Production Services
 
-### BeeLlama Qwen3.6-27B (Port 8080, RTX 3090)
+### Qwen3.8-27B (Port 8080, RTX 3090)
 
-**Service:** `beellama-qwen3.6-27b.service`  
-**Unit:** `/etc/systemd/system/beellama-qwen3.6-27b.service`  
+**Service:** `llama-qwen3.8-27b.service`  
+**Unit:** `/etc/systemd/system/llama-qwen3.8-27b.service`  
 **Status:** ✅ Active, enabled  
 **GPU:** RTX 3090 24GB (CUDA0)  
-**Context:** 160K, DFlash speculative decoding  
-**Cutover:** 2026-06-19 (replaced mainline llama.cpp Q4_K_M)
+**Context:** 160K, q8_0/q8_0 KV, MTP speculative decoding  
+**Cutover:** 2026-08-15 (replaced BeeLlama Qwen3.6-27B; stock llama.cpp 5f754ea)
 
 ```ini
 [Unit]
-Description=BeeLlama Qwen3.6-27B with DFlash (3090, 160K ctx)
+Description=llama.cpp Qwen3.8-27B MTP Vision - RTX 3090 (160K ctx, q8 KV)
 After=network.target
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/beellama.cpp
-Environment=LD_LIBRARY_PATH=/opt/beellama.cpp/build/bin
+WorkingDirectory=/opt/llama.cpp-20260815-5f754ea
 Environment=CUDA_VISIBLE_DEVICES=0
-ExecStart=/opt/beellama.cpp/build/bin/llama-server \
+Environment=LD_LIBRARY_PATH=/opt/llama.cpp-20260815-5f754ea
+ExecStart=/opt/llama.cpp-20260815-5f754ea/llama-server \
   --device CUDA0 \
-  -m /mnt/models/gguf/qwen3.6-27b/Qwen3.6-27B-Q5_K_S.gguf \
-  --mmproj /mnt/models/gguf/qwen3.6-27b/mmproj-Qwen_Qwen3.6-27B-f16.gguf \
+  -m /mnt/models/gguf/qwen3.8-27b/Qwen3.8-27B-Q4_K_M.gguf \
+  --mmproj /mnt/models/gguf/qwen3.8-27b/mmproj-BF16.gguf \
   --no-mmproj-offload \
-  --spec-draft-model /mnt/models/gguf/qwen3.6-27b-dflash/Qwen3.6-27B-DFlash-Q4_K_M.gguf \
-  --spec-type dflash \
-  --spec-dflash-cross-ctx 1024 \
+  --spec-type draft-mtp \
+  --spec-draft-n-max 2 \
+  --spec-draft-p-min 0.4 \
   -ngl all \
-  --spec-draft-ngl all \
-  --kv-unified \
   -np 1 \
-  -b 2048 -ub 512 \
   --ctx-size 163840 \
-  --cache-type-k q5_0 --cache-type-v q4_1 \
+  --cache-type-k q8_0 \
+  --cache-type-v q8_0 \
+  -b 512 -ub 64 \
   --flash-attn on \
+  --fit off \
   --jinja \
-  --mmap --mlock \
   --reasoning on \
-  --chat-template-kwargs '{"preserve_thinking":true}' \
-  --temp 0.6 --top-k 20 --top-p 1.0 --min-p 0.0 \
+  --reasoning-preserve \
+  --metrics \
+  --mmap --mlock \
   --host 0.0.0.0 \
   --port 8080
 Restart=on-failure
@@ -155,6 +155,56 @@ WantedBy=multi-user.target
 ```
 
 **VRAM:** ~9.9 / 12.3 GiB | **CPU RAM:** ~15-18 / 20 GiB
+
+### BeeLlama Qwen3.6-27B (Historic — replaced 2026-08-15)
+
+**Service:** `beellama-qwen3.6-27b.service`  
+**Status:** ❌ Disabled, inactive — kept for rollback (unit + model files untouched)  
+**GPU:** RTX 3090 24GB (CUDA0)  
+**Context:** 160K, DFlash speculative decoding (BeeLlama.cpp b10102)  
+**Cutover:** 2026-06-19 → replaced by `llama-qwen3.8-27b.service` 2026-08-15
+
+```ini
+[Unit]
+Description=BeeLlama Qwen3.6-27B with DFlash (3090, 160K ctx)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/beellama.cpp
+Environment=LD_LIBRARY_PATH=/opt/beellama.cpp/build/bin
+Environment=CUDA_VISIBLE_DEVICES=0
+ExecStart=/opt/beellama.cpp/build/bin/llama-server \
+  --device CUDA0 \
+  -m /mnt/models/gguf/qwen3.6-27b/Qwen3.6-27B-Q5_K_S.gguf \
+  --mmproj /mnt/models/gguf/qwen3.6-27b/mmproj-Qwen_Qwen3.6-27B-f16.gguf \
+  --no-mmproj-offload \
+  --spec-draft-model /mnt/models/gguf/qwen3.6-27b-dflash/Qwen3.6-27B-DFlash-Q4_K_M.gguf \
+  --spec-type dflash \
+  --spec-dflash-cross-ctx 1024 \
+  -ngl all \
+  --spec-draft-ngl all \
+  --kv-unified \
+  -np 1 \
+  -b 2048 -ub 512 \
+  --ctx-size 163840 \
+  --cache-type-k q5_0 --cache-type-v q4_1 \
+  --flash-attn on \
+  --jinja \
+  --mmap --mlock \
+  --reasoning on \
+  --chat-template-kwargs '{"preserve_thinking":true}' \
+  --temp 0.6 --top-k 20 --top-p 1.0 --min-p 0.0 \
+  --host 0.0.0.0 \
+  --port 8080
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+```
 
 ### Legacy Service (Rollback)
 
@@ -302,6 +352,7 @@ curl -s http://localhost:8080/metrics | grep tokens_seconds
 
 | Date | Service | Model | Notes |
 |------|---------|-------|-------|
+| 2026-08-15 | `llama-qwen3.8-27b` | Qwen3.8-27B-Q4_K_M + MTP | Production cutover, stock llama.cpp 5f754ea |
 | 2026-06-19 | `beellama-qwen3.6-27b` | Qwen3.6-27B-Q5_K_S + DFlash | Production cutover, BeeLlama.cpp b10102 |
 | 2026-04-23 | `llama-server-qwen3.6-27b-longctx` | Qwen3.6-27B-Q4_K_M | Mainline llama.cpp, 204K context (now rollback only) |
 | 2026-02-24 | `llama-server` | GLM-4.7-Flash Q4_K_XL | Old reference config (disabled) |
