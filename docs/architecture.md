@@ -3,8 +3,7 @@
 **Compute layout**
 - **Host:** Proxmox + ZFS
 - **Containers:**
-  - **llama-cpp (primary inference host):** llama.cpp (production, Qwen3.8-27B + MTP), BeeLlama.cpp (historic/rollback)
-  - **vLLM** (optional UI/serving)
+  - **llama-cpp (primary inference host):** llama.cpp (production: Qwen3.8-27B + MTP on the 3090, Qwen3.6-35B-A3B on the dual 3060), BeeLlama.cpp (historic/rollback)
 
 **Storage layout**
 - **NVMe (OS/root):** ZFS datasets, container rootfs

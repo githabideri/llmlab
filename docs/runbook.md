@@ -72,27 +72,28 @@ llama-server \
   --host 0.0.0.0 --port 8080
 ```
 
-## llama.cpp — start (Qwen3.5 24GB text+tools+vision profile)
+## llama.cpp — start (Qwen3.6-35B-A3B, dual 3060)
+
+Normally run via the `llama-server-qwen3.6-vision.service` unit; manual equivalent:
 
 ```bash
 llama-server \
-  --model /mnt/models/gguf/qwen3.5-35b-a3b/Qwen_Qwen3.5-35B-A3B-Q4_K_M.gguf \
-  --mmproj /mnt/models/gguf/qwen3.5-35b-a3b/mmproj-Qwen_Qwen3.5-35B-A3B-f16.gguf \
-  --ctx-size 98304 \
-  --parallel 1 \
-  --slot-save-path /mnt/models/cache/llama-cpp/slots \
+  --device CUDA0,CUDA1 \
+  --model /mnt/models/gguf/qwen3.6-35b-unsloth/Qwen3.6-35B-A3B-UD-IQ4_XS.gguf \
+  --mmproj /mnt/models/gguf/qwen3.6-35b-unsloth/mmproj-BF16.gguf \
+  --ctx-size 262144 \
+  --parallel 2 \
   --split-mode layer \
+  --tensor-split 50,50 \
   --gpu-layers 99 \
   --cache-type-k q8_0 --cache-type-v q4_0 \
+  --batch-size 1024 --ubatch-size 128 \
   --flash-attn on \
   --jinja \
-  --no-mmproj-offload \
-  --reasoning-format deepseek \
-  --host 0.0.0.0 --port 8080
+  --host 0.0.0.0 --port 8081
 ```
 
-Why this profile exists:
-- Earlier attempts with heavier settings hit VRAM OOM with mmproj.
+See the [model card](../models/qwen3.6-35b-a3b.md) for the full config and the earlier Qwen3.5 Q4_K_M (24 GB) profile.
 - This configuration keeps dual 3060 usage below the 12GB/card cliff while preserving text+tools+vision.
 
 ## Alternate speed mode (lower trust)

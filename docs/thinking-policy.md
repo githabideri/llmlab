@@ -21,7 +21,7 @@ Reasoning models generate internal chain-of-thought (CoT) tokens inside `<think>
 - **Limit thinking:** Use `max_tokens` conservatively (thinking + answer combined), or implement a logit processor if using Python bindings.
 - **Qwen3 specific:** Append `/no_think` or set `enable_thinking: false` in chat template kwargs (requires template support).
 
-### vLLM
+### vLLM _(not currently deployed in the fleet — reference only)_
 - Native support via `--reasoning-parser qwen3` (or `deepseek_r1`).
 - Per-request: `"enable_thinking": false` in request body.
 - Server-wide default: `--default-chat-template-kwargs '{"enable_thinking": false}'`

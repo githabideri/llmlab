@@ -1,7 +1,7 @@
 # Hardware Profile: GPU Server
 
 **Configuration:** 1× RTX 3090 24 GB + 2× RTX 3060 12 GB (48 GB VRAM)  
-**Use Case:** Primary multi-GPU LLM inference (llama.cpp, vLLM)  
+**Use Case:** Primary multi-GPU LLM inference (llama.cpp)  
 **Status:** Active — Qwen3.8-27B on the 3090, Qwen3.6-35B-A3B on the dual 3060
 
 ---
@@ -32,7 +32,7 @@
 The 3090 is a standalone single-GPU endpoint; the two 3060s share a 256K-context MoE model across a 50/50 tensor-split.
 
 - **Qwen3.8-27B (3090):** [model card](../../models/qwen3.8-27b-rtx3090.md)
-- **Qwen3.6-35B-A3B (dual 3060):** [model card](../../models/qwen3.5-35b-a3b.md) *(card still titled 3.5 — see open item)*
+- **Qwen3.6-35B-A3B (dual 3060):** [model card](../../models/qwen3.6-35b-a3b.md)
 
 ## Methodology
 
