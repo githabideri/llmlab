@@ -1,29 +1,40 @@
 # Runbook
 
-## BeeLlama Qwen3.6-27B — Production (Port 8080, RTX 3090)
+## Qwen3.8-27B — Production (Port 8080, RTX 3090)
 
-**Service:** `beellama-qwen3.6-27b.service` (CT 327, wgpx15)
+**Service:** `llama-qwen3.8-27b.service` (CT 327) — stock llama.cpp 5f754ea + native MTP
 
 ```bash
 # Status
-systemctl status beellama-qwen3.6-27b
+systemctl status llama-qwen3.8-27b
 
 # Restart (after config change)
-systemctl daemon-reload && systemctl restart beellama-qwen3.6-27b
+systemctl daemon-reload && systemctl restart llama-qwen3.8-27b
 
 # Health
 curl -s http://localhost:8080/health
 
 # Logs
-journalctl -u beellama-qwen3.6-27b -f
+journalctl -u llama-qwen3.8-27b -f
 
-# Rollback to old service (mainline llama.cpp Q4_K_M)
-systemctl stop beellama-qwen3.6-27b
-systemctl start llama-server-qwen3.6-27b-longctx
+# Rollback to BeeLlama Qwen3.6-27B (kept for rollback)
+systemctl stop disable llama-qwen3.8-27b
+systemctl enable --now beellama-qwen3.6-27b
 curl -s http://localhost:8080/health
 ```
 
-### DFlash Debugging
+> **Historic:** the previous production was **BeeLlama Qwen3.6-27B (DFlash)** on `beellama-qwen3.6-27b.service` (cutover 2026-06-19), replaced 2026-08-15. Unit + model files kept for rollback. See [`llama-cpp-systemd.md`](llama-cpp-systemd.md) "Historic" section and [`models/qwen3.6-27b-rtx3090.md`](../models/qwen3.6-27b-rtx3090.md).
+
+### MTP Debugging (Qwen3.8 production)
+
+```bash
+# Check draft acceptance in logs (MTP: 'draft acceptance' / 'mean len')
+journalctl -u llama-qwen3.8-27b | grep -i 'draft acceptance\|mean len'
+# Metrics: per-slot timings + /metrics
+curl -s http://localhost:8080/metrics
+```
+
+### DFlash Debugging (Historic — BeeLlama only)
 
 ```bash
 # Enable DFlash profiling (set before starting service or via env override)
