@@ -1,7 +1,7 @@
 # Nemotron B_on live validation (20 prompts)
 
 - Timestamp (UTC): 2026-02-12T18:49:46.699727Z
-- Endpoint: `http://10.0.0.27:8080/v1/chat/completions`
+- Endpoint: `http://<gpu-server>:8080/v1/chat/completions`
 - Model: `Nemotron-3-Nano-30B-A3B-IQ4_NL.gguf`
 - Profile: **B_on** (`--reasoning-budget -1` + brief constrained reasoning prompt)
 

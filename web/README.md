@@ -27,7 +27,7 @@ python3 -m venv venv
 Set environment variables to customize the setup:
 
 ```bash
-export LLAMA_SERVER_URL="http://10.0.0.27:8080"  # Default
+export LLAMA_SERVER_URL="http://<gpu-server>:8080"  # Default
 export PORT=8000                                      # Default
 export HOST="0.0.0.0"                                # Default
 ```
@@ -163,7 +163,7 @@ After=network.target
 Type=simple
 User=clawdbot
 WorkingDirectory=/path/to/llmlab/web
-Environment="LLAMA_SERVER_URL=http://10.0.0.27:8080"
+Environment="LLAMA_SERVER_URL=http://<gpu-server>:8080"
 Environment="PORT=8000"
 ExecStart=/path/to/llmlab/web/venv/bin/python app.py
 Restart=on-failure
