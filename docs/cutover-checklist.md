@@ -87,7 +87,7 @@ Reusable checklist for swapping models or runtimes (llama.cpp → BeeLlama, mode
   - [ ] `~/.pi/agent/settings.json` (defaultModel)
   - [ ] `~/.pi-matrix-agent/agent/models.json` (Matrix bot — separate)
   - [ ] `/etc/llama-swap/config.yaml` (model router on GPU server)
-  - [ ] Any other services/scripts that hit `10.0.0.27:8080` or `:8081`
+  - [ ] Any other services/scripts that hit `<gpu-server>:8080` or `:8081`
 - [ ] **Update fields that changed:**
   - [ ] Model ID (quant name)
   - [ ] Model display name
@@ -96,7 +96,7 @@ Reusable checklist for swapping models or runtimes (llama.cpp → BeeLlama, mode
   - [ ] Service name references (in llama-swap metadata)
 - [ ] **Verify with a live request:**
   ```bash
-  curl -s http://10.0.0.27:8080/v1/chat/completions \
+  curl -s http://<gpu-server>:8080/v1/chat/completions \
     -H "Authorization: Bearer <key>" \
     -d '{"model":"<new-model-id>","messages":[{"role":"user","content":"hi"}],"max_tokens":10}'
   # Check: model in response matches new model, fingerprint is correct
@@ -120,12 +120,4 @@ systemctl start <old-service>
 curl -s http://localhost:8080/health  # should be ok
 ```
 
----
-
-## Quick Reference: What Changed on Each Cutover
-
-| Date | What | Configs Updated |
-|------|------|-----------------|
-| 2026-06-19 | BeeLlama DFlash cutover | `~/.pi/agent/models.json`, `~/.pi/agent/settings.json`, `~/.pi-matrix-agent/agent/models.json`, `/etc/llama-swap/config.yaml` |
-
-> Add rows here after each cutover so the next person knows what to check.
+> **Cutover history:** each cutover is logged in its own dated report under `reports/` — grep there for the model or service name to see what changed.

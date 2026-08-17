@@ -1,7 +1,7 @@
 # Nemotron B_on live validation (20 prompts, max_tokens=512)
 
 - Timestamp (UTC): 2026-02-12T18:54:10.533315+00:00
-- Endpoint: `http://10.0.0.27:8080/v1/chat/completions`
+- Endpoint: `http://<gpu-server>:8080/v1/chat/completions`
 - Model: `Nemotron-3-Nano-30B-A3B-IQ4_NL.gguf`
 - Profile: B_on
 

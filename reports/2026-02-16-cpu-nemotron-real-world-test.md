@@ -78,11 +78,11 @@ ssh llama-local "journalctl -u llama-server --since '90 minutes ago' | grep -E '
 
 **API calls logged on llama-local:**
 ```
-22:08:56 - POST /v1/chat/completions 10.0.0.36 200
-22:14:12 - POST /v1/chat/completions 10.0.0.36 200 (+5m 16s)
-22:18:38 - POST /v1/chat/completions 10.0.0.36 200 (+4m 26s)
-22:42:09 - POST /v1/chat/completions 10.0.0.36 200 (+23m 31s gap!)
-22:42:27 - POST /v1/chat/completions 10.0.0.36 200 (+18s)
+22:08:56 - POST /v1/chat/completions <cpu-node> 200
+22:14:12 - POST /v1/chat/completions <cpu-node> 200 (+5m 16s)
+22:18:38 - POST /v1/chat/completions <cpu-node> 200 (+4m 26s)
+22:42:09 - POST /v1/chat/completions <cpu-node> 200 (+23m 31s gap!)
+22:42:27 - POST /v1/chat/completions <cpu-node> 200 (+18s)
 ```
 
 **Unexpected gap:** 23-minute pause between 3rd and 4th request suggests:
