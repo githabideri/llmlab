@@ -1,10 +1,10 @@
 # Qwen3.8-27B on RTX 3090
 
 **Model:** Qwen3.8-27B (Dense, hybrid SSM + attention)  
-**Tested Quantization:** Q4_K_M (mainline, deployed), UD-Q4_K_XL (tested, heavier)  
+**Tested Quantization:** W4A16-AutoRound (vLLM production), Q4_K_M (llama.cpp baseline/rollback), UD-Q4_K_XL (tested, heavier)  
 **Hardware:** 1× RTX 3090 24 GB  
-**Runtime:** stock llama.cpp 5f754ea (current)  
-**Status:** ✅ Production — stock llama.cpp with native MTP speculative decoding  
+**Runtime:** vLLM 0.27.1 (production since 2026-08-21); llama.cpp 5f754ea retained as validated fallback  
+**Status:** ✅ Production — vLLM (W4A16-AutoRound, MTP k=3, fp8 KV, 163840 ctx, keyless, text-only); llama.cpp Q4_K_M+MTP config below remains the documented rollback  
 **Multimodal:** ✅ Deployed (mmproj BF16 on CPU via `--no-mmproj-offload`)  
 **Supersedes:** Qwen3.6-27B BeeLlama deployment (see [`qwen3.6-27b-rtx3090.md`](qwen3.6-27b-rtx3090.md))
 
@@ -25,7 +25,7 @@
 
 ---
 
-## Current Production Config (stock llama.cpp + MTP)
+## llama.cpp Config (baseline / rollback)
 
 **Runtime:** stock llama.cpp, commit `5f754ea` (unmodified upstream)  
 **KV Cache:** q8_0 / q8_0  
@@ -96,6 +96,12 @@ The upstream `f8f0a47a` "quantized-KV flash-attention scratch blowup" does **not
 ---
 
 ## Changelog
+
+### 2026-08-21/22: Production runtime moved to vLLM
+- vLLM 0.27.1 (PyTorch 2.13.0+cu130) now serves `Qwen3.8-27B-W4A16-AutoRound` (19.5 GB; int8 embed + MTP int4 "fast" prep), following the public recipe `syv-ai/qwen38-27b-rtx3090` @ `999e264b` (13 patches, all applied).
+- MTP k=3 speculative decoding, fp8 KV (FlashInfer), 163,840 max len, prefix caching, reasoning parser (`qwen3`), tool calling (`qwen3_coder`), keyless, text-only (`--language-model-only`).
+- Validated on the same RTX 3090: decode 96–118 tok/s (vs ~35 for llama.cpp Q4_K_M), prefill up to ~1,050 tok/s, 3/3 needles at ~155K, prefix-cache second turn 281 s → 2.8 s, PPL 8.095 (matches recipe reference), GSM8K 96.0% (n=200).
+- The llama.cpp Q4_K_M + MTP config above is the validated fallback/rollback.
 
 ### 2026-08-15: Production cutover to Qwen3.8-27B (stock llama.cpp + MTP)
 - Replaced Qwen3.6-27B BeeLlama (DFlash) on port 8080.
