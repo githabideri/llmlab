@@ -1,0 +1,39 @@
+commit,model,mode,split_mode,cpu_moe_layers,cache_slots,MTP_n,context,parallel,K_type,V_type,batch,ubatch,pp_tokens,pp_tps,tg_tokens,tg_tps,GPU0_peak_MiB,GPU1_peak_MiB,RAM_peak_MiB,notes
+d927e7dc,IQ4_XS,bench,layer,0,0,off,32768,1,q4_0,q4_0,2048,512,2048,1758,512,79.3,,,,control codacus
+d927e7dc,IQ4_XS,bench,layer,0,0,off,32768,1,q8_0,q4_0,2048,512,2048,1752,512,79.4,,,,codacus layer q8q4
+925e1179,IQ4_XS,bench,layer,0,0,off,32768,1,q4_0,q4_0,2048,512,2048,1861,512,79.9,,,,mainline layer
+925e1179,IQ4_XS,bench,layer,0,0,off,32768,1,q8_0,q4_0,2048,512,2048,1865,512,80.0,,,,mainline layer q8q4
+925e1179,IQ4_XS,bench,layer,0,0,off,32768,1,q8_0,q8_0,2048,512,2048,1861,512,80.1,,,,
+d927e7dc,IQ4_XS,bench,tensor,0,0,off,32768,1,q8_0,q4_0,2048,512,2048,1770,512,95.0,,,,codacus tensor
+925e1179,IQ4_XS,bench,tensor,0,0,off,32768,1,q8_0,q4_0,2048,512,2048,1812,512,96.0,,,,mainline tensor BEST TG
+925e1179,IQ4_XS,bench,tensor,0,0,off,32768,1,q8_0,q4_0,2048,128,2048,1400,512,96,,,,ub sweep
+925e1179,IQ4_XS,bench,tensor,0,0,off,32768,1,q8_0,q4_0,2048,256,2048,1425,512,96,,,,ub sweep
+925e1179,IQ4_XS,bench,tensor,0,0,off,32768,1,q8_0,q4_0,2048,512,2048,1805,512,96,,,,ub sweep
+925e1179,IQ4_XS,bench,tensor,0,0,off,32768,1,q8_0,q4_0,4096,1024,2048,2154,512,95.6,8718,8714,,BEST PP ub=1024
+925e1179,IQ4_XS,bench,layer,0,0,off,32768,1,q8_0,q4_0,2048,128,2048,939,512,79.7,,,,prod-like ub=128 layer control
+925e1179,IQ4_XS,server,tensor,0,0,off,32768,1,q8_0,q4_0,2048,1024,384,0,384,89,,,,e2e chat TG
+925e1179,IQ4_XS,server,tensor,0,0,ngram4,32768,1,q8_0,q4_0,2048,1024,384,0,384,88,,,,ngram-simple no gain
+925e1179,IQ4_XS,server,tensor,0,0,ngram4,32768,1,q8_0,q4_0,2048,1024,384,0,384,78,,,,ngram-cache worse
+925e1179,IQ4_XS,server,tensor,0,0,MTP,32768,1,q8_0,q4_0,2048,1024,,,,,,,MTP impossible: GGUF has no MTP layers
+d927e7dc,IQ4_XS,bench,layer,99,0,off,32768,1,q8_0,q4_0,2048,512,2048,253,512,26.5,,,,arch C nocache: 7x slower PP 3x TG
+d927e7dc,IQ4_XS,server,layer,99,128,off,8192,1,q8_0,q4_0,2048,512,0,0,256,46.4,,,,arch C cache best (256 slots worse: 26.3)
+925e1179,IQ4_XS,server,tensor,0,0,off,32768,1,q8_0,q4_0,2048,1024,21287,2096,256,86.6,8926,8922,,ctx sweep
+925e1179,IQ4_XS,server,tensor,0,0,off,32768,1,q8_0,q4_0,2048,1024,0,0,256,80.1,,,,TG after 21k fill
+925e1179,IQ4_XS,server,tensor,0,0,off,65536,1,q8_0,q4_0,2048,1024,42557,1966,256,86.5,9184,9180,,
+925e1179,IQ4_XS,server,tensor,0,0,off,65536,1,q8_0,q4_0,2048,1024,0,0,256,74.8,,,,TG after 42k fill
+925e1179,IQ4_XS,server,tensor,0,0,off,131072,1,q8_0,q4_0,2048,1024,85097,1691,256,86.3,9700,9696,,
+925e1179,IQ4_XS,server,tensor,0,0,off,131072,1,q8_0,q4_0,2048,1024,0,0,256,65.7,,,,TG after 85k fill
+925e1179,IQ4_XS,server,tensor,0,0,off,262144,1,q8_0,q4_0,2048,1024,103877,1588,256,86.3,10732,10728,,256K fits
+925e1179,IQ4_XS,server,tensor,0,0,off,262144,1,q8_0,q4_0,2048,1024,0,0,256,62.4,,,,TG after 104k fill
+925e1179,IQ4_XS,server,tensor,0,0,off,262144,1,q4_0,q4_0,2048,1024,103877,1587,256,85.8,10412,10408,,q4q4 ~= q8q4
+925e1179,IQ4_XS,server,tensor,0,0,off,262144,2,q8_0,q4_0,2048,1024,0,0,256,69.2,10850,10846,,np2 per-req
+925e1179,IQ4_XS,server,tensor,0,0,off,262144,2,q8_0,q4_0,2048,1024,0,0,512,138.3,10850,10846,,np2 AGGREGATE 512tok/3.7s
+925e1179,IQ4_XS+MTP,server,tensor,0,0,mtp1,32768,1,q8_0,q4_0,2048,1024,0,0,512,111,,,,MTP model n=1
+925e1179,IQ4_XS+MTP,server,tensor,0,0,mtp2,32768,1,q8_0,q4_0,2048,1024,0,0,512,107,,,,MTP model n=2
+925e1179,IQ4_XS+MTP,server,tensor,0,0,mtp3,32768,1,q8_0,q4_0,2048,1024,0,0,512,112,,,,MTP model n=3 best
+925e1179,IQ4_XS+MTP,server,tensor,0,0,mtp4,32768,1,q8_0,q4_0,2048,1024,0,0,512,93,,,,MTP n=4 regresses
+925e1179,IQ4_XS+MTP,server,tensor,0,0,mtp3,262144,2,q8_0,q4_0,2048,1024,0,0,384,100.4,11560,11556,,FINAL canary acceptance~55%
+925e1179,IQ4_XS+MTP,server,tensor-ts5050,0,0,mtp3-pmin0.2,32768,1,q8_0,q4_0,2048,1024,0,0,512,110,,,,real workloads chat/code/json/reason
+925e1179,Q4_K_M+MTP,server,tensor-ts5050,0,0,mtp3-pmin0,32768,1,q8_0,q4_0,2048,1024,0,0,512,123,,,,+15% vs IQ4_XS chat 109 code 120
+925e1179,Q4_K_M+MTP,server,tensor-ts5050,0,0,mtp3,65536,2,q8_0,q4_0,2048,1024,0,0,384,123.8,11952,11948,,MAX ctx for Q4K_M+MTP
+925e1179,Q4_K_M+MTP,server,tensor-ts5050,0,0,mtp3,131072,1,q8_0,q4_0,2048,1024,0,0,0,0,,,,LOAD FAILED OOM
