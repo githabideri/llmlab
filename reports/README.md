@@ -15,6 +15,8 @@ The directory is flat and date-sorted. Use the per-run structure above for exper
 
 ## Recent
 
+- `2026-08-28-llama-cpp-ubatch-moe-single-gpu.md` — `-ub 2048` gives +22% prompt-processing for MoE+MTP on a single 12 GB GPU, tg-neutral
+- `2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md` — two 3060s, 50/50 tensor split, 100+ t/s
 - `2026-08-12-ds4-rocm-gfx1103-build-success.md` — DS4 ROCm gfx1103 build success
 - `2026-07-24-35b-mtp-laptop-setup.md` — Qwen3.6-35B at 28 tok/s on a laptop (MTP + Vulkan iGPU)
 - `2026-06-30-qwen3.6-35b-a3b-mtp-single-3060.md` — MoE offload mechanics, n-cpu-moe sweep, config for single RTX 3060 12GB
