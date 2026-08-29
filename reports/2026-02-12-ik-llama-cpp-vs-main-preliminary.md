@@ -25,7 +25,7 @@ Run a controlled benchmark pass on three replacement MoE targets in `ik_llama.cp
   - `offloaded 49/49 layers to GPU` observed on Qwen runs
   - substantial CUDA buffers allocated on both GPUs
 - Transient process/orchestration issues happened during setup (SIGKILL/timeouts/flag parsing hiccups), then stabilized.
-- At wrap-up time, CT327 became intermittently unreachable via SSH (timeout during banner exchange), so the final baseline point collection was interrupted for live reporting.
+- At wrap-up time, the inference LXC became intermittently unreachable via SSH (timeout during banner exchange), so the final baseline point collection was interrupted for live reporting.
 
 ## Metrics (captured so far)
 
@@ -58,7 +58,7 @@ Run a controlled benchmark pass on three replacement MoE targets in `ik_llama.cp
 - Mainline llama.cpp baseline is largely captured for Qwen models; DeepSeek baseline needs final verification/closure after host recovery.
 
 ## Next (tomorrow)
-1. Reconnect to CT327 and confirm whether DeepSeek `p32768` finished in baseline log.
+1. Reconnect to the LXC and confirm whether DeepSeek `p32768` finished in baseline log.
 2. Produce final side-by-side table:
    - `runtime (ik vs main) × model × prompt/fill point`
    - delta in `%` for TG/PP.

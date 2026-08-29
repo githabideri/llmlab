@@ -98,7 +98,7 @@ The KV cache follows the layer assignment:
 
 For our setups:
 - **primary GPU server (dual 3060, tensor-split):** All layers on GPU → entire KV cache in VRAM, split across GPUs
-- **llama-backup (single 3060, --n-cpu-moe):** Dense layers (including all full_attention) on GPU → KV cache in VRAM. Only expert weights move to CPU.
+- **Backup box (single 3060, --n-cpu-moe):** Dense layers (including all full_attention) on GPU → KV cache in VRAM. Only expert weights move to CPU.
 
 ---
 

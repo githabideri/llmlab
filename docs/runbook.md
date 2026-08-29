@@ -2,36 +2,36 @@
 
 ## Qwen3.8-27B — Production (Port 8080, RTX 3090)
 
-**Service:** `llama-qwen3.8-27b.service` — stock llama.cpp 5f754ea + native MTP
+**Runtime:** vLLM 0.27.1 (W4A16-AutoRound, MTP k=3, fp8 KV, 160K ctx, keyless, text-only) in a **dedicated LXC** on the GPU server host — unit `llama-vllm-qwen3.8-27b.service` inside that LXC.
 
 ```bash
-# Status
-systemctl status llama-qwen3.8-27b
-
-# Restart (after config change)
-systemctl daemon-reload && systemctl restart llama-qwen3.8-27b
-
-# Health
+# From the Proxmox host (the vLLM LXC):
+pct exec <vllm-lxc-id> -- systemctl status llama-vllm-qwen3.8-27b
+pct exec <vllm-lxc-id> -- journalctl -u llama-vllm-qwen3.8-27b -f
+# Health (from inside the LXC or over the LAN):
 curl -s http://localhost:8080/health
 
-# Logs
-journalctl -u llama-qwen3.8-27b -f
-
-# Rollback to BeeLlama Qwen3.6-27B (kept for rollback)
-systemctl stop disable llama-qwen3.8-27b
-systemctl enable --now beellama-qwen3.6-27b
-curl -s http://localhost:8080/health
+# Rollback to stock llama.cpp (Q4_K_M + native MTP, dormant config)
+# see models/qwen3.8-27b-rtx3090.md for the full llama.cpp command
 ```
 
-> **Historic:** the previous production was **BeeLlama Qwen3.6-27B (DFlash)** on `beellama-qwen3.6-27b.service` (cutover 2026-06-19), replaced 2026-08-15. Unit + model files kept for rollback. See [`llama-cpp-systemd.md`](llama-cpp-systemd.md) "Historic" section and [`models/qwen3.6-27b-rtx3090.md`](../models/qwen3.6-27b-rtx3090.md).
+> **History:** 2026-06-19: BeeLlama Qwen3.6-27B (DFlash) production → 2026-08-15: stock llama.cpp 5f754ea Q4_K_M+MTP → 2026-08-21: vLLM 0.27.1 cutover (current). The llama.cpp unit is kept dormant; the BeeLlama unit is a disk-only backup. See [`llama-cpp-systemd.md`](llama-cpp-systemd.md) and [`models/qwen3.6-27b-rtx3090.md`](../models/qwen3.6-27b-rtx3090.md).
 
-### MTP Debugging (Qwen3.8 production)
+### MTP Debugging (Qwen3.8 production — vLLM)
+
+```bash
+# vLLM spec-decoding stats in logs (acceptance, draft tokens)
+pct exec <vllm-lxc-id> -- journalctl -u llama-vllm-qwen3.8-27b | grep -iE 'spec|acceptance'
+# Per-request timing via the OpenAI API usage fields
+```
+
+### MTP Debugging (llama.cpp 35B dual-3060)
 
 ```bash
 # Check draft acceptance in logs (MTP: 'draft acceptance' / 'mean len')
-journalctl -u llama-qwen3.8-27b | grep -i 'draft acceptance\|mean len'
+journalctl -u llama-server-qwen3.6-vision | grep -i 'draft acceptance\|mean len'
 # Metrics: per-slot timings + /metrics
-curl -s http://localhost:8080/metrics
+curl -s http://localhost:8081/metrics
 ```
 
 ### DFlash Debugging (Historic — BeeLlama only)
@@ -51,7 +51,7 @@ journalctl -u beellama-qwen3.6-27b | grep -i 'draft\|dflash'
 | Symptom | Check | Fix |
 |---------|-------|-----|
 | ~11 tok/s (not 40+) | GDN warning in logs | Add `-ngl all` — required for Qwen3.5/3.6 |
-| Slow prefill (~200 tok/s) | `-ub` flag | Use `-ub 512` (not 128) |
+| Slow prefill | `-ub` flag | Raise `-ub` up to the VRAM limit (1024–2048) — see [2026-08-28 ubatch report](../reports/2026-08-28-llama-cpp-ubatch-moe-single-gpu.md) |
 | CUDA OOM on start | `nvidia-smi` | Reduce `--ctx-size` or check for other processes on GPU |
 | Draft acceptance 0% | `--spec-draft-model` path | Verify draft GGUF exists and is correct model |
 
@@ -74,21 +74,20 @@ llama-server \
 
 ## llama.cpp — start (Qwen3.6-35B-A3B, dual 3060)
 
-Normally run via the `llama-server-qwen3.6-vision.service` unit; manual equivalent:
+Normally run via the `llama-server-qwen3.6-vision.service` unit; manual equivalent (matches the live unit, 2026-08-27):
 
 ```bash
 llama-server \
   --device CUDA0,CUDA1 \
-  --model /mnt/models/gguf/qwen3.6-35b-unsloth/Qwen3.6-35B-A3B-UD-IQ4_XS.gguf \
-  --mmproj /mnt/models/gguf/qwen3.6-35b-unsloth/mmproj-BF16.gguf \
+  --model /mnt/models/gguf/qwen3.6-35b-a3b-mtp/Qwen3.6-35B-A3B-UD-IQ4_XS.gguf \
+  --mmproj /mnt/models/gguf/qwen3.6-35b-a3b-mtp/mmproj-F16.gguf --no-mmproj-offload --image-max-tokens 1024 \
   --ctx-size 262144 \
   --parallel 2 \
-  --split-mode layer \
-  --tensor-split 50,50 \
-  --gpu-layers 99 \
+  --split-mode tensor --tensor-split 50,50 \
   --cache-type-k q8_0 --cache-type-v q4_0 \
-  --batch-size 1024 --ubatch-size 128 \
+  --batch-size 2048 --ubatch-size 1024 \
   --flash-attn on \
+  --spec-type draft-mtp --spec-draft-n-max 3 \
   --jinja \
   --host 0.0.0.0 --port 8081
 ```

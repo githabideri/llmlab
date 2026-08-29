@@ -106,9 +106,9 @@ WantedBy=multi-user.target
 
 **Drop-in:** `10-wait-for-8080.conf` — `ExecStartPre` waits for 27B (:8080) health before starting, avoids boot-time IO storm.
 
-### Qwen3.6-35B-A3B-MTP (Port 8080, RTX 3060, llama-backup)
+### Qwen3.6-35B-A3B-MTP (Port 8080, RTX 3060, backup box)
 
-**Host:** llama-backup (LXC, private homelab)  
+**Host:** backup / inference box (LXC on a Proxmox host)  
 **Service:** `llama-server.service`  
 **Unit:** `/etc/systemd/system/llama-server.service`  
 **Status:** ✅ Active, enabled  
