@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-28
 **Category:** Experiment / benchmark
-**Hardware:** RTX 3060 12 GB (compute 8.6), Intel i3-9100 4C/4T, 32 GB DDR4-2400, PCIe Gen3 x16
+**Hardware:** RTX 3060 12 GB (compute 8.6), Intel i3-9100 4C/4T, 48 GB RAM, PCIe Gen3 x16
 **Stack:** llama.cpp b9850 (4f31eed), CUDA, `llama-server`, single slot (`-np 1`)
 
 ---

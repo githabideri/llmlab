@@ -1,8 +1,8 @@
 # Hardware Profile: Backup / Inference Box
 
 **Configuration:** 1× RTX 3060 12 GB in the x16 slot  
-**Use Case:** Dual-use — data backup target + llama.cpp MTP inference endpoint  
-**Status:** Active (data backup always on; inference endpoint idle as of last check)
+**Use Case:** Dual-use — Proxmox backup host (power-saved nightly backup source) + llama.cpp MTP inference endpoint  
+**Status:** Active (endpoint in production use as fallback inference)
 
 ---
 
@@ -11,9 +11,9 @@
 | Component | Spec |
 |-----------|------|
 | CPU | Intel i3-9100 (4C) |
-| RAM | 32 GB |
-| System disk | 256 GB NVMe (ZFS) |
-| Storage | 4× 16 TB HDD (backup target) |
+| RAM | 48 GB |
+| System disk | 238 GB NVMe (ZFS) |
+| Backup | nightly source for a Proxmox Backup Server VM (PBS datastore lives on a separate host); the former 4× 16 TB local HDDs are removed |
 | GPU | RTX 3060 12 GB — CPU PCIe x16 |
 
 ## Why it exists

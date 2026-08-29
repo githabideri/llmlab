@@ -31,3 +31,5 @@ Comparison quality depends more on discipline than on raw throughput. Keep bench
 | Nemotron profile (fixed 5-task set) | [2026-02-12 ABC](../reports/2026-02-12-nemotron-abc-executive-summary.md) |
 | ik_llama.cpp vs llama.cpp | [2026-02-12](../reports/2026-02-12-ik-llama-cpp-vs-main-preliminary.md) |
 | BeeLlama DFlash (Qwen3.6-27B) | [2026-06-19 cutover](../reports/2026-06-19-beellama-dflash-cutover.md) |
+| Qwen3.6-35B-A3B dual 3060 (full config matrix, ~45 runs) | [2026-08-27](../reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md) |
+| llama.cpp `-ub` tuning (single 3060, MoE+MTP) | [2026-08-28](../reports/2026-08-28-llama-cpp-ubatch-moe-single-gpu.md) |

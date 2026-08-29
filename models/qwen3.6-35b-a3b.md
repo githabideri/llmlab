@@ -1,40 +1,43 @@
 # Qwen3.6-35B-A3B
 
 **Base model:** Qwen3.6-35B-A3B — 35B MoE, ~3B active (8 routed + 1 shared expert), DeltaNet linear attention (10 of 40 layers full-attention)
-**Current quant:** `Qwen3.6-35B-A3B-UD-IQ4_XS.gguf` (unsloth dynamic quant), dir `qwen3.6-35b-unsloth/`
-**Vision projector:** `mmproj-BF16.gguf`
+**Current quant:** `Qwen3.6-35B-A3B-UD-IQ4_XS.gguf` (unsloth dynamic quant, **MTP variant**), dir `qwen3.6-35b-a3b-mtp/`
+**Vision projector:** `mmproj-F16.gguf` (CPU-resident)
 
 ## Current deployment (production)
 
-The MoE half of the primary GPU server — dual RTX 3060 on a mainline llama.cpp build. Verified against the live unit `llama-server-qwen3.6-vision.service` (:8081).
+The MoE half of the primary GPU server — dual RTX 3060 on a mainline llama.cpp build (`/opt/llama.cpp-mainline`). Verified against the live unit `llama-server-qwen3.6-vision.service` (:8081), 2026-08-27.
 
 | Param | Value |
 |-------|-------|
-| Quant | UD-IQ4_XS |
+| Quant | UD-IQ4_XS (MTP variant) |
 | Hardware | 2× RTX 3060 12 GB (CUDA0, CUDA1) |
 | Context | 256K (`-c 262144`), 2 parallel slots |
-| Split | `--split-mode layer --tensor-split 50,50`, `--gpu-layers 99` |
+| Split | `--split-mode tensor --tensor-split 50,50` |
 | KV cache | q8_0 (K) / q4_0 (V) |
-| Batch | 1024 / ubatch 128, flash-attn on |
-| Vision | mmproj BF16 |
+| Batch | `-b 2048 -ub 1024`, flash-attn on |
+| Spec decoding | `--spec-type draft-mtp --spec-draft-n-max 3` (acceptance 0.93–0.98) |
+| Vision | mmproj F16, `--no-mmproj-offload --image-max-tokens 1024` |
 | Unit | `llama-server-qwen3.6-vision.service` |
 
 ```bash
-/opt/llama.cpp/build/bin/llama-server \
+/opt/llama.cpp-mainline/build/bin/llama-server \
   --device CUDA0,CUDA1 \
-  -m /mnt/models/gguf/qwen3.6-35b-unsloth/Qwen3.6-35B-A3B-UD-IQ4_XS.gguf \
-  --mmproj /mnt/models/gguf/qwen3.6-35b-unsloth/mmproj-BF16.gguf \
+  -m /mnt/models/gguf/qwen3.6-35b-a3b-mtp/Qwen3.6-35B-A3B-UD-IQ4_XS.gguf \
+  --mmproj /mnt/models/gguf/qwen3.6-35b-a3b-mtp/mmproj-F16.gguf --no-mmproj-offload --image-max-tokens 1024 \
   --host 0.0.0.0 --port 8081 \
   -c 262144 --parallel 2 \
-  --split-mode layer --tensor-split 50,50 --gpu-layers 99 \
+  --split-mode tensor --tensor-split 50,50 \
   --cache-type-k q8_0 --cache-type-v q4_0 \
-  --batch-size 1024 --ubatch-size 128 --flash-attn on --jinja --metrics \
+  --batch-size 2048 --ubatch-size 1024 --flash-attn on \
+  --spec-type draft-mtp --spec-draft-n-max 3 \
+  --jinja --metrics \
   --cache-prompt --cache-ram 2048
 ```
 
 KV cache is small because only 10 of 40 layers are full-attention; the rest are linear attention (DeltaNet) with zero KV, so 256K × 2 slots fits comfortably. See [KV-cache sizing](../docs/kv-cache-sizing.md).
 
-> Throughput numbers for the IQ4_XS build are not captured here yet; the performance figures below are from the earlier Qwen3.5 Q4_K_M work on the same hardware and are kept for reference.
+> Throughput: ~100–114 t/s decode at 256K with MTP n=3 — full measured matrix in the [2026-08-27 optimization report](../reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md). The pre-optimization numbers below are from the earlier Qwen3.5 Q4_K_M work on the same hardware and are kept for reference.
 
 ## Historical: Qwen3.5-35B-A3B (Q4_K_M, 2026-02/03)
 

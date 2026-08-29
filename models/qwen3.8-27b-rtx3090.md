@@ -19,7 +19,7 @@
 | **Embedding Dimension** | 5120 |
 | **Vocabulary Size** | 248,320 |
 | **Quantization** | Q4_K_M (17.1 GB) |
-| **Multimodal** | ✅ Deployed (mmproj BF16, ~0.9 GB, CPU-resident) |
+| **Multimodal** | llama.cpp fallback only (mmproj BF16, ~0.9 GB, CPU-resident) — vLLM production is text-only by design (`--language-model-only`) |
 | **Speculative Decoding** | MTP (draft-mtp, n-max 2, p-min 0.4) — no separate draft model |
 | **Full-attention layers** | 17 of 66 (rest are SSM/hybrid) |
 

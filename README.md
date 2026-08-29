@@ -17,7 +17,7 @@ The primary box runs **1× RTX 3090 24 GB + 2× RTX 3060 12 GB (48 GB)** on an *
 
 | Model | Quant | GPU | Context | Backend |
 |-------|-------|-----|---------|---------|
-| [Qwen3.8-27B](models/qwen3.8-27b-rtx3090.md) | Q4_K_M | 1× RTX 3090 | 160K | llama.cpp (stock) + MTP + vision |
+| [Qwen3.8-27B](models/qwen3.8-27b-rtx3090.md) | W4A16-AutoRound | 1× RTX 3090 | 160K | vLLM 0.27.1, MTP k=3, text-only (stock llama.cpp Q4_K_M+MTP kept as rollback) |
 | [Qwen3.6-35B-A3B](models/qwen3.6-35b-a3b.md) | UD-IQ4_XS | 2× RTX 3060 (tensor-split 50/50) | 256K ×2 | llama.cpp + vision |
 
 The quant is the highest-quality that still leaves 100K+ context headroom; each model card shows the full comparison with exact sizes. Per-model write-ups and every model tested live in [models/](models/README.md).
