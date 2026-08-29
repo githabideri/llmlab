@@ -1,7 +1,7 @@
 # Multi-GPU Tensor-Split Optimization Guide
 
 **Scope:** General methodology for optimizing `--tensor-split` on multi-GPU llama.cpp setups  
-**Platform:** llama.cpp with `--split-mode layer`  
+**Platform:** llama.cpp (layer-split methodology throughout; see [Tensor vs Layer](#tensor-vs-layer2026-08) for when tensor mode is the right call)  
 **Target:** Consumer multi-GPU systems without NVLink (PCIe only)
 
 ---
@@ -268,6 +268,20 @@ Even then, layer-split is often still faster due to reduced communication overhe
 
 ---
 
+## Tensor vs Layer (2026-08)
+
+The guidance above predates a finding that changes the recommendation for one common case: **when the whole model fits in aggregate VRAM and the cards are the same size, `--split-mode tensor` can beat layer.**
+
+The 2026-08-27 dual-3060 campaign ([report](../reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md)) put Qwen3.6-35B-A3B (18 GB, fully resident in 2×12 GB) through a ~45-config matrix: `--split-mode tensor --tensor-split 50,50` + MTP n=3 reached **100–114 t/s at 256K** — the production config — while layer mode plateaued lower. Mechanism: with everything on GPU, layer mode serializes whole layers across the two cards (each layer's compute is split but its activation traffic crosses PCIe at every layer boundary); tensor mode splits each layer's weights so both cards work on the same layer in parallel.
+
+Rule of thumb that emerged:
+
+| Situation | Mode |
+|-----------|------|
+| Model fits in aggregate VRAM, equal cards (e.g. 2×3060) | **tensor** |
+| Model doesn't fit / mixed card sizes / capacity-constrained | **layer** (as documented above) |
+| Any multi-GPU on PCIe | never `row` |
+
 ## Practical Examples
 
 ### Example 1: 2× RTX 3060 12GB
@@ -406,3 +420,4 @@ When optimizing tensor-split for a new model:
 - **llama.cpp source:** `llama-model.cpp:2762` (output.weight placement)
 - **Split-mode documentation:** https://github.com/ggml-org/llama.cpp/blob/master/docs/backend.md
 - **Model-specific example:** See `models/qwen3.5-27b.md` for detailed worked example
+- **Tensor-mode result:** [2026-08-27 dual-3060 optimization report](../reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md) — when `--split-mode tensor` beats layer

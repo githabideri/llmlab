@@ -28,7 +28,7 @@
 
 **Runtime:** BeeLlama.cpp b10102 (commit `85e22ea0b`)  
 **Build:** CUDA 12.5, compute 86, `GGML_CUDA_FA_ALL_QUANTS=ON`  
-**See:** [`docs/backend-beellama.md`](../docs/backend-beellama.md) for build details and feature overview.
+**See:** [`docs/backend-beellama.md`](../docs/legacy/backend-beellama.md) for build details and feature overview.
 
 ```bash
 llama-server \
@@ -251,7 +251,7 @@ llama-server \
 
 ## Related Documentation
 
-- **BeeLlama backend setup:** [`docs/backend-beellama.md`](../docs/backend-beellama.md)
+- **BeeLlama backend setup:** [`docs/backend-beellama.md`](../docs/legacy/backend-beellama.md)
 - **Cutover experiment:** [`reports/2026-06-19-beellama-dflash-cutover.md`](reports/2026-06-19-beellama-dflash-cutover.md)
 - **Qwen3.5-27B (3× RTX 3060):** See [`qwen3.5-27b.md`](qwen3.5-27b.md)
 - **Multi-GPU Tensor-Split:** See [`docs/multi-gpu-tensor-split.md`](../docs/multi-gpu-tensor-split.md)

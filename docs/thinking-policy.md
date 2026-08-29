@@ -2,7 +2,9 @@
 
 > Practical guidelines for when to enable, limit, or disable reasoning ("thinking") in local LLM deployments. Applies to reasoning-capable models (Qwen3, DeepSeek-R1 distills, Nemotron-style).
 
-> **Operational update (2026-02-12):** current llmlab default for Nemotron on both `llama-cpp` and `llama-local` is the measured "B" profile (brief constrained reasoning with `--reasoning-budget -1`) for consistency across backends during comparative runs.
+> **Operational update (2026-08):** current production defaults — Qwen3.8-27B runs vLLM with the `qwen3` reasoning parser (thinking preserved in output); Qwen3.6-35B-A3B runs llama.cpp `--jinja` (the chat template controls thinking) plus `--reasoning-preserve` on the MTP endpoint. The Feb Nemotron default below is kept as historic.
+
+> **Operational update (2026-02-12, historic):** current llmlab default for Nemotron on both `llama-cpp` and `llama-local` is the measured "B" profile (brief constrained reasoning with `--reasoning-budget -1`) for consistency across backends during comparative runs.
 
 ## Background
 
