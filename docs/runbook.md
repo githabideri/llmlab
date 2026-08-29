@@ -46,7 +46,7 @@ export GGML_DFLASH_KV_CACHE_MODE=both  # control drafter KV cache
 journalctl -u beellama-qwen3.6-27b | grep -i 'draft\|dflash'
 ```
 
-### Common Issues
+### Common Issues (symptom → fix)
 
 | Symptom | Check | Fix |
 |---------|-------|-----|
@@ -54,6 +54,10 @@ journalctl -u beellama-qwen3.6-27b | grep -i 'draft\|dflash'
 | Slow prefill | `-ub` flag | Raise `-ub` up to the VRAM limit (1024–2048) — see [2026-08-28 ubatch report](../reports/2026-08-28-llama-cpp-ubatch-moe-single-gpu.md) |
 | CUDA OOM on start | `nvidia-smi` | Reduce `--ctx-size` or check for other processes on GPU |
 | Draft acceptance 0% | `--spec-draft-model` path | Verify draft GGUF exists and is correct model |
+| "failed to parse grammar" with tool schemas | build's repetition threshold | Raise `MAX_REPETITION_THRESHOLD` — [grammar workaround](llama-cpp-grammar-workaround.md) |
+| "Flash Attention was auto, set to disabled" | build flags | Rebuild llama.cpp with FA all-quants support |
+
+Unit-level failures (won't start, metrics missing, OOM patterns) are in [llama-cpp-systemd.md → Troubleshooting](llama-cpp-systemd.md#troubleshooting).
 
 ## llama.cpp — start (Nemotron recommended profile)
 

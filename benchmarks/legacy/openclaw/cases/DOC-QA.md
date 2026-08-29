@@ -4,7 +4,7 @@
 
 **Tools:** read
 
-**Input:** `docs/runbook.md`, `docs/troubleshooting.md`
+**Input:** `docs/runbook.md`, `docs/runbook.md (Common Issues)`
 
 **Task:** Answer:
 1) How do you start llama.cpp with the current best config?

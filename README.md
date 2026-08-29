@@ -46,7 +46,7 @@ Two more knobs that turned out to matter (2026-08):
 ## Where things live
 
 - [models/](models/README.md) — per-model write-ups: architecture, quant rationale, speed vs context, agentic results, known issues.
-- [docs/](docs/) — guides and reference: [multi-GPU tensor-split](docs/multi-gpu-tensor-split.md), [KV-cache sizing](docs/kv-cache-sizing.md), [architecture](docs/architecture.md), [runbook](docs/runbook.md), [troubleshooting](docs/troubleshooting.md), [hardware fleet](docs/hardware/README.md).
+- [docs/](docs/README.md) — methodology and reference, indexed by purpose and status: [tensor-split](docs/multi-gpu-tensor-split.md), [KV-cache sizing](docs/kv-cache-sizing.md), [architecture](docs/architecture.md), [runbook](docs/runbook.md), [unit reference](docs/llama-cpp-systemd.md), [hardware fleet](docs/hardware/README.md); frozen fork docs live under [docs/legacy/](docs/legacy/).
 - [reports/](reports/README.md) — date-stamped investigations and deployments (snapshots, no maintenance).
 - [benchmarks/](benchmarks/README.md) — benchmark harnesses (the March 2026 OpenClaw ladder is frozen under `benchmarks/legacy/`; future agent benchmarks target pi).
 - [scripts/](scripts/) — small tooling (logged `llama-bench`, model-info fetcher); the older context-ladder harness is under `scripts/legacy/`.

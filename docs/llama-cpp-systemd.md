@@ -1,7 +1,9 @@
 # llama.cpp / BeeLlama.cpp systemd Service Configuration
 
-**Services:** `llama-qwen3.8-27b.service` (production), `llama-server-qwen3.6-vision.service` (vision), plus legacy/historic units  
+**Services:** `llama-server-qwen3.6-vision.service` (35B dual-3060, **current production**), `llama-server.service` (35B MTP, backup box), `llama-qwen3.8-27b.service` (27B, **dormant fallback** — 27B production is vLLM since 2026-08-21, see [runbook](runbook.md)), plus historic units  
 **Logs:** `journalctl -u <service>`
+
+> This file is the **unit reference** (what the units contain). Day-to-day operations — status, restart, rollback, debugging — live in [runbook.md](runbook.md).
 
 ---
 
@@ -11,10 +13,10 @@
 
 **Service:** `llama-qwen3.8-27b.service`  
 **Unit:** `/etc/systemd/system/llama-qwen3.8-27b.service`  
-**Status:** ✅ Active, enabled  
+**Status:** ⏸ **Dormant fallback** — since 2026-08-21 the 27B endpoint on :8080 is served by vLLM 0.27.1 in a separate LXC (see [runbook](runbook.md)); this unit stays on disk as the validated llama.cpp rollback  
 **GPU:** RTX 3090 24GB (CUDA0)  
 **Context:** 160K, q8_0/q8_0 KV, MTP speculative decoding  
-**Cutover:** 2026-08-15 (replaced BeeLlama Qwen3.6-27B; stock llama.cpp 5f754ea)
+**Cutover:** 2026-08-15 (replaced BeeLlama Qwen3.6-27B; stock llama.cpp 5f754ea); superseded by vLLM 2026-08-21
 
 ```ini
 [Unit]
@@ -61,50 +63,42 @@ WantedBy=multi-user.target
 ### Qwen3.6-35B-A3B Vision (Port 8081, Dual RTX 3060)
 
 **Service:** `llama-server-qwen3.6-vision.service`  
-**Unit:** `/etc/systemd/system/llama-server-qwen3.6-vision.service`  
-**Status:** ✅ Active, enabled  
-**Model:** Qwen3.6-35B-A3B-UD-IQ4_XS + Vision (mainline llama.cpp)  
-**GPU:** 2× RTX 3060 12GB (tensor-split 50,50, CUDA1,CUDA2)  
-**Context:** 256K, 2 parallel slots
+**Status:** ✅ Active, enabled — **current production** (optimization campaign 2026-08-27, [report](../reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md))  
+**Model:** Qwen3.6-35B-A3B-UD-IQ4_XS (MTP variant) + vision F16 — mainline llama.cpp, `/opt/llama.cpp-mainline`  
+**GPU:** 2× RTX 3060 12GB (tensor-split 50,50)  
+**Context:** 256K, 2 parallel slots, MTP n=3 (acceptance 0.93–0.98)
+
+Verified core of the live unit (`systemctl cat` for the full file):
 
 ```ini
-[Unit]
-Description=Qwen 3.6-35B-A3B IQ4_XS Vision Server (Dual 3060, 256K, 2 slots)
-After=network.target
-
 [Service]
-Type=simple
-User=root
-WorkingDirectory=/opt/llama.cpp
-Environment=LD_LIBRARY_PATH=/opt/llama.cpp/build/bin
-Environment=CUDA_VISIBLE_DEVICES=1,2
-ExecStart=/opt/llama.cpp/build/bin/llama-server \
+ExecStartPre=/usr/local/sbin/wait-for-8080-health   # gates on the 27B endpoint health before start
+ExecStart=/opt/llama.cpp-mainline/build/bin/llama-server \
   --device CUDA0,CUDA1 \
-  -m /mnt/models/gguf/qwen3.6-35b-unsloth/Qwen3.6-35B-A3B-UD-IQ4_XS.gguf \
-  --mmproj /mnt/models/gguf/qwen3.6-35b-unsloth/mmproj-BF16.gguf \
+  -m /mnt/models/gguf/qwen3.6-35b-a3b-mtp/Qwen3.6-35B-A3B-UD-IQ4_XS.gguf \
+  --mmproj /mnt/models/gguf/qwen3.6-35b-a3b-mtp/mmproj-F16.gguf \
+  --no-mmproj-offload \
+  --image-max-tokens 1024 \
   --host 0.0.0.0 \
   --port 8081 \
   -c 262144 \
   --parallel 2 \
+  --split-mode tensor \
   --tensor-split 50,50 \
   --cache-type-k q8_0 \
   --cache-type-v q4_0 \
-  --batch-size 1024 \
-  --ubatch-size 128 \
+  --batch-size 2048 \
+  --ubatch-size 1024 \
   --flash-attn on \
+  --spec-type draft-mtp \
+  --spec-draft-n-max 3 \
   --jinja \
   --metrics \
   --cache-prompt \
   --cache-ram 2048
-Restart=on-failure
-RestartSec=10
-LimitNOFILE=65536
-
-[Install]
-WantedBy=multi-user.target
 ```
 
-**Drop-in:** `10-wait-for-8080.conf` — `ExecStartPre` waits for 27B (:8080) health before starting, avoids boot-time IO storm.
+**Drop-in:** a sequence/QOS drop-in previously gated this unit on the 27B service; since the 27B moved to vLLM in a separate LXC (2026-08-21), those `Requires=`/`After=` lines are commented out — the `ExecStartPre` health poll is the live gate. Re-engage the drop-in only when rolling 27B back to llama.cpp.
 
 ### Qwen3.6-35B-A3B-MTP (Port 8080, RTX 3060, backup box)
 
@@ -137,7 +131,7 @@ ExecStart=/opt/llama.cpp/build/bin/llama-server \
   -ngl 99 --n-cpu-moe 28 \
   -c 131072 \
   -ctk q8_0 -ctv q4_0 \
-  -b 4096 -ub 1536 \
+  -b 4096 -ub 2048 \
   --flash-attn on \
   --no-mmap \
   -np 1 \
@@ -154,7 +148,7 @@ LimitNOFILE=65536
 WantedBy=multi-user.target
 ```
 
-**VRAM:** ~9.9 / 12.3 GiB | **CPU RAM:** ~15-18 / 20 GiB
+**VRAM:** ~11.7 GiB idle / ~11.8 peak at 128K (`-ub 2048` since 2026-08-28; ~430 MiB headroom) | **CPU RAM:** ~15–18 GiB of the LXC limit (host has 48 GB)
 
 ### BeeLlama Qwen3.6-27B (Historic — replaced 2026-08-15)
 
