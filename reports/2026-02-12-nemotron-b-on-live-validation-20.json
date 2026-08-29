@@ -1,7 +1,7 @@
 {
   "ts_utc": "2026-02-12T18:49:46.699727Z",
   "profile": "B_on",
-  "endpoint": "http://10.0.0.27:8080/v1/chat/completions",
+  "endpoint": "http://<gpu-server>:8080/v1/chat/completions",
   "model": "Nemotron-3-Nano-30B-A3B-IQ4_NL.gguf",
   "system_prompt": "You are a helpful assistant. Think briefly in at most 2 short sentences. Skip obvious steps. Then answer concisely.",
   "summary": {

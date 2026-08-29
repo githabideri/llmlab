@@ -198,7 +198,7 @@ Server auto-reduced from 262K → 202K configured context due to insufficient VR
 
 ## Test Methodology
 
-- **Script:** `llmlab/scripts/run_context_ladder.py`
+- **Script:** `llmlab/scripts/legacy/run_context_ladder.py`
 - **Test points attempted:** 13 (9, 3K, 6K, 10K, 13K, 19K, 24K, 32K, 64K, 95K, 128K, 192K, 250K)
 - **Test points completed:** 11 (0-128K range, 192K & 250K failed)
 - **Per test:** Prompt eval + 3 tokens generation

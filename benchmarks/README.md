@@ -2,4 +2,4 @@
 
 Reusable benchmark **harnesses** — cases, fixtures, and runners. One-off measured results go in [reports](../reports/).
 
-- `openclaw/` — OpenClaw tool-reliability ladder. **Legacy** (OpenClaw is no longer in use); retained for reference. Future agent benchmarks will target pi.
+- `legacy/openclaw/` — OpenClaw tool-reliability ladder (March 2026). **Frozen** — OpenClaw is no longer in use; retained for reference. Future agent benchmarks will target pi.

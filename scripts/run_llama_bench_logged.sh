@@ -2,7 +2,7 @@
 set -euo pipefail
 
 STAMP=$(date -u +"%Y%m%dT%H%M%SZ")
-LOGDIR="${LOGDIR:-benchmarks/openclaw/logs}"
+LOGDIR="${LOGDIR:-benchmarks/legacy/openclaw/logs}"
 mkdir -p "$LOGDIR"
 LOG="$LOGDIR/llama-bench-$STAMP.log"
 

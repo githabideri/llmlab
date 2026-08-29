@@ -177,7 +177,7 @@ Both models tested on same hardware (3×RTX 3060) with full 0-250K ladder:
 
 ## Test Methodology
 
-- **Script:** `llmlab/scripts/run_context_ladder.py`
+- **Script:** `llmlab/scripts/legacy/run_context_ladder.py`
 - **Test points:** 13 (9, 3K, 6K, 10K, 13K, 19K, 24K, 32K, 64K, 95K, 128K, 192K, 250K)
 - **Per test:** Prompt eval + 3 tokens generation (to measure both PP and TG)
 - **Monitoring:** CPU/RAM usage (lightweight), GPU metrics not captured (future improvement)

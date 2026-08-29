@@ -1,5 +1,7 @@
 # LLMlab Benchmark Web UI
 
+> **Legacy (2026-08):** this was the convenience front-end for the March 2026 context-ladder benchmark (`scripts/legacy/run_context_ladder.py`) — configure ladder points, run with live streaming output, browse past results. Current campaigns use per-campaign scripts documented in [reports/](../reports/). The app still works (point `LLAMA_SERVER_URL` at any llama.cpp server) but is not actively maintained.
+
 Web interface for running context ladder benchmarks on llama.cpp servers.
 
 ## Features

@@ -38,11 +38,16 @@ The quant is the highest-quality that still leaves 100K+ context headroom; each 
 
 Mamba-2 holds up on its constant-time-attention promise; traditional GQA falls off a cliff. Real serving also runs 28–36% slower than `llama-bench` under load, and one long session recovered ~2× after context compaction.
 
+Two more knobs that turned out to matter (2026-08):
+
+- **Ubatch is often an untuned knob** — raising `-ub` toward the VRAM limit gave +20–24% prompt processing on CPU-offloaded MoE with no generation penalty ([2026-08-28](reports/2026-08-28-llama-cpp-ubatch-moe-single-gpu.md)).
+- **MTP draft depth tops out at 2–3** — deeper drafts cost VRAM without measurable gain on 12 GB cards ([2026-08-27](reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md)).
+
 ## Where things live
 
 - [models/](models/README.md) — per-model write-ups: architecture, quant rationale, speed vs context, agentic results, known issues.
 - [docs/](docs/) — guides and reference: [multi-GPU tensor-split](docs/multi-gpu-tensor-split.md), [KV-cache sizing](docs/kv-cache-sizing.md), [architecture](docs/architecture.md), [runbook](docs/runbook.md), [troubleshooting](docs/troubleshooting.md), [hardware fleet](docs/hardware/README.md).
 - [reports/](reports/README.md) — date-stamped investigations and deployments (snapshots, no maintenance).
-- [benchmarks/](benchmarks/README.md) — benchmark harnesses (the OpenClaw ladder is legacy; future agent benchmarks target pi).
-- [scripts/](scripts/) — context-sweep benchmarking, model info fetcher, server start scripts.
+- [benchmarks/](benchmarks/README.md) — benchmark harnesses (the March 2026 OpenClaw ladder is frozen under `benchmarks/legacy/`; future agent benchmarks target pi).
+- [scripts/](scripts/) — small tooling (logged `llama-bench`, model-info fetcher); the older context-ladder harness is under `scripts/legacy/`.
 - [web/](web/README.md) — FastAPI + htmx dashboard for running and monitoring benchmarks.
