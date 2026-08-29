@@ -6,7 +6,7 @@ Sends N concurrent requests at various context depths and measures
 aggregate throughput, per-slot speed, and slot starvation.
 
 Usage:
-    LLAMA_ENDPOINT=http://10.0.0.27:8080/v1/completions \
+    LLAMA_ENDPOINT=http://localhost:8080/v1/completions \
     LLAMA_SSH_HOST=your-host \
     MODEL_NAME=test \
     python3 run_concurrency_test.py
@@ -22,7 +22,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
-ENDPOINT = os.getenv("LLAMA_ENDPOINT", "http://10.0.0.27:8080/v1/completions")
+ENDPOINT = os.getenv("LLAMA_ENDPOINT", "http://localhost:8080/v1/completions")
 SSH_HOST = os.getenv("LLAMA_SSH_HOST", "llama-cpp")
 MODEL_NAME = os.getenv("MODEL_NAME", "unknown")
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", "results")

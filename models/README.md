@@ -11,6 +11,13 @@ Experiments in `reports/` are dated raw logs. This directory **distills findings
 - Recommended configurations
 - Hardware requirements
 
+## In production (2026-08)
+
+- [Qwen3.8-27B (RTX 3090)](qwen3.8-27b-rtx3090.md) — vLLM 0.27.1, MTP k=3, 160K, text-only
+- [Qwen3.6-35B-A3B](qwen3.6-35b-a3b.md) — dual 3060 (tensor 50/50, MTP n=3, 256K ×2); the same model also serves the single-3060 backup box as a llama.cpp MTP endpoint ([2026-06-30 report](../reports/2026-06-30-qwen3.6-35b-a3b-mtp-single-3060.md))
+
+Every other card in this directory is a **historic test record** — a frozen point-in-time snapshot that is deliberately not maintained. A card without a link in the list above means the model is not in production use.
+
 ## Profile Template
 
 Each model gets a markdown file named after the model (e.g., `nemotron-3-nano-30b-a3b.md`).

@@ -22,7 +22,7 @@ import httpx
 from pydantic import BaseModel
 
 # Add parent directory to path to import the benchmark script
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "scripts" / "legacy"))
 
 app = FastAPI(title="LLMlab Benchmark UI")
 
@@ -31,7 +31,7 @@ app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), na
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 # Configuration
-LLAMA_SERVER_URL = os.getenv("LLAMA_SERVER_URL", "http://10.0.0.27:8080")
+LLAMA_SERVER_URL = os.getenv("LLAMA_SERVER_URL", "http://localhost:8080")
 RESULTS_DIR = Path(__file__).parent.parent / "scripts" / "results"
 RESULTS_DIR.mkdir(exist_ok=True)
 
