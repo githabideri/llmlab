@@ -1,15 +1,58 @@
-# llama.cpp / BeeLlama.cpp systemd Service Configuration
+# LLM Serving — systemd Unit Reference
 
-**Services:** `llama-server-qwen3.6-vision.service` (35B dual-3060, **current production**), `llama-server.service` (35B MTP, backup box), `llama-qwen3.8-27b.service` (27B, **dormant fallback** — 27B production is vLLM since 2026-08-21, see [runbook](runbook.md)), plus historic units  
+**Services (current):**
+- `llama-vllm-qwen3.8-27b.service` — Qwen3.8-27B, **vLLM** (production since 2026-08-21, port 8080)
+- `llama-server-qwen3.6-vision.service` — Qwen3.6-35B-A3B, llama.cpp, dual 3060 (production, port 8081)
+- `llama-server.service` — Qwen3.6-35B-A3B MTP, llama.cpp, backup box (port 8080)
+- `llama-qwen3.8-27b.service` — Qwen3.8-27B, llama.cpp (**dormant fallback** for the vLLM endpoint)
+- plus historic units (BeeLlama DFlash, old longctx/reference configs)
+
 **Logs:** `journalctl -u <service>`
 
 > This file is the **unit reference** (what the units contain). Day-to-day operations — status, restart, rollback, debugging — live in [runbook.md](runbook.md).
 
 ---
 
-## Production Services
+## vLLM — Qwen3.8-27B (Port 8080, RTX 3090)
 
-### Qwen3.8-27B (Port 8080, RTX 3090)
+**Service:** `llama-vllm-qwen3.8-27b.service` — **production since 2026-08-21** (supersedes the llama.cpp 27B unit below)  
+**Placement:** dedicated LXC on the GPU-server host (Ubuntu 24.04); from the host: `pct exec <lxc-id> -- systemctl status llama-vllm-qwen3.8-27b`  
+**Runtime:** vLLM 0.27.1 (PyTorch cu130, Python 3.12) · **Model:** Qwen3.8-27B W4A16-AutoRound (19.5 GB; int8 embed + MTP int4 "fast" prep)  
+**Effective config:** fp8 KV (FlashInfer) · MTP speculative decoding k=3 · max-model-len 163,840 · gpu-mem-util 0.93 · max-num-seqs 8 · prefix caching + mamba-align resume · `--reasoning-parser qwen3` · `--language-model-only` · tool-call parser · **keyless**
+
+```ini
+[Unit]
+Description=vLLM Qwen3.8-27B W4A16 MTP fp8-KV 163k prefix-cache (RTX 3090)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/qwen38-vllm
+Environment=HOME=/root
+Environment=PORT=8080
+Environment=CTX=long
+Environment=SPEC=mtp
+Environment=MAX_LEN=163840
+Environment=PREFIX_CACHE=1
+Environment="EXTRA_ARGS=--enable-auto-tool-choice --tool-call-parser qwen3_coder"
+ExecStart=/bin/bash /opt/qwen38-vllm/single-user/start_qwen.sh
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=25min
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+```
+
+> ⚠️ **Do not replace the start script wholesale** — it carries the MTP/fp8/13-patch wiring (verified by the recipe's `verify.sh`). Add flags via `EXTRA_ARGS`, then restart (~3 min warm). The 35B vision unit's `ExecStartPre` polls this endpoint's :8080 health, so a vLLM restart transiently blocks the 35B boot chain.
+
+---
+
+## llama.cpp units
+
+### Qwen3.8-27B (Port 8080, RTX 3090 — dormant fallback)
 
 **Service:** `llama-qwen3.8-27b.service`  
 **Unit:** `/etc/systemd/system/llama-qwen3.8-27b.service`  
