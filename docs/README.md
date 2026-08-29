@@ -6,7 +6,7 @@ Methodology and reference — the repo's only **maintained** documentation surfa
 |-----|---------|--------|
 | [architecture](architecture.md) | Fleet layout: what runs where, storage, GPU topology | Active |
 | [runbook](runbook.md) | Day-to-day ops: health, restart, rollback, MTP debugging, symptom→fix index | Active |
-| [llama-cpp-systemd](llama-cpp-systemd.md) | Unit-file reference — what the units contain (the runbook says how to operate them) | Active |
+| [systemd](systemd.md) | Serving unit reference (vLLM 27B + llama.cpp 35B units) — what the units contain; the runbook says how to operate them | Active |
 | [benchmarks](benchmarks.md) | Durable benchmarking method and comparison discipline | Active |
 | [multi-gpu-tensor-split](multi-gpu-tensor-split.md) | `--tensor-split` tuning; when to use layer vs tensor (2026-08) vs row (never on PCIe) | Active |
 | [kv-cache-sizing](kv-cache-sizing.md) | KV memory math per architecture; quant tradeoffs | Active |

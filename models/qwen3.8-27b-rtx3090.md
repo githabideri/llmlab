@@ -114,6 +114,6 @@ The upstream `f8f0a47a` "quantized-KV flash-attention scratch blowup" does **not
 
 ## Related Documentation
 
-- **Systemd / server config:** [`docs/llama-cpp-systemd.md`](../docs/llama-cpp-systemd.md)
+- **Systemd / server config:** [`docs/systemd.md`](../docs/systemd.md)
 - **Predecessor (Qwen3.6-27B BeeLlama):** [`qwen3.6-27b-rtx3090.md`](qwen3.6-27b-rtx3090.md)
 - **BeeLlama backend (historic):** [`docs/backend-beellama.md`](../docs/legacy/backend-beellama.md)

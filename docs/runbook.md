@@ -15,7 +15,7 @@ curl -s http://localhost:8080/health
 # see models/qwen3.8-27b-rtx3090.md for the full llama.cpp command
 ```
 
-> **History:** 2026-06-19: BeeLlama Qwen3.6-27B (DFlash) production → 2026-08-15: stock llama.cpp 5f754ea Q4_K_M+MTP → 2026-08-21: vLLM 0.27.1 cutover (current). The llama.cpp unit is kept dormant; the BeeLlama unit is a disk-only backup. See [`llama-cpp-systemd.md`](llama-cpp-systemd.md) and [`models/qwen3.6-27b-rtx3090.md`](../models/qwen3.6-27b-rtx3090.md).
+> **History:** 2026-06-19: BeeLlama Qwen3.6-27B (DFlash) production → 2026-08-15: stock llama.cpp 5f754ea Q4_K_M+MTP → 2026-08-21: vLLM 0.27.1 cutover (current). The llama.cpp unit is kept dormant; the BeeLlama unit is a disk-only backup. See [`systemd.md`](systemd.md) and [`models/qwen3.6-27b-rtx3090.md`](../models/qwen3.6-27b-rtx3090.md).
 
 ### MTP Debugging (Qwen3.8 production — vLLM)
 
@@ -57,7 +57,7 @@ journalctl -u beellama-qwen3.6-27b | grep -i 'draft\|dflash'
 | "failed to parse grammar" with tool schemas | build's repetition threshold | Raise `MAX_REPETITION_THRESHOLD` — [grammar workaround](llama-cpp-grammar-workaround.md) |
 | "Flash Attention was auto, set to disabled" | build flags | Rebuild llama.cpp with FA all-quants support |
 
-Unit-level failures (won't start, metrics missing, OOM patterns) are in [llama-cpp-systemd.md → Troubleshooting](llama-cpp-systemd.md#troubleshooting).
+Unit-level failures (won't start, metrics missing, OOM patterns) are in [systemd.md → Troubleshooting](systemd.md#troubleshooting).
 
 ## llama.cpp — start (Nemotron recommended profile)
 

@@ -115,5 +115,5 @@ Google Research's extreme KV cache quantization — under 3 bits per value with 
 ## Related
 
 - `hardware/gpu-server.md` — GPU server hardware profile and what's deployed per GPU
-- `llama-cpp-systemd.md` — Service configs with cache quantization flags
+- `systemd.md` — Service configs with cache quantization flags
 - `runbook.md` — Operational reference

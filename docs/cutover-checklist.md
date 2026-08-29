@@ -106,7 +106,7 @@ Reusable checklist for swapping models or runtimes (llama.cpp → BeeLlama, mode
 
 - [ ] **Update model card** (`llmlab/models/<model>.md`) — add changelog entry
 - [ ] **Update host doc** (`infra/<location>/<host>.md`) — service table, GPU workload
-- [ ] **Update systemd doc** (`llmlab/docs/llama-cpp-systemd.md`) — add new service, update model history
+- [ ] **Update systemd doc** (`llmlab/docs/systemd.md`) — add new service, update model history
 - [ ] **Write experiment log** (`llmlab/reports/YYYY-MM-DD-<name>.md`) — what was tried, results
 - [ ] **Write report** (`reports/YYYY-MM-DD_report_<name>.md`) — if operation was significant
 - [ ] **Check for stale references** — grep for old model names / service names / port assignments
