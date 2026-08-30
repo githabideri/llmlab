@@ -1,0 +1,13 @@
+tag,source,config,ctx,prefill_s,prefill_tps,decode_tps,pcie_rx_mbs,pcie_tx_mbs,gpu_w,sm_pct,vram_mib,notes
+short,dev,35B-one3060-IQ2XXS,2048,1.87,1078,81.9,,,,,,slot print_timing
+short,repro,35B-one3060-IQ2XXS,2048,1.4,~1450,81.5,16,5,57,33,11307,server -c 16384; window incl. prefill
+short2,repro,35B-one3060-IQ2XXS,2048,1.45,~1400,81.5,,, , , ,repeat on same fresh server
+doc16,dev,35B-one3060-IQ2XXS,16384,13.30,1100,68.6,,,,,,
+doc16,repro,35B-one3060-IQ2XXS,16384,11.2,~1430,68.6,21,41,108,98,11320,decode-window averages from 1Hz dmon
+doc32,dev,35B-one3060-IQ2XXS,32768,30.32,1056,57.8,,,,,,
+doc32,repro,35B-one3060-IQ2XXS,32768,24.3,~1320,57.7,,,,,
+doc64,dev,35B-one3060-IQ2XXS,65536,68.73,931,43.3,,,,,,
+doc64,repro,35B-one3060-IQ2XXS,65536,56.4,~1135,43.2,,,,,fresh server per context tier
+doc16,repro,35B-one3060-IQ2XXS-CPU-MoE,16384,2.2,~730,44.6,5870,520,45,42,11300,--n-cpu-moe 99; the residency control
+mtp,repro,35B-one3060-IQ2XXS-MTP,16384,,1080,99,,,,,VRAM cliff: only boots to ~16K context budget
+resident_vs_cpumoe,,,,,,,decode ratio ~1.8-2x; resident draws 2.4x power (all layers on-GPU); PCIe 0.02 vs 5.9 GB/s

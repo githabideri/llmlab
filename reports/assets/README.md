@@ -97,3 +97,8 @@ Related experiments:
 - **GLM (MLA):** Highest VRAM cost, most variable GPU load, steepest degradation
 - **Qwen3.5 (GQA):** Balanced middle ground, good VRAM efficiency, moderate degradation
 - **Nemotron (Mamba-2):** Best VRAM efficiency, most consistent load, shallowest degradation
+
+## 2026-08-30: Dual-3060 campaign data (27B + 35B)
+
+- `2026-08-30-27b-dual3060-ctx-conc.csv` — 27B on 2×3060 (vLLM TP2+MTP): context ladder, concurrency cells, wall power. From [the report](../2026-08-30-dual-3060-35b-squeeze-27b-node.md).
+- `2026-08-30-35b-single3060-ladder.csv` — 2-bit 35B on one 12 GB 3060: decode ladder incl. PCIe RX/TX and power for the residency proof.

@@ -98,6 +98,11 @@ The upstream `f8f0a47a` "quantized-KV flash-attention scratch blowup" does **not
 
 ## Changelog
 
+### 2026-08-30: Dual-3060 node evaluated as a candidate second inference unit
+- The two 3060s (normally serving 35B) ran this model under vLLM **TP2 + MTP k=4, fp8 KV, FlashInfer, 64K max len**: decode 87 / 77 / 67 / 57 / 57 t/s at 2K / 16K / 24K / 48K / 64K (3090 does 105 / 93 / — / — / 73 in the same cells), prefill 560–700 tok/s vs the 3090's ~1,000. Wall power ~340–370 W (the pair at ~220 W) — i.e. ~80% of 3090 speed at ~the same wall draw; the box idles at ~93 W.
+- It is a **single-user machine**: KV pool is 126,390 tokens (64K = 1.93× max concurrency); 2×2K batches to ~97 aggregate t/s, 8×2K to ~191, but 4×16K collapses per-request decode to 3–46 t/s (mean 16) with MTP acceptance dropping to 17–39%.
+- The experimental vLLM build (locally patched 0.27.1, same patch family as the 3090 production) was flaky on the pair: one FlashInfer drafter crash on the first long request, marginal OOM at `gpu-mem-util 0.93`; ran clean at 0.90 with a warmup request. Not deployed — see [the full report](../reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md).
+
 ### 2026-08-30: CPU KV offload experiment — reverted
 - Tested vLLM native CPU KV offload (12 GiB LXC store, LXC RAM 24 → 40 GiB) to extend prefix caching beyond the 208,664-token GPU pool. Write path healthy, **read-hit rate 0.0%** (hybrid SSM/GDN model — scheduler-side blocker, upstream #38230/#49537); GPU pool shrank 208,664 → 180,842 under the connector. Reverted to baseline (kept the 40 GiB LXC for a future re-test). `MAX_NUM_SEQS` 8 → 4 had zero pool effect — current config is pool-optimal. Also confirmed live: tool calling via `--enable-auto-tool-choice --tool-call-parser qwen3_coder`. See [the report](../reports/2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md).
 

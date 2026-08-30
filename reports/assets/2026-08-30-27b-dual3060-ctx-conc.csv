@@ -1,0 +1,15 @@
+tag,source,ctx,ttft_s,prefill_tps,decode_tps,mtp_accept_pct,wall_w,gpu3060_w_per_card,rxpci_mbs,txpci_mbs,notes
+short,dev,2048,3.08,657,80.1,,166,,,,single stream
+short,repro,2048,2.90,699,87.0,46-61,,54 (window avg),,,single stream; MTP k=4
+doc16,dev,16384,23.94,670,76.7,,,,,,
+doc16,repro,16384,23.87,671,76.8,,340 (window),110 (window avg),1295,1040,
+doc24,repro,24576,37.05,649,66.9,,300 (window),97 (window avg),1262,1047,
+doc48,repro,49152,81.24,592,56.9,,345 (window),112 (window avg),1004,935,decode plateau begins
+doc64,dev,65536,114.27,560,59.0,,,,,,
+doc64,repro,65536,113.94,562,57.2,,350 (window),112 (window avg),1006,990,
+conc2_2k,repro,2048,,88 (cold 1st),31/66 (per-request),,,220 (window),55 (window avg),574,911,aggregate ~97 t/s
+conc4_2k,repro,2048,,88 (cold 1st),17/22/31/53,,230 (window),103 (window avg),1000,947,aggregate ~122 t/s
+conc8_2k,repro,2048,,88 (cold 1st),11-69 (mean 24),,,250 (window),112 (window avg),1784,1019,aggregate ~191 t/s; MTP acceptance degraded
+conc2_16k,repro,16384,24.7/48.6 (stacked),~650 (each),9/60,,340 (window),113 (window avg),974,944,aggregate ~35 t/s
+conc4_16k,repro,16384,24.9/49.8/74.8/98.1 (stacked),~650 (each),3/5/9/46,17-39,,345 (window),113 (window avg),972,1021,aggregate ~32 t/s; the cliff
+kv_pool,,,,,,,126390 tokens total (fp8 KV, gpu-mem-util 0.90); 64K = 1.93x max concurrency
