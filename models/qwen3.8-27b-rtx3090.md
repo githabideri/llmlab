@@ -89,6 +89,7 @@ The upstream `f8f0a47a` "quantized-KV flash-attention scratch blowup" does **not
 
 ## Known Limits
 
+- **CPU KV offload is not functional for this model** (vLLM 0.27.1): native offload stored to RAM but hit rate stayed 0% — the scheduler has no hybrid-aware offload planner (upstream #38230/#49537). Do not retry it, including via lmcache. See [2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md](../reports/2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md).
 - **160K context** is the deployed size; the model's native 262K needs more VRAM than a single 3090 has with q8 KV.
 - **No multi-GPU split** — designed for a single 24 GB GPU.
 - MTP requires the GGUF to include MTP heads (it does, natively for Qwen3.8).
@@ -96,6 +97,9 @@ The upstream `f8f0a47a` "quantized-KV flash-attention scratch blowup" does **not
 ---
 
 ## Changelog
+
+### 2026-08-30: CPU KV offload experiment — reverted
+- Tested vLLM native CPU KV offload (12 GiB LXC store, LXC RAM 24 → 40 GiB) to extend prefix caching beyond the 208,664-token GPU pool. Write path healthy, **read-hit rate 0.0%** (hybrid SSM/GDN model — scheduler-side blocker, upstream #38230/#49537); GPU pool shrank 208,664 → 180,842 under the connector. Reverted to baseline (kept the 40 GiB LXC for a future re-test). `MAX_NUM_SEQS` 8 → 4 had zero pool effect — current config is pool-optimal. Also confirmed live: tool calling via `--enable-auto-tool-choice --tool-call-parser qwen3_coder`. See [the report](../reports/2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md).
 
 ### 2026-08-21/22: Production runtime moved to vLLM
 - vLLM 0.27.1 (PyTorch 2.13.0+cu130) now serves `Qwen3.8-27B-W4A16-AutoRound` (19.5 GB; int8 embed + MTP int4 "fast" prep), following the public recipe `syv-ai/qwen38-27b-rtx3090` @ `999e264b` (13 patches, all applied).

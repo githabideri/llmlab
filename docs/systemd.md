@@ -47,6 +47,8 @@ WantedBy=multi-user.target
 ```
 
 > ⚠️ **Do not replace the start script wholesale** — it carries the MTP/fp8/13-patch wiring (verified by the recipe's `verify.sh`). Add flags via `EXTRA_ARGS`, then restart (~3 min warm). The 35B vision unit's `ExecStartPre` polls this endpoint's :8080 health, so a vLLM restart transiently blocks the 35B boot chain.
+>
+> **LXC memory:** raised 24 → **40 GiB** on 2026-08-30 during the (failed, reverted) CPU KV-offload experiment; kept in place — harmless, and it prepositions the box for hybrid-aware offload once it lands upstream. **Do not add KV-offload flags** to this model — it's a silent no-op (0% hit rate) on hybrid SSM/GDN architectures; see [the 2026-08-30 offload report](../reports/2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md). The first long prompt after a restart also pays a one-time Triton JIT warmup storm (~60–120 s).
 
 ---
 
