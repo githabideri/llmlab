@@ -15,6 +15,7 @@ The directory is flat and date-sorted. Use the per-run structure above for exper
 
 ## Recent
 
+- `2026-08-30-dual-3060-35b-squeeze-27b-node.md` — 2-bit 35B proven resident on one 12 GB 3060 (PCIe counters, 43–81 t/s); 27B dense on the 3060 pair at ~80% of 3090 speed for the same wall draw, with the ctx-degradation curve, concurrency cliff, and the cache-artifact retraction
 - `2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md` — vLLM native CPU KV offload writes but never restores on hybrid SSM/GDN models (0% hit rate, pool shrank); scheduler-side blocker, reverted
 - `2026-08-28-llama-cpp-ubatch-moe-single-gpu.md` — `-ub 2048` gives +22% prompt-processing for MoE+MTP on a single 12 GB GPU, tg-neutral
 - `2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md` — two 3060s, 50/50 tensor split, 100+ t/s

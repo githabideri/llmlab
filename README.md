@@ -42,6 +42,9 @@ Two more knobs that turned out to matter (2026-08):
 
 - **Ubatch is often an untuned knob** — raising `-ub` toward the VRAM limit gave +20–24% prompt processing on CPU-offloaded MoE with no generation penalty ([2026-08-28](reports/2026-08-28-llama-cpp-ubatch-moe-single-gpu.md)).
 - **MTP draft depth tops out at 2–3** — deeper drafts cost VRAM without measurable gain on 12 GB cards ([2026-08-27](reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md)).
+- **"It fits in VRAM" is a bus claim — prove it with PCIe counters.** The 2-bit 35B sits fully resident on one 12 GB 3060 (43–81 t/s) with ~0.02 GB/s PCIe in decode, while its CPU-MoE twin streams 5.9 GB/s and runs 2× slower; decode timing alone can't tell the two apart ([2026-08-30](reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)).
+- **Two 3060s serve a 27B dense model at ~80% of 3090 speed for the same wall power** — but only as a single-user node: the KV pool (126K tokens) fits 1.9× a 64K context, and 4× 16K contexts collapse per-request decode to ~16 t/s ([2026-08-30](reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)).
+- **Repeated prompts are warm prompts** — vLLM prefix caching and llama.cpp `--cache-prompt` both made a llama.cpp node look 2.7× faster than the 3090 in one campaign until every request got a unique nonce ([methodology](docs/benchmarks.md)).
 
 ## Where things live
 

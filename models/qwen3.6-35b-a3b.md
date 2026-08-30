@@ -77,6 +77,7 @@ Official GPTQ-Int4 on vLLM 0.17.1, `--pipeline-parallel-size 3`, fp8 KV: post-wa
 - 3.5 preliminary (loop failures): [`2026-02-26`](../reports/2026-02-26-qwen3.5-35b-a3b-llmlab-preliminary.md)
 - 3.5 24 GB vision retest: [`2026-03-03`](../reports/2026-03-03-qwen3.5-35b-a3b-24gb-vision-retest.md)
 - DFlash tool-loop write-up: [`2026-06-19`](../reports/2026-06-19-beellama-dflash-cutover.md)
+- 2-bit squeeze onto one 12 GB 3060 (residency proof, decode ladder): [`2026-08-30`](../reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)
 
 ## Changelog
 
@@ -85,3 +86,4 @@ Official GPTQ-Int4 on vLLM 0.17.1, `--pipeline-parallel-size 3`, fp8 KV: post-wa
 - **2026-03-04:** 3.5 production performance benchmarked on 3×3060 (36 GB).
 - **2026-03-14/15:** 3.5 vLLM PP=3 profile + observations.
 - **2026-08 (this update):** card renamed to 3.6; current deployment is Qwen3.6-35B-A3B UD-IQ4_XS (256K, dual 3060, 2 slots, mainline build). 3.5 Q4_K_M work moved to Historical.
+- **2026-08-30:** IQ2_XXS squeeze tested on **one** 12 GB 3060 (temporarily taking the card out of the production 2-GPU unit): fully resident (11.3 GB VRAM, ~0.02 GB/s PCIe in decode vs 5.9 GB/s for its CPU-MoE twin), 43–81 t/s decode across 2K–64K, 99 t/s with MTP at the VRAM cliff (~16K budget only). 2-bit quality not yet evaluated — candidate, not deployment. See the [report](../reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md).
