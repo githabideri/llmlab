@@ -27,7 +27,7 @@ Answer three questions with the 3060 pair:
 |---|---|---|---|
 | Reference | 1× 3090 24 GB | Qwen3.8-27B W4A16-AutoRound (19.5 GB) | vLLM 0.27.1, MTP k=4, fp8 KV, FlashInfer, 64K max len |
 | 27B candidate | 2× 3060 12 GB | same | vLLM 0.27.1, **TP2**, MTP k=4, fp8 KV, FlashInfer, 64K max len, `gpu-mem-util 0.90` |
-| 35B squeeze | 1× 3060 12 GB | Qwen3.6-35B-A3B UD-IQ2_XXS (~9 GB) | llama.cpp mainline `925e117`, `-ngl 99`, flash-attn, q8_0 KV, MTP variant tested |
+| 35B squeeze | 1× 3060 12 GB | Qwen3.6-35B-A3B UD-IQ2_XXS (10.03 GiB file; see addendum) | llama.cpp mainline `925e117`, `-ngl 99`, flash-attn, q8_0 KV, MTP variant tested |
 | 35B control | 1× 3060 12 GB | same | same + `--n-cpu-moe 99` (experts in host RAM) |
 
 Method discipline (full write-up in [docs/benchmarks.md](../docs/benchmarks.md)): cold requests only, each with a **unique nonce** (vLLM prefix cache and llama.cpp `--cache-prompt` both silently cache repeated fixtures); decode rate = exact `completion_tokens` from `/usage` divided by decode wall — **never chunk counts** (speculative decoding ships multiple tokens per chunk, which makes any chunk-derived "tok/s" look 3–5× faster); per-request wall-clock markers aligned against 1 Hz `nvidia-smi dmon` (power, SM, VRAM, **PCIe RX/TX**); wall power from the PDU/smart-plug feeding the box.
@@ -131,6 +131,17 @@ The phantom came from two cache mechanisms the harness had not neutralized: llam
 
 - [`reports/assets/2026-08-30-27b-dual3060-ctx-conc.csv`](assets/2026-08-30-27b-dual3060-ctx-conc.csv) — the 27B ladder + concurrency cells (dev run, independent re-run, and wall power per row).
 - [`reports/assets/2026-08-30-35b-single3060-ladder.csv`](assets/2026-08-30-35b-single3060-ladder.csv) — 35B decode ladder incl. PCIe RX/TX and power for the residency proof.
+
+## Addendum (same day, later) — exact artifacts behind the 12 GB claim
+
+The "~9 GB" in the setup table above was a quant-weight estimate, not the file. For reproducibility, the exact artifacts:
+
+| Artifact | Size (bytes) | SHA256 | Notes |
+|---|---:|---|---|
+| `Qwen3.6-35B-A3B-UD-IQ2_XXS.gguf` (used for all ladder rows) | 10,756,586,464 (10.03 GiB) | `2e8f5f705355c56311432d0a8a5d14a696dbb7e4b197d05c75ba805fc1857bef` | the non-MTP build; matches the campaign's 10.76 GB figure |
+| `Qwen3.6-35B-A3B-UD-IQ2_XXS.gguf` (MTP variant) | 11,819,399,456 (11.0 GiB) | `627e2b05f83088448e27861ec392d56efc2b178783cae5adfa4ad2d988441203` | the build behind the 99 t/s MTP row — 1 GiB larger, and the one that hits the VRAM cliff |
+
+So "fits on 12 GB" really means: **10.03 GiB weights + q8_0 KV + compute buffers = 11,307–11,320 MiB measured VRAM on the 12,288 MiB card** — a 900–1,000 MiB margin, not a 3 GB one. Same-named files across the two builds differ in size; a reproduction should verify SHA256 rather than filename.
 
 ## References
 
