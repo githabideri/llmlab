@@ -106,6 +106,20 @@ The box idles at **~93–98 W** (5600X + three idle GPUs + NVMe). Measured from 
 
 So the pair serves the 27B at **~80% of 3090 decode speed for roughly the same wall draw** — and llama.cpp with tensor split manages the same model at ~2/3 the wall but 1/3 the speed (compute-bound on two consumer cards; the vLLM+MTP path is the one that closes the gap).
 
+### What a night of benchmarking costs at the plug
+
+Integrating the smart-plug trace across the 85-minute reproduction window:
+
+| Phase | Wall energy | Above idle |
+|---|---:|---:|
+| 3090 vLLM cells | 62 Wh | 39 Wh |
+| 2-bit 35B ladder (3 context tiers) | 59 Wh | 40 Wh |
+| 35B ladder + CPU-MoE control + 27B vLLM round 1 | 106 Wh | 72 Wh |
+| 27B vLLM round 2 + llama.cpp 27B + restore | 113 Wh | 72 Wh |
+| **Whole window** | **387 Wh** | **255 Wh** |
+
+**The entire campaign re-verification drew 0.26 kWh above idle — a few cents.** The same box ran a full day (dev campaign + production serving + this reproduction) at 5.2 kWh, ~3 kWh above idle. The fun part: the *measurement* of a model is nearly free in energy compared to *serving* it — an hour of heavy benchmarking on this box uses about what one long agent session with the 35B model would draw during normal use. (Integration gotcha for anyone reproducing this: smart-plug histories coalesce flat stretches into single points — integrate state × hold-duration until the next change, not fixed-dt segments, and validate against the idle hour.)
+
 ### A caution about the experimental vLLM build
 
 The 27B runs use a **locally patched vLLM 0.27.1** (embedding-quant routing + split-KV spec-decode attention; the 3090 production uses the same patch family). It is *flaky* on the 3060 pair: the first long request crashed once in the FlashInfer drafter path, and `--gpu-memory-utilization 0.93` hit a marginal OOM (worker at 11.85/11.87 GiB). It ran reliably at 0.90 with a small warmup request first. Anyone standing this node up should budget for both.
