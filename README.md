@@ -11,7 +11,7 @@ The primary box runs **1× RTX 3090 24 GB + 2× RTX 3060 12 GB (48 GB)** on an *
 - **MoE and hybrid models** — the sweet spot for interactive use on limited VRAM: small active parameters keep generation fast while large total parameters keep quality up. Dense models are on the table now that 48 GB is available.
 - **Agentic tool-calling** — models driving multi-step tool chains (search → fetch → analyze → file ops), not just chat.
 - **Real serving metrics** — `llama-bench` at empty context is only a starting point; prompt cache, thinking tokens, and growing context change the numbers. Both are measured.
-- **Multi-GPU without NVLink** — tensor-split tuning and compute-buffer analysis for squeezing context and parallelism out of consumer GPUs ([guide](docs/multi-gpu-tensor-split.md)).
+- **Heterogeneous consumer-GPU inference** — not just "run on N cards": measuring where tensors actually live, what crosses PCIe, what spills to RAM/SSD, and what that costs — across automatic fitter placement, layer/tensor split, and compute-buffer pressure ([guide](docs/multi-gpu-model-placement.md)).
 
 ## Currently serving
 
@@ -22,12 +22,28 @@ The primary box runs **1× RTX 3090 24 GB + 2× RTX 3060 12 GB (48 GB)** on an *
 
 The quant is the highest-quality that still leaves 100K+ context headroom; each model card shows the full comparison with exact sizes. Per-model write-ups and every model tested live in [models/](models/README.md).
 
+**Notable lab results (not serving):**
+
+| Model | Quant | GPU | Result |
+|-------|-------|-----|--------|
+| [Qwen3.8-Flash-Next (Qwen4Exp: 125 B total / 6 B active, 51 B PLE table)](models/qwen3.8-flash-next.md) | Q2_K_XL | 3× (12+12+24 GB) | **30.2 t/s decode** / ~390 pp/s (warm cache) / +17 % MTP — the fitter's selective expert spill beat all manual placement; on hold pending a production decision ([2026-09-02 report](reports/2026-09-02-qwen4exp-flash-next-three-gpu-campaign.md)) |
+| [Qwen3.6-35B-A3B](models/qwen3.6-35b-a3b.md) | UD-IQ2_XXS | 1× 3060 | 2-bit fully resident on one 12 GB card: 43–81 t/s at 0.02 GB/s PCIe — the residency-proof baseline ([2026-08-30 report](reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)) |
+
 ## What actually matters
 
-- **`-sm layer` beats `-sm row`.** On PCIe multi-GPU without NVLink, split mode matters more than the model; `-sm layer` gives ~2.5× the throughput of `-sm row`.
-- **`output.weight` lands on the last GPU.** In split-mode layer the output projection (~1+ GB) is hardcoded to the last GPU, creating asymmetric VRAM pressure that must be balanced with tensor-split ratios ([details](docs/multi-gpu-tensor-split.md)).
+### Placement & residency
+
+- **Placement comes before split tuning.** On current llama.cpp, the automatic fitter (no placement flags at all) selectively spills individual weight tensors and can beat hand-tuned `-ngl`/`--tensor-split` — on Qwen3.8-Flash-Next it raised sustained decode from ~21 to ~30 t/s on the mixed 12+12+24 GB box ([guide](docs/multi-gpu-model-placement.md), [2026-09-02](reports/2026-09-02-qwen4exp-flash-next-three-gpu-campaign.md)). Manual placement stays valuable when the fitter aborts or fully-resident homogeneous GPUs want tensor parallelism.
+- **`-sm layer` beats `-sm row`.** On PCIe multi-GPU without NVLink, split mode matters more than the model; `-sm layer` gives ~2.5× the throughput of `-sm row`. (Exception noted in the guide: tensor mode can win when the model is fully resident on equal cards.)
+- **`output.weight` lands on the last GPU.** In split-mode layer the output projection (~1+ GB) is hardcoded to the last GPU, creating asymmetric VRAM pressure that must be balanced with tensor-split ratios ([details](docs/multi-gpu-model-placement.md)).
+- **"It fits in VRAM" is a bus claim — prove it with PCIe counters.** The 2-bit 35B sits fully resident on one 12 GB 3060 (43–81 t/s) with ~0.02 GB/s PCIe in decode, while its CPU-MoE twin streams 5.9 GB/s and runs 2× slower; decode timing alone can't tell the two apart ([2026-08-30](reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)).
+- **A weak link isn't automatically the decode bottleneck.** The chipset-x4 3060 ran within a few percent of its x8 sibling at equal residency (2026-09) — with weights resident, layer-style placement barely moves data per token. That doesn't generalize to prefill-heavy or tensor-parallel workloads.
+
+### Context & KV
+
 - **`--parallel N` shrinks compute buffers.** More slots mean smaller per-slot compute buffers, which frees VRAM for KV cache — but per-slot context shrinks proportionally.
 - **Hybrid models use almost no KV cache.** Qwen3.6-35B-A3B has 40 layers but only 10 full-attention; the rest are linear attention with zero KV cache, so 128K context uses under 1 GB at q8_0/q4_0 ([per-model math](docs/kv-cache-sizing.md)).
+- **Ubatch is often an untuned knob** — raising `-ub` toward the VRAM limit gave +20–24% prompt processing on CPU-offloaded MoE with no generation penalty ([2026-08-28](reports/2026-08-28-llama-cpp-ubatch-moe-single-gpu.md)).
 - **Throughput degrades as context fills** — and differently by architecture:
 
 | Arch | @0 | @16K | @32K | @64K | @64K drop |
@@ -38,18 +54,19 @@ The quant is the highest-quality that still leaves 100K+ context headroom; each 
 
 Mamba-2 holds up on its constant-time-attention promise; traditional GQA falls off a cliff. Real serving also runs 28–36% slower than `llama-bench` under load, and one long session recovered ~2× after context compaction.
 
-Two more knobs that turned out to matter (2026-08):
+### Serving & speculation
 
-- **Ubatch is often an untuned knob** — raising `-ub` toward the VRAM limit gave +20–24% prompt processing on CPU-offloaded MoE with no generation penalty ([2026-08-28](reports/2026-08-28-llama-cpp-ubatch-moe-single-gpu.md)).
 - **MTP draft depth tops out at 2–3** — deeper drafts cost VRAM without measurable gain on 12 GB cards ([2026-08-27](reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md)).
-- **"It fits in VRAM" is a bus claim — prove it with PCIe counters.** The 2-bit 35B sits fully resident on one 12 GB 3060 (43–81 t/s) with ~0.02 GB/s PCIe in decode, while its CPU-MoE twin streams 5.9 GB/s and runs 2× slower; decode timing alone can't tell the two apart ([2026-08-30](reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)).
 - **Two 3060s serve a 27B dense model at ~80% of 3090 speed for the same wall power** — but only as a single-user node: the KV pool (126K tokens) fits 1.9× a 64K context, and 4× 16K contexts collapse per-request decode to ~16 t/s ([2026-08-30](reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)).
+
+### Benchmark traps
+
 - **Repeated prompts are warm prompts** — vLLM prefix caching and llama.cpp `--cache-prompt` both made a llama.cpp node look 2.7× faster than the 3090 in one campaign until every request got a unique nonce ([methodology](docs/benchmarks.md)).
 
 ## Where things live
 
 - [models/](models/README.md) — per-model write-ups: architecture, quant rationale, speed vs context, agentic results, known issues.
-- [docs/](docs/README.md) — methodology and reference, indexed by purpose and status: [tensor-split](docs/multi-gpu-tensor-split.md), [KV-cache sizing](docs/kv-cache-sizing.md), [architecture](docs/architecture.md), [runbook](docs/runbook.md), [unit reference](docs/systemd.md), [hardware fleet](docs/hardware/README.md); frozen fork docs live under [docs/legacy/](docs/legacy/).
+- [docs/](docs/README.md) — methodology and reference, indexed by purpose and status: [model placement](docs/multi-gpu-model-placement.md), [benchmarking](docs/benchmarks.md), [KV-cache sizing](docs/kv-cache-sizing.md), [architecture](docs/architecture.md), [runbook](docs/runbook.md), [unit reference](docs/systemd.md), [hardware fleet](docs/hardware/README.md); frozen fork docs live under [docs/legacy/](docs/legacy/).
 - [reports/](reports/README.md) — date-stamped investigations and deployments (snapshots, no maintenance).
 - [benchmarks/](benchmarks/README.md) — benchmark harnesses (the March 2026 OpenClaw ladder is frozen under `benchmarks/legacy/`; future agent benchmarks target pi).
 - [scripts/](scripts/) — small tooling (logged `llama-bench`, model-info fetcher); the older context-ladder harness is under `scripts/legacy/`.

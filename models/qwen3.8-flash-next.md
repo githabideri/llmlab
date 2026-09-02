@@ -17,9 +17,9 @@
 | **Layers** | 48 |
 | **GGUF size** | 78.9 GB (UD-Q2_K_XL) — non-PLE weights 45.9 GB (experts 0.89 GB/layer), fits 48.6 GB aggregate VRAM |
 | **Context tested** | 32,768 (32K; 128K/262K gated on RAM) |
-| **Best measured** | **30.2 t/s decode** (finalist median), **~390 prefill t/s** (cache-warm, ub1024), **35.3 t/s with MTP**, ~40 t/s on a prompt-cache hit |
-| **Per-token traffic (decode)** | PCIe RX 10–50 KB · SSD 2–14 KB · GPU power 68–142 W → ~0.5–1.7 Wh/1K tokens (GPU-only) |
-| **Speculative decoding** | MTP: +17 %, works. N-gram: **do not use on code** (0.13 t/s); prose-neutral. |
+| **Best measured** | **30.2 t/s sustained decode** (finalist median — the canonical number; 35.3 t/s with MTP is a single clean run, promising, not established) · **~390 prefill t/s under warm-cache conditions only** (34–437 across PLE page-cache states) · ~40 t/s on a prompt-cache hit (a different serving regime, not the model's decode speed) |
+| **Per-token traffic (decode)** | PCIe RX 10–50 KB · SSD 2–14 KB · GPU power 68–142 W → **~0.5–1.7 Wh/1K tokens, GPU-only** (dmon sum, no idle subtraction, no wall meter) |
+| **Speculative decoding** | MTP: +17 % (single run — promising, not established; soak before any production use). N-gram: pathological on the tested code fixture (0.13 t/s; prose neutral) — do not enable router-wide without content gating. |
 
 ---
 
@@ -58,5 +58,5 @@ Explicit-flag mode (build `6c84c7d5`): `--gpu-layers 44 --split-mode layer --ten
 ## Links
 
 - Campaign report: [`reports/2026-09-02-qwen4exp-flash-next-three-gpu-campaign.md`](../reports/2026-09-02-qwen4exp-flash-next-three-gpu-campaign.md)
-- Methodology: [`docs/benchmarks.md`](../docs/benchmarks.md), [`docs/multi-gpu-tensor-split.md`](../docs/multi-gpu-tensor-split.md)
+- Methodology: [`docs/benchmarks.md`](../docs/benchmarks.md), [`docs/multi-gpu-model-placement.md`](../docs/multi-gpu-model-placement.md)
 - llama.cpp PR #27742 (Qwen4Exp), PR #28136 (direct-read lazy PLE)
