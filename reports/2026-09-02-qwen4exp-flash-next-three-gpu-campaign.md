@@ -1,7 +1,7 @@
 # Qwen4Exp Flash-Next on Three Consumer GPUs — Two-Stage Campaign
 
 **Date:** 2026-09-02 (overnight campaign, ~13 h, two gated stages, 87 launch attempts / 46 complete runs)  
-**Machine:** GPU server (Ryzen 5 5600X, 64 GB RAM) with three Ampere cards: RTX 3060 12 GB (chipset, PCIe 4.0 x4), RTX 3060 12 GB (CPU root port, x8 negotiated), RTX 3090 24 GB (CPU x16)  
+**Machine:** GPU server (Ryzen 5 5600X, 64 GB RAM) with three Ampere cards: RTX 3060 12 GB (chipset, PCIe 4.0 x4), RTX 3060 12 GB (CPU, x8), RTX 3090 24 GB (CPU, PCIe 4.0 x8 in the 3-GPU config — 16 GB/s, not x16)  
 **Model:** Qwen3.8-Flash-Next — the "Qwen4Exp" MoE: 125 B total / 6 B active per token, 48 layers, plus a 51 B-parameter per-layer lookup table (PLE)  
 **GGUF:** Unsloth `Qwen3.8-Flash-Next-UD-Q2_K_XL` (3 shards, 78.9 GB) + `mtp-…-shared-Q8_0` draft (2.8 GB)  
 **Status of result:** tested, **not** in production (see Conclusion)
