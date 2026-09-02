@@ -26,7 +26,7 @@ The quant is the highest-quality that still leaves 100K+ context headroom; each 
 
 | Model | Quant | GPU | Result |
 |-------|-------|-----|--------|
-| [Qwen3.8-Flash-Next (Qwen4Exp: 125 B total / 6 B active, 51 B PLE table)](models/qwen3.8-flash-next.md) | Q2_K_XL | 3× (12+12+24 GB) | **30.2 t/s decode** / ~390 pp/s (warm cache) / +17 % MTP — the fitter's selective expert spill beat all manual placement; on hold pending a production decision ([2026-09-02 report](reports/2026-09-02-qwen4exp-flash-next-three-gpu-campaign.md)) |
+| [Qwen3.8-Flash-Next (Qwen4Exp: 125 B total / 6 B active, 51 B PLE table)](models/qwen3.8-flash-next.md) | Q2_K_XL | 3× (12+12+24 GB) | **30.2 t/s sustained decode** / ~390 pp/s (warm cache) / 35.3 t/s with MTP (+17 %, single run — provisional) — the fitter's selective expert spill beat all manual placement; on hold pending a production decision ([2026-09-02 report](reports/2026-09-02-qwen4exp-flash-next-three-gpu-campaign.md)) |
 | [Qwen3.6-35B-A3B](models/qwen3.6-35b-a3b.md) | UD-IQ2_XXS | 1× 3060 | 2-bit fully resident on one 12 GB card: 43–81 t/s at 0.02 GB/s PCIe — the residency-proof baseline ([2026-08-30 report](reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)) |
 
 ## What actually matters
@@ -34,10 +34,10 @@ The quant is the highest-quality that still leaves 100K+ context headroom; each 
 ### Placement & residency
 
 - **Placement comes before split tuning.** On current llama.cpp, the automatic fitter (no placement flags at all) selectively spills individual weight tensors and can beat hand-tuned `-ngl`/`--tensor-split` — on Qwen3.8-Flash-Next it raised sustained decode from ~21 to ~30 t/s on the mixed 12+12+24 GB box ([guide](docs/multi-gpu-model-placement.md), [2026-09-02](reports/2026-09-02-qwen4exp-flash-next-three-gpu-campaign.md)). Manual placement stays valuable when the fitter aborts or fully-resident homogeneous GPUs want tensor parallelism.
-- **`-sm layer` beats `-sm row`.** On PCIe multi-GPU without NVLink, split mode matters more than the model; `-sm layer` gives ~2.5× the throughput of `-sm row`. (Exception noted in the guide: tensor mode can win when the model is fully resident on equal cards.)
+- **Row split has consistently been much slower than layer (or tensor) on this lab's PCIe-only systems** — across every architecture tested; the exact margin varies by test (~2.5× in the 2026-03 graph-mode work, 7.5–30× in the 2026-08 two-card test), and the [guide](docs/multi-gpu-model-placement.md) carries the numbers. The one exception noted there: tensor mode can *win* when the model is fully resident on equal cards.
 - **`output.weight` lands on the last GPU.** In split-mode layer the output projection (~1+ GB) is hardcoded to the last GPU, creating asymmetric VRAM pressure that must be balanced with tensor-split ratios ([details](docs/multi-gpu-model-placement.md)).
 - **"It fits in VRAM" is a bus claim — prove it with PCIe counters.** The 2-bit 35B sits fully resident on one 12 GB 3060 (43–81 t/s) with ~0.02 GB/s PCIe in decode, while its CPU-MoE twin streams 5.9 GB/s and runs 2× slower; decode timing alone can't tell the two apart ([2026-08-30](reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)).
-- **A weak link isn't automatically the decode bottleneck.** The chipset-x4 3060 ran within a few percent of its x8 sibling at equal residency (2026-09) — with weights resident, layer-style placement barely moves data per token. That doesn't generalize to prefill-heavy or tensor-parallel workloads.
+- **A weak link isn't automatically the decode bottleneck.** The chipset-x4 3060 (PCIe 4.0, i.e. 32 GB/s — the generation matters) ran within a few percent of its x8 sibling at equal residency (2026-09) — with weights resident, layer-style placement barely moves data per token. That doesn't generalize to prefill-heavy or tensor-parallel workloads.
 
 ### Context & KV
 

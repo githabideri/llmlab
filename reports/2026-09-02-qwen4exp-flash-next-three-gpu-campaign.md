@@ -19,7 +19,7 @@
 - **Method (fixed for every cell):** 32 K context, q8_0 KV cache, flash attention, `--parallel 1`, deterministic prompt fixture (~2,113 tokens, nonce-prefixed per pass, temp 0 / seed 1234), 256 completion tokens, one warm pass then one measured pass per run.
 - **Instrumentation per run:** `nvidia-smi dmon` at 1 Hz (per-GPU power, SM %, framebuffer, PCIe RX/TX), `vmstat` 1 Hz (page cache, swap, SSD sectors), `iostat`, request-start/end epoch markers, server log with per-request timings.
 - **Page cache was never dropped** (host-level `drop_caches` needs the hypervisor; not permitted unattended). Most runs are therefore cache-warm for the PLE table; "cold" means first-touch of a given prompt's rows, not an empty OS cache. This bounds the cold-prefill story (see Observations 6).
-- **Topology gotcha (bitten, fixed):** CUDA's default `FASTEST_FIRST` device ordering silently mapped the single-GPU cells to the wrong physical cards. Exporting `CUDA_DEVICE_ORDER=PCI_BUS_ID` and addressing everything by bus ID is mandatory on this box — two early cells had to be invalidated and re-run.
+- **Topology gotcha (bitten, fixed):** CUDA's default `FASTEST_FIRST` device ordering silently mapped single-GPU/dual-GPU runs to the wrong physical cards — four cells (the smoke cell + three 2-GPU topology cells) ran on the wrong hardware and were invalidated and re-run. Exporting `CUDA_DEVICE_ORDER=PCI_BUS_ID` and addressing everything by bus ID is mandatory on this box.
 
 ### The two champion commands
 
@@ -79,11 +79,11 @@ llama-server --device CUDA0,CUDA1,CUDA2 \
 | fit-target 512 / 2048 / 3072 | 31.7 / 33.1 / 32.7 | ~390 | 5.6 s |
 | ubatch 256 / 512 / 1024 / 2048 / 4096 | 32.4 / 31.8 / 31.0 / 30.6 / 29.1 | 207 / 148 / 170 / 437 / 177 | 5.1–14.6 s |
 | **finalist reps ×3** (median) | **30.2** (29.0–30.3) | **~390** | 5.6–5.7 s |
-
-> **The ubatch rows above are not directly comparable:** the PLE page-cache state was uncontrolled across that sweep (phase 2C), so the pp/s column reflects cache state as much as ubatch. The decode axis is the trustworthy one.
 | finalist + MTP (draft-mtp) | **35.3** (single run — promising, not established) | 336 | 6.6 s |
 | warm-cache decode (both PLE modes) | ~40 | (cache hit) | 0.17 s |
 | PLE direct-read (PR #28136) vs mmap | 386.4 / 411.9 vs 389.7 / 409.0 pp (cold/diverse) | no measurable edge | — |
+
+> **Cache-state caveat for the table above:** the ubatch rows in particular are not directly comparable — the PLE page-cache state was uncontrolled across that sweep (phase 2C), so the pp/s column reflects cache state as much as ubatch. The decode axis is the trustworthy one.
 
 ### Per-token data movement (decode window, 1 Hz dmon/vmstat, medians)
 

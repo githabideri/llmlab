@@ -31,7 +31,7 @@ Rules of thumb accumulated so far — all **Observed** in this fleet, not univer
 | Fully resident, equal cards | **tensor** mode (2026-08 dual-3060: 100–114 t/s) |
 | Heterogeneous cards / model doesn't fully fit | **layer** mode + manual balancing |
 | Any PCIe multi-GPU | **never row** (10–50× slower) |
-| Weak PCIe link (x4) with *resident* weights | rarely the decode bottleneck — a few % behind x8 at equal residency (2026-09) |
+| Weak PCIe link (4.0 x4) with *resident* weights | rarely the decode bottleneck — a few % behind x8 at equal residency (2026-09) |
 
 ---
 
@@ -53,9 +53,9 @@ When you enable GPU offloading (`--gpu-layers N`), llama.cpp splits:
 - ✅ **KV cache** — distributed based on which layers land on which GPU
 - ✅ **Intermediate activations** — follow the layer that produces them
 
-### What Does NOT Get Distributed
+### Fixed-placement tensors — manual layer-split mode, observed in tested builds
 
-Several components have **fixed placement** regardless of tensor-split ratios:
+Several components have **fixed placement** under explicit/layer-split placement (the fitter-era behavior can differ; see [Automatic fitter placement](#automatic-fitter-placement-2026-09)):
 - ❌ **Token embeddings** (`token_embd.weight`) — always stays on **CPU** (minimal benefit to offload)
 - ❌ **Output projection** (`output.weight`, lm_head) — **hardcoded to last GPU** (see gotcha #1 below)
 - ❌ **Multimodal projections** (mmproj) — lands on **first GPU** (GPU0)
@@ -223,7 +223,7 @@ Each slot gets an equal share of the total context:
 ```
 
 **VRAM components affected:**
-1. **KV cache:** Scales linearly with `--parallel` (more slots = more KV cache)
+1. **KV cache:** follows the **total configured context capacity** — more slots only increase total KV if `--ctx-size` is also raised to preserve context per slot (the table below does exactly that)
 2. **Compute buffers:** Scale **inversely** with `--parallel` (more slots = smaller per-slot buffers)
 
 ### Example: Qwen3.5-27B on 3× RTX 3060
@@ -235,8 +235,8 @@ Each slot gets an equal share of the total context:
 | `parallel 4, ctx 524288` | 4 | 131K | ~800 MiB | ~430 MiB | ~633 MiB | SEGV (OOM) |
 
 **Trade-off:**
-- **Higher `--parallel`:** More concurrency, smaller buffers, **less total context capacity**
-- **Lower `--parallel`:** Less concurrency, larger buffers, **more total context capacity**
+- **Higher `--parallel`:** more concurrency, smaller per-slot buffers — but less free VRAM per arrangement, so the maximum total context you can *afford* at that concurrency tends to shrink (`--parallel` itself doesn't mandate lower total context; the table above holds 131K per slot by growing total ctx)
+- **Lower `--parallel`:** less concurrency, larger buffers, more total context capacity
 
 ### Finding the Sweet Spot
 
