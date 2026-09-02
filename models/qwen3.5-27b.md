@@ -252,6 +252,6 @@ On our test system (typical consumer motherboard):
 
 ## Related Documentation
 
-- **General tensor-split optimization:** See `docs/multi-gpu-tensor-split.md`
+- **Multi-GPU placement (split modes, fitter, balancing):** See `docs/multi-gpu-model-placement.md`
 - **Hardware profile:** See `docs/hardware/gpu-server.md`
 - **Model inventory:** See `models/inventory-gpu.md`

@@ -1,6 +1,6 @@
 # Hardware
 
-Inference machines in the fleet, by role. Each profile covers the physical box — CPU, board, GPUs, RAM, disks, PCIe topology — and what's deployed on it. Serving configs live in the [model cards](../../models/); general GPU methodology lives in [multi-GPU tensor-split](../multi-gpu-tensor-split.md) and [KV-cache sizing](../kv-cache-sizing.md).
+Inference machines in the fleet, by role. Each profile covers the physical box — CPU, board, GPUs, RAM, disks, PCIe topology — and what's deployed on it. Serving configs live in the [model cards](../../models/); general GPU methodology lives in [multi-GPU model placement](../multi-gpu-model-placement.md) and [KV-cache sizing](../kv-cache-sizing.md).
 
 | Machine | CPU | GPUs (VRAM) | RAM | Role | Status |
 |---------|-----|-------------|-----|------|--------|

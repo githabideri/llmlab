@@ -10,7 +10,7 @@
 
 ## Goal
 
-1. **Stage 1 — baseline.** First ever run of this architecture on consumer hardware. Establish the GPU-layer residency knee, a tensor-split comparison, a 3-rep determinism baseline, and per-token PCIe / SSD / energy numbers at a fixed 2K-prompt / 256-token shape.
+1. **Stage 1 — baseline.** First run of this architecture on this lab's consumer hardware. Establish the GPU-layer residency knee, a tensor-split comparison, a 3-rep determinism baseline, and per-token PCIe / SSD / energy numbers at a fixed 2K-prompt / 256-token shape.
 2. **Stage 2 — hypothesis test.** Stage 1's prefill was terrible (72 tokens/s) because whole layers were spilling to RAM (each spilled layer drags its ~0.9 GB of experts with it). Test whether **selective expert spill** — keeping all 48 layers' non-expert weights on the GPUs while the fitter streams a few layers' experts from RAM — can kill the prefill penalty, and measure the secondary knobs (ubatch, threads, PLE direct-read, MTP, n-gram).
 
 ## Setup
@@ -54,8 +54,8 @@ llama-server --device CUDA0,CUDA1,CUDA2 \
 5. **PLE needs no override on master** — it is auto-placed to CPU. The stage-1 `--override-tensor …=CPU` pin was only needed on the #27742 build.
 6. **Prefill is cache-bound, not compute-bound, and the "5.4×" needs a footnote.** Prefill speed on this model is dominated by PLE row faults: on a cold-ish cache it ran at 34–174 tokens/s, fully warmed it ran 387–437. The stage-1→finalist "5.4×" mixes (a) a faster master PLE path (~2.4×), (b) fitter placement (~1.5–2× via ub1024 geometry), and (c) residual page-cache state. Treat cross-stage pp/s comparisons as order-of-magnitude.
 7. **Warm-cache decode is ~40 t/s** (0.17 s TTFT on a cache hit) in both mmap and `--lazy-mode on-direct` PLE modes — PR #28136 showed **no measurable advantage** here because the cache never went cold.
-8. **Speculation: MTP works, n-gram does not.** `draft-mtp` with the shared Q8_0 draft: **35.3 t/s (+17 %)**, clean. N-gram speculation is content-toxic: 29.2 t/s on prose (neutral) but **0.13 t/s on the code fixture** — effectively dead. If n-gram is ever enabled router-side, gate it away from code.
-9. **Secondary knobs:** ubatch 256→1024 roughly doubled prefill on fitter placement at a ~1–3 t/s decode cost (2,048/4,096 give no further gain); host threads 6 / batch-threads 12 was the best of three (32.8 vs 29.0/29.1); `--fit-target` margin 512–3072 MiB barely changes the fitter's placement; `GGML_CUDA_FORCE_MMQ=1` neutral; flash-attn-off is structurally impossible with q8_0 KV.
+8. **Speculation: MTP is promising, n-gram is pathological on code.** `draft-mtp` with the shared Q8_0 draft: **35.3 t/s (+17 %)** on one clean 256-token run — promising, not established (soak needed). N-gram speculation is content-toxic: 29.2 t/s on prose (neutral) but **0.13 t/s on the code fixture** — effectively dead. If n-gram is ever enabled router-side, gate it away from code.
+9. **Secondary knobs:** decode costs ~1–3 t/s from ubatch 256→4096 on fitter placement (32.4→29.1); the pp/s jump across that sweep is confounded by page-cache state (caveat below the table) — ub1024 is the default, not a measured optimum; host threads 6 / batch-threads 12 was the best of three (32.8 vs 29.0/29.1); `--fit-target` margin 512–3072 MiB barely changes the fitter's placement; `GGML_CUDA_FORCE_MMQ=1` neutral; flash-attn-off is structurally impossible with q8_0 KV.
 
 ## Metrics
 
@@ -79,7 +79,9 @@ llama-server --device CUDA0,CUDA1,CUDA2 \
 | fit-target 512 / 2048 / 3072 | 31.7 / 33.1 / 32.7 | ~390 | 5.6 s |
 | ubatch 256 / 512 / 1024 / 2048 / 4096 | 32.4 / 31.8 / 31.0 / 30.6 / 29.1 | 207 / 148 / 170 / 437 / 177 | 5.1–14.6 s |
 | **finalist reps ×3** (median) | **30.2** (29.0–30.3) | **~390** | 5.6–5.7 s |
-| finalist + MTP (draft-mtp) | **35.3** | 336 | 6.6 s |
+
+> **The ubatch rows above are not directly comparable:** the PLE page-cache state was uncontrolled across that sweep (phase 2C), so the pp/s column reflects cache state as much as ubatch. The decode axis is the trustworthy one.
+| finalist + MTP (draft-mtp) | **35.3** (single run — promising, not established) | 336 | 6.6 s |
 | warm-cache decode (both PLE modes) | ~40 | (cache hit) | 0.17 s |
 | PLE direct-read (PR #28136) vs mmap | 386.4 / 411.9 vs 389.7 / 409.0 pp (cold/diverse) | no measurable edge | — |
 
@@ -91,7 +93,7 @@ llama-server --device CUDA0,CUDA1,CUDA2 \
 | PCIe RX per token | 0.05–1.5 MB | **0.01–0.05 MB** |
 | SSD reads per token | 5–18 KB | **2–14 KB** |
 | GPU power (3 cards, decode) | ~150–450 W (noisy 1 Hz) | **68–142 W** |
-| Energy per 1K tokens (GPU-only, above nothing — absolute) | ~2–15 Wh/1K | **~0.5–1.7 Wh/1K** |
+| GPU energy per 1K tokens (dmon power sum; absolute, no idle subtraction, no wall meter) | ~2–15 Wh/1K | **~0.5–1.7 Wh/1K** |
 
 At Austrian list price (~€0.30/kWh) that is on the order of **€0.2–0.5 per 1M generated tokens in decode**, excluding the box's ~30–60 W idle floor (no wall-plug meter on this box — GPU power sum only).
 
@@ -99,7 +101,7 @@ At Austrian list price (~€0.30/kWh) that is on the order of **€0.2–0.5 per
 
 ## Conclusion
 
-- The Qwen4Exp Flash-Next architecture **runs well on three consumer Ampere cards** once the model's non-PLE weights (45.9 GB) are all kept resident: **30 t/s decode / ~390 prefill tokens/s / 35 t/s with MTP**, sub-cent energy per 1K tokens, and only a trickle of PCIe/SSD traffic per token for the 51 B table.
+- The Qwen4Exp Flash-Next architecture **runs well on three consumer Ampere cards** once essentially all non-expert compute tensors stay GPU-resident and only a small subset of expert weights spills to host memory: **30.2 t/s sustained decode** (vs 21.2 t/s hand-tuned), **~390 prefill tokens/s under warm-cache conditions** (34–437 across PLE page-cache states), **35.3 t/s with MTP** (single run — promising, not established), and ~1 Wh/1K tokens of GPU energy.
 - On this build generation, **let the fitter place the model** — every explicit placement knob (`-ngl`, `--tensor-split`, `--cpu-moe`) is either counterproductive or unavailable. Stage-1's whole-layer knee (ngl 44) was simply the best possible within explicit-flag mode.
 - **Production deployment is on hold:** the fitter config uses all three cards, i.e. it cannibalizes the 3090 that currently serves vLLM in production. Deciding between "one 27 B dense" and "one 125 B MoE at 30 t/s" is an owner call.
 - **Next:** supervised true-cold PLE test (`drop_caches` on the hypervisor) to give PR #28136 a fair shot; a longer MTP soak before any production use (upstream has reported recurrent-state rollback bugs); and the SGLang lane (native MTP + PLE offload) as the second engine for comparison.

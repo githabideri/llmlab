@@ -254,6 +254,6 @@ llama-server \
 - **BeeLlama backend setup:** [`docs/backend-beellama.md`](../docs/legacy/backend-beellama.md)
 - **Cutover experiment:** [`reports/2026-06-19-beellama-dflash-cutover.md`](reports/2026-06-19-beellama-dflash-cutover.md)
 - **Qwen3.5-27B (3× RTX 3060):** See [`qwen3.5-27b.md`](qwen3.5-27b.md)
-- **Multi-GPU Tensor-Split:** See [`docs/multi-gpu-tensor-split.md`](../docs/multi-gpu-tensor-split.md)
+- **Multi-GPU placement:** See [`docs/multi-gpu-model-placement.md`](../docs/multi-gpu-model-placement.md)
 - **BeeLlama upstream:** <https://github.com/Anbeeld/beellama.cpp>
 - **DFlash draft model:** <https://huggingface.co/Anbeeld/Qwen3.6-27B-DFlash-GGUF>

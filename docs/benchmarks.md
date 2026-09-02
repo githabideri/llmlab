@@ -38,6 +38,45 @@ With MTP/DFlash, each streamed chunk carries multiple accepted tokens, so "token
 
 "The model fits in VRAM" is a bus claim — a streaming model decodes at a plausible steady rate too. Capture `nvidia-smi dmon -d 1 -s pumt` (columns include `rxpci`/`txpci` in MB/s; on some driver/LXC builds `-t`/`-T` per-line timestamps are absent, so write `REQ-START <epoch> <tag>` / `REQ-END …` markers to a side file and align rows by 1-second index). During decode: **~0–25 MB/s RX ⇒ resident; ≥1 GB/s ⇒ streaming from host RAM**. Always run the non-resident control (e.g. `--n-cpu-moe`) on the same card/model for the contrast. A weak PCIe link is usually *not* the LLM bottleneck — dual-GPU prefill on consumer cards is compute-bound (SM ~100%, PCIe well under link cap).
 
+### GPU identity and topology discipline (2026-09)
+
+**Never identify GPUs by CUDA ordinal alone.** CUDA's default device order (`FASTEST_FIRST`) can silently map a run to the wrong physical card — in the 2026-09 Qwen4Exp campaign it did, and five runs were invalidated and re-run before it was caught. For every multi-GPU campaign:
+
+- Record per device: **UUID, PCI bus ID, model name, CUDA ordinal, negotiated link width** (lspci under load, not idle).
+- Run with `CUDA_DEVICE_ORDER=PCI_BUS_ID` and address devices by bus ID end-to-end (manifest, runner, reports).
+- Note that negotiated width can differ from the slot's maximum (x8 in an x16 slot); that's a topology fact, not a fault.
+
+### Result-record schema (2026-09)
+
+Compact vocabulary for campaign reports, so cross-campaign comparison stays sane (documented convention, not code):
+
+```
+Campaign provenance
+- model + quant + SHA256
+- backend + exact commit/build
+- CUDA/driver
+- GPU UUID + PCI bus ID + active link width (per device)
+
+Placement
+- fitter or manual
+- split mode / split ratios / ngl
+- per-device model/KV/compute allocation
+- free VRAM after load + minimum during request
+
+Performance
+- prompt tokens / completion tokens
+- pp/s · tg/s · TTFT · total latency
+
+Data movement
+- PCIe RX/TX MB/token · SSD KB/token (where relevant) · host RSS · swap activity
+
+Efficiency
+- GPU-only Wh/1K tokens · wall energy when a meter exists
+
+Cache state
+- cold / warm / prefix-cache hit · whether OS page cache was controlled
+```
+
 ### First requests are not steady state (2026-08)
 
 After server-up, send a tiny warmup request before the measured window (cudagraph capture, Triton JIT, FlashInfer plan build). A first long request can show a one-off JIT dip (seen on the 3090 vLLM node: 17.8 t/s first, 73 steady) — never quote it as the regime number. vLLM's `/health` returns **HTTP 200 with an empty body** (llama.cpp returns `{"status":"ok"}`) — match the status code, not the body.

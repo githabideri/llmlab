@@ -36,7 +36,7 @@ The 3090 is a standalone single-GPU endpoint in its own LXC; the two 3060s share
 
 ## Methodology
 
-- **Tensor-split / `output.weight` / `--parallel`:** [multi-gpu-tensor-split](../multi-gpu-tensor-split.md)
+- **Placement (fitter vs manual, split modes, `output.weight`, `--parallel`):** [multi-gpu-model-placement](../multi-gpu-model-placement.md)
 - **KV-cache budgeting:** [kv-cache-sizing](../kv-cache-sizing.md)
 
 ## History
