@@ -15,6 +15,7 @@ The directory is flat and date-sorted. Use the per-run structure above for exper
 
 ## Recent
 
+- `2026-09-02-qwen4exp-flash-next-three-gpu-campaign.md` — 125 B Qwen4Exp MoE (51 B PLE table) on 3060/3060/3090: the master-build fitter's auto expert-spill beats every manual placement knob (30.2 t/s decode, ~390 prefill, +17 % MTP, ~1 Wh/1K tokens); last-`--override-tensor`-wins and fitter-disabling pitfalls; n-gram is code-toxic
 - `2026-08-30-dual-3060-35b-squeeze-27b-node.md` — 2-bit 35B proven resident on one 12 GB 3060 (PCIe counters, 43–81 t/s); 27B dense on the 3060 pair at ~80% of 3090 speed for the same wall draw, with the ctx-degradation curve, concurrency cliff, and the cache-artifact retraction
 - `2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md` — vLLM native CPU KV offload writes but never restores on hybrid SSM/GDN models (0% hit rate, pool shrank); scheduler-side blocker, reverted
 - `2026-08-28-llama-cpp-ubatch-moe-single-gpu.md` — `-ub 2048` gives +22% prompt-processing for MoE+MTP on a single 12 GB GPU, tg-neutral

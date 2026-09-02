@@ -282,6 +282,20 @@ Rule of thumb that emerged:
 | Model doesn't fit / mixed card sizes / capacity-constrained | **layer** (as documented above) |
 | Any multi-GPU on PCIe | never `row` |
 
+## Fitter Auto-Placement: When to Set No Placement Flags at All (2026-09)
+
+The 2026-09 Qwen4Exp campaign ([report](../reports/2026-09-02-qwen4exp-flash-next-three-gpu-campaign.md)) added a third row to that table: **when the model's non-offloadable weights fit in aggregate VRAM with a few GB of slack — and a giant per-layer lookup table (PLE) must live in host memory — let the fitter do it.**
+
+With llama.cpp master (post-#27742), launching with **no** `--gpu-layers`, no `--tensor-split`, no `--override-tensor` invokes `common_fit_params`, which byte-aware-places every tensor across the three cards *and* spills a few layers' expert weights to RAM on its own. On the 3060/3060/3090 box it produced 11.2 / 10.7 / 23.0 GiB residency, **33 t/s decode and 2× the prefill** of the best explicit-flag configuration (whole-layer knee at ngl 44).
+
+Hard rules learned the hard way (master build):
+
+1. **Any explicit `--gpu-layers` or `--tensor-split` disables the fitter** ("failed to fit params: tensor_split already set by user"). Hand-balancing then OOMs: count-based splits like `--cpu-moe N` demanded 12.9 GB from a 12 GB card, identically, on every variant.
+2. **Only the last `--override-tensor` flag is honored** (deprecation notice; comma-separated values are the replacement). A PLE pin plus a spill flag silently dropped the PLE pin → 51 B table on GPU → instant OOM. If you must pin, combine into one comma-separated flag.
+3. `--fit-target <MiB>` tunes the fitter's per-device free-VRAM margin (default 1024); in testing 512–3072 barely changed placement.
+
+So the placement decision order is now: **can the fitter fit it? → use it. Only fall back to explicit ngl/split when the fitter aborts** (or on older builds, which is still the only option before #27742-era fitter improvements).
+
 ## Practical Examples
 
 ### Example 1: 2× RTX 3060 12GB
@@ -410,6 +424,8 @@ When optimizing tensor-split for a new model:
 - [ ] Test with actual context fill (not just idle load)
 - [ ] Maintain >500 MiB free VRAM per GPU for flash-attention
 - [ ] Use `--split-mode layer` for PCIe multi-GPU setups
+- [ ] Before hand-tuning placement, try the fitter first (no placement flags) on current master — it auto-spills experts and beats manual ngl/split when weights nearly fit
+- [ ] If you must use `--override-tensor`, combine all pins in one comma-separated flag (only the last flag is read)
 - [ ] Consider `--parallel N` to trade concurrency for capacity
 - [ ] Iterate until worst-case free VRAM is stable and safe
 
