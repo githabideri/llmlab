@@ -40,7 +40,7 @@ With MTP/DFlash, each streamed chunk carries multiple accepted tokens, so "token
 
 ### GPU identity and topology discipline (2026-09)
 
-**Never identify GPUs by CUDA ordinal alone.** CUDA's default device order (`FASTEST_FIRST`) can silently map a run to the wrong physical card — in the 2026-09 Qwen4Exp campaign it did, and five runs were invalidated and re-run before it was caught. For every multi-GPU campaign:
+**Never identify GPUs by CUDA ordinal alone.** CUDA's default device order (`FASTEST_FIRST`) can silently map a run to the wrong physical card — in the 2026-09 Qwen4Exp campaign it did: four non-3-GPU cells (one smoke, three topology) ran on the wrong hardware and were invalidated and re-run after postload VRAM exposed it. For every multi-GPU campaign:
 
 - Record per device: **UUID, PCI bus ID, model name, CUDA ordinal, negotiated link width** (lspci under load, not idle).
 - Run with `CUDA_DEVICE_ORDER=PCI_BUS_ID` and address devices by bus ID end-to-end (manifest, runner, reports).

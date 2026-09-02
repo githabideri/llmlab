@@ -2,7 +2,7 @@
 
 **Model:** Qwen3.8-Flash-Next — "Qwen4Exp" MoE: 125 B total, ~6 B active per token, 48 layers, plus a 51 B-parameter per-layer lookup table (PLE; `per_layer_token_embd.weight`) that is streamed per-token from host memory  
 **Tested Quantization:** Unsloth `UD-Q2_K_XL` (3-shard GGUF, 78.9 GB) + `mtp-…-shared-Q8_0` draft (2.8 GB). GGUF **v3** header format — only llama.cpp at/after PR #27742 (`6c84c7d5`) can load it.  
-**Hardware:** GPU server, 3 cards: RTX 3060 12 GB (chipset x4), RTX 3060 12 GB (x8), RTX 3090 24 GB (x16)  
+**Hardware:** GPU server, 3 cards: RTX 3060 12 GB (chipset, PCIe 4.0 x4), RTX 3060 12 GB (CPU, x8), RTX 3090 24 GB (CPU, x16)  
 **Runtime:** llama.cpp master `b81c99b4` (fitter auto-placement), PR #28136 build retained for direct-read PLE  
 **Status:** ⚠️ **Tested, NOT in production** — the config uses all three GPUs, which collides with the 3090's production vLLM service. Frozen test record; see the campaign report for the full numbers.
 
