@@ -13,9 +13,9 @@
 | CPU | AMD Ryzen 5 5600X (6C/12T) |
 | Motherboard | MSI MEG X570 ACE |
 | RAM | 64 GB (2× 32 GB DDR4-2933 SO-DIMM via SO-DIMM-to-DIMM adapters; 4×8 GB at 2133 before 2026-08-26) |
-| System disk | 512 GB SATA SSD (ZFS rpool) |
-| Model disk | ~1 TB SSD (ZFS) |
-| GPU 0 | RTX 3090 24 GB — CPU PCIe 4.0 x16 |
+| System disk | 512 GB SATA SSD (ZFS rpool) — chipset-attached |
+| Model disk | 1 TB WD Green SATA SSD (ext4) — chipset-attached, shares the 8 GB/s uplink with GPU 2 (mount name `/mnt/usb-ssd` is historical) |
+| GPU 0 | RTX 3090 24 GB — CPU PCIe 4.0 x8 in the 3-GPU config (the board allocates x8 to each CPU slot when both are populated) |
 | GPU 1 | RTX 3060 12 GB — CPU PCIe 4.0 x8 |
 | GPU 2 | RTX 3060 12 GB — chipset PCIe 4.0 x4 |
 | Total VRAM | 48 GB |
