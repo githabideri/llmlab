@@ -6,7 +6,7 @@
 **Hardware:** 2× RTX 3060 12 GB (tensor split 50/50)  
 **Runtime:** llama.cpp router mode (`--models-preset`), commit `925e1179`  
 **Status:** ✅ Production — on-demand load (not auto-loaded; the 35B-A3B is the default)  
-**Multimodal:** ✅ mmproj F16 (885 MB) on GPU  
+**Multimodal:** ✅ mmproj F16 (885 MB) on CPU (`--no-mmproj-offload`)  
 **Censored:** No — abliterated (Heretic method), 12/100 refusals on test set, MMLU −0.2, mean score −0.5 (within noise)  
 **Supersedes:** nothing — this is a second model on the same node, not a replacement
 
@@ -17,11 +17,12 @@
 | Parameter | Value |
 |-----------|-------|
 | **Parameters** | ~27.3 billion |
-| **Context Window** | 262,144 tokens (native), 65,536 deployed |
+| **Context Window** | 262,144 tokens (native), 102,400 deployed per request (np1: whole pool = one slot) |
 | **Quantization** | Q4_K_M (15.66 GB) |
-| **Multimodal** | mmproj F16 (885 MB), on GPU (not offloaded) |
+| **KV cache** | quantized — K q8_0 / V q4_0 (~25 KB/token; hybrid SSM arch, only 17/66 full-attention layers) |
+| **Multimodal** | mmproj F16 (885 MB), on CPU (`--no-mmproj-offload`, symmetric tensor split) |
 | **Speculative Decoding** | MTP (draft-mtp, n-max 3) |
-| **VRAM (measured)** | 11,390 + 10,250 MiB across dual 3060 (92.7% / 83.4%) |
+| **VRAM (measured)** | 10,846 + 10,842 MiB across dual 3060 (88.2% / 88.2%, symmetric; ~1.45 GB headroom per GPU) |
 | **Uncensored** | Yes — 12/100 refusals (vs ~100% for base Qwen3.8) |
 
 ---
@@ -50,11 +51,18 @@ curl -X POST http://<gpu-server>:8081/models/load \
 [qwen38-27b-uncensored]
 model = /path/to/Qwen3.8-27B-Uncensored-Q4_K_M.gguf
 mmproj = /path/to/mmproj-Qwen3.8-27B-Uncensored-F16.gguf
-ctx-size = 65536
-# No load-on-startup, no no-mmproj-offload (mmproj stays on GPU)
+parallel = 1          ; section override: whole 100K pool is one per-request ctx
+ctx-size = 102400
+no-mmproj-offload = true   ; mmproj on CPU -> symmetric split (matches the 35B)
 ```
 
-Shared `[*]` section provides: `device = CUDA0,CUDA1`, `split-mode = tensor`, `tensor-split = 50,50`, `cache-type-k q8_0`, `cache-type-v q4_0`, `batch-size 2048`, `ubatch-size 1024`, `flash-attn on`, `spec-type draft-mtp`, `spec-draft-n-max 3`, `parallel 2`, `jinja`, `metrics`, `cache-prompt`, `cache-ram 2048`.
+Shared `[*]` section provides: `device = CUDA0,CUDA1`, `split-mode = tensor`, `tensor-split = 50,50`, `cache-type-k q8_0`, `cache-type-v q4_0`, `batch-size 2048`, `ubatch-size 1024`, `flash-attn on`, `spec-type draft-mtp`, `spec-draft-n-max 3`, `parallel 2` (overridden to 1 by the 27B section), `jinja`, `metrics`, `cache-prompt`, `cache-ram 2048`.
+
+**ctx-size is the pool, not the per-request window:** `n_ctx_seq = n_ctx / n_seq_max` (llama.cpp
+`llama-context.cpp`). At np2, a 204800 pool (100K per slot) OOM'd at graph reserve on this node
+(7.8 GB weights + 2.6 GB KV + 1.16 GB compute buffer > 12 GB per GPU); np1 with the 102400 pool
+keeps the entire 100K KV (~2.6 GB, 1.3 GB per GPU) on the GPUs. The llama.cpp web UI "available
+ctx" and the 400 `exceed_context_size_error` both report the per-slot number.
 
 ---
 
@@ -73,9 +81,9 @@ Shared `[*]` section provides: `device = CUDA0,CUDA1`, `split-mode = tensor`, `t
 
 ## Why This Model
 
-- **Q4_K_M is the ceiling quant for dual 3060 with vision.** FP8 (28.75 GB) doesn't fit (14.4 GB/GPU > 12 GB). Q4_K_M at 15.66 GB → ~7.8 GB/GPU → ~4.2 GB/GPU KV headroom.
+- **Q4_K_M is the ceiling quant for dual 3060 with vision.** FP8 (28.75 GB) doesn't fit (14.4 GB/GPU > 12 GB). Q4_K_M at 15.66 GB → ~7.8 GB/GPU, leaving room for the 100K quantized KV.
 - **MTP is inline** (native to the GGUF, no separate draft model).
-- **mmproj F16** is a separate 885 MB file. On GPU (not offloaded) — the 27B has enough headroom, unlike the 35B which uses `--no-mmproj-offload` (CPU) at 96% VRAM.
+- **Hybrid SSM architecture** (17/66 full-attention layers) keeps KV tiny — ~25 KB/token quantized — which is what makes 100K context per request feasible on 2×12 GB.
 - **Abliteration quality:** 12/100 refusals (vs 0/100 for aggressive abliteration like HauhauCS). MMLU delta −0.2, mean benchmark delta −0.5 — within noise of the base model.
 - **Open access:** no HuggingFace gating (unlike orcarouter's GGUF repo).
 
@@ -85,12 +93,17 @@ Shared `[*]` section provides: `device = CUDA0,CUDA1`, `split-mode = tensor`, `t
 
 - **One model at a time:** loading the 27B evicts the 35B (and vice versa). Agents (OpenClaw/Dolly) that depend on the 35B will have requests queue during the transition.
 - **Dense, not MoE:** all 27B params active per token, so per-token decode is slower than the 35B-A3B (only 3B active). Expect ~30–60 t/s vs 100–114 t/s.
-- **64K context** deployed (vs 256K for the 35B) to fit more KV headroom.
-- **Vision via mmproj on GPU** — the `/models` endpoint reports `input_modalities: ["text"]` despite the mmproj loading successfully (llama.cpp metadata quirk). Image input works via the API.
+- **100K context per request at np1:** one in-flight request at a time (concurrent requests queue rather than fail); at np2 the 200K pool OOMs on this hardware.
+- **Vision via mmproj on CPU** (moved from GPU for the symmetric split at 100K; image prefill is a bit slower, text unaffected). The `/models` endpoint reports `input_modalities: ["text"]` despite the mmproj loading successfully (llama.cpp metadata quirk). Image input works via the API.
 
 ---
 
 ## Changelog
+
+### 2026-09-03 (evening): 100K context per request
+- Discovered `n_ctx_seq = n_ctx / n_seq_max`: the previous 65536 pool at np2 only gave **32,768 tokens per request** (the llama.cpp web UI "available ctx" and the `exceed_context_size_error` both reflect this) — a 35,395-token pi prompt 400'd.
+- 27B section: `ctx-size 65536 → 102400`, `parallel 2 → 1` (whole pool = one 100K per-request ctx), mmproj moved to CPU. A 204800 pool at np2 OOM'd at graph reserve, hence np1.
+- Verified: `n_slots = 1, n_ctx_slot = 102400` at init; VRAM 10,846/10,842 MiB (symmetric); 36K-prompt/64K-max_tokens request accepted. pi `models.json` `contextWindow` on all machines set to the per-slot number (27B: 102400, 35B corrected back to 131072 = 262144/2).
 
 ### 2026-09-03: Deployed in router mode
 - Downloaded Q4_K_M (15.66 GB) + mmproj F16 (885 MB) from JonathanColetti HF.
