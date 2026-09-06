@@ -1,0 +1,94 @@
+{
+  "label": "g1030-cold",
+  "mode": "cold",
+  "audio": "<whisperx-service>/test-clip-124s.mp4",
+  "audio_sha256": "3ff1ff7c7cf08d7f68a4660daf9761d9c58247fbfde5bbbc140af8450b4060b7",
+  "audio_duration_s": 124.207,
+  "config": {
+    "audio": "<whisperx-service>/test-clip-124s.mp4",
+    "label": "g1030-cold",
+    "out": "<bench-dir>/results",
+    "mode": "cold",
+    "reps": 3,
+    "asr_device": "cuda:0",
+    "align_device": "cpu",
+    "diarize_device": null,
+    "compute": "int8",
+    "language": null,
+    "batch_size": 1,
+    "chunk_size": 30,
+    "beam_size": 5,
+    "diarize": false,
+    "model": "dropbox-dash/faster-whisper-large-v3-turbo",
+    "ct2_verbose": true
+  },
+  "env": {
+    "CUDA_VISIBLE_DEVICES": "1",
+    "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+    "LD_LIBRARY_PATH": "<whisperx-service>/cudnn8/nvidia/cudnn/lib",
+    "HF_TOKEN_SET": true
+  },
+  "reps": [
+    {
+      "rep": 1,
+      "audio_load_s": 0.555,
+      "transcribe_incl_vad_s": 19.538,
+      "detected_language": "en",
+      "segments": 4,
+      "align_model_load_s": 0.882,
+      "align_s": 118.366,
+      "transcript_sha256": "d7d934ac1da7514e0689ac4baa0519b8ae3ef78b36dc403ffd694279aa922984",
+      "transcript_chars": 1178,
+      "total_pipeline_s": 137.904,
+      "model_load_s": 3.746,
+      "gpu": {
+        "gpu0": {
+          "asr": {
+            "peak_mem_MiB": 3,
+            "avg_util_pct": 0.0,
+            "max_util_pct": 0
+          },
+          "align": {
+            "peak_mem_MiB": 3,
+            "avg_util_pct": 0.0,
+            "max_util_pct": 0
+          }
+        },
+        "gpu1": {
+          "asr": {
+            "peak_mem_MiB": 1692,
+            "avg_util_pct": 89.0,
+            "max_util_pct": 100
+          },
+          "align": {
+            "peak_mem_MiB": 1116,
+            "avg_util_pct": 0.0,
+            "max_util_pct": 0
+          }
+        }
+      }
+    }
+  ],
+  "error": null,
+  "mem_after_asr_load": {
+    "cuda:0": {
+      "total_MiB": 1993,
+      "free_MiB": 900,
+      "used_MiB": 1093
+    }
+  },
+  "mem_after_align_load": {
+    "cuda:0": {
+      "total_MiB": 1993,
+      "free_MiB": 878,
+      "used_MiB": 1115
+    }
+  },
+  "wall_clock_s": 144.4,
+  "host": {
+    "ram_free_min_KB": 401376,
+    "cpu_us_avg": 25.5,
+    "cpu_sy_avg": 1.7,
+    "cpu_wa_avg": 0.0
+  }
+}

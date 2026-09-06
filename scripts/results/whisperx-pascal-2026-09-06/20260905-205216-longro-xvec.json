@@ -1,0 +1,67 @@
+{
+  "label": "longro-xvec",
+  "mode": "cold",
+  "audio": "/srv/whisperx/bb8a557b-cdc4-4500-851a-ce1d8d6e780b/Buchpr\u00c3\u00a4sentation 2023-05 Biserica de stat, sau Biserica \u00c3\u00aen stat  O istorie a Bisericii Ortodoxe.mp4",
+  "audio_sha256": "54f97534aea5b4ad2987780898e07a2df5ac6399cec39d214470571501a9692f",
+  "audio_duration_s": 4750.956,
+  "config": {
+    "audio": "/srv/whisperx/bb8a557b-cdc4-4500-851a-ce1d8d6e780b/Buchpr\u00c3\u00a4sentation 2023-05 Biserica de stat, sau Biserica \u00c3\u00aen stat  O istorie a Bisericii Ortodoxe.mp4",
+    "label": "longro-xvec",
+    "out": "<bench-dir>/results",
+    "mode": "cold",
+    "reps": 3,
+    "asr_device": "cuda:0",
+    "align_device": "cuda:1",
+    "diarize_device": "cuda:0",
+    "compute": "int8",
+    "language": null,
+    "batch_size": 1,
+    "chunk_size": 30,
+    "beam_size": 5,
+    "diarize": true,
+    "diarize_method": "xvec",
+    "model": "dropbox-dash/faster-whisper-large-v3-turbo",
+    "ct2_verbose": true
+  },
+  "env": {
+    "CUDA_VISIBLE_DEVICES": "0,1",
+    "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+    "LD_LIBRARY_PATH": "<whisperx-service>/cudnn8/nvidia/cudnn/lib",
+    "HF_TOKEN_SET": true
+  },
+  "reps": [],
+  "error": "AssertionError: Couldn't find converted wav file, failed for some reason\nTraceback (most recent call last):\n  File \"<bench-dir>/whisperx_bench.py\", line 285, in main\n    diarize_pass(out)\n  File \"<bench-dir>/whisperx_bench.py\", line 238, in diarize_pass\n    segs = dmodel.diarize(args.audio, num_speakers=out.get(\"_expected_speakers\", 3))\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<whisperx-service>/.venv/lib/python3.12/site-packages/simple_diarizer/diarizer.py\", line 244, in diarize\n    assert os.path.isfile(\n           ^^^^^^^^^^^^^^^\nAssertionError: Couldn't find converted wav file, failed for some reason\n",
+  "diarize_method": "xvec",
+  "mem_after_asr_load": {
+    "cuda:0": {
+      "total_MiB": 1992,
+      "free_MiB": 890,
+      "used_MiB": 1102
+    },
+    "cuda:1": {
+      "total_MiB": 1993,
+      "free_MiB": 1956,
+      "used_MiB": 37
+    }
+  },
+  "mem_after_align_load": {
+    "cuda:0": {
+      "total_MiB": 1992,
+      "free_MiB": 868,
+      "used_MiB": 1124
+    },
+    "cuda:1": {
+      "total_MiB": 1993,
+      "free_MiB": 1556,
+      "used_MiB": 437
+    }
+  },
+  "_xvec_vram_load": 31.0,
+  "wall_clock_s": 696.8,
+  "host": {
+    "ram_free_min_KB": 162192,
+    "cpu_us_avg": 25.7,
+    "cpu_sy_avg": 2.7,
+    "cpu_wa_avg": 0.0
+  }
+}

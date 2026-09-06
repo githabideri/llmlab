@@ -1,0 +1,104 @@
+{
+  "label": "longro-cold",
+  "mode": "cold",
+  "audio": "/srv/whisperx/bb8a557b-cdc4-4500-851a-ce1d8d6e780b/Buchpr\u00c3\u00a4sentation 2023-05 Biserica de stat, sau Biserica \u00c3\u00aen stat  O istorie a Bisericii Ortodoxe.mp4",
+  "audio_sha256": "54f97534aea5b4ad2987780898e07a2df5ac6399cec39d214470571501a9692f",
+  "audio_duration_s": 4750.956,
+  "config": {
+    "audio": "/srv/whisperx/bb8a557b-cdc4-4500-851a-ce1d8d6e780b/Buchpr\u00c3\u00a4sentation 2023-05 Biserica de stat, sau Biserica \u00c3\u00aen stat  O istorie a Bisericii Ortodoxe.mp4",
+    "label": "longro-cold",
+    "out": "<bench-dir>/results",
+    "mode": "cold",
+    "reps": 3,
+    "asr_device": "cuda:0",
+    "align_device": "cuda:1",
+    "diarize_device": null,
+    "compute": "int8",
+    "language": null,
+    "batch_size": 1,
+    "chunk_size": 30,
+    "beam_size": 5,
+    "diarize": false,
+    "model": "dropbox-dash/faster-whisper-large-v3-turbo",
+    "ct2_verbose": true
+  },
+  "env": {
+    "CUDA_VISIBLE_DEVICES": "0,1",
+    "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+    "LD_LIBRARY_PATH": "<whisperx-service>/cudnn8/nvidia/cudnn/lib",
+    "HF_TOKEN_SET": true
+  },
+  "reps": [
+    {
+      "rep": 1,
+      "audio_load_s": 23.048,
+      "transcribe_incl_vad_s": 404.883,
+      "detected_language": "en",
+      "segments": 168,
+      "align_model_load_s": 1.028,
+      "align_s": 244.638,
+      "transcript_sha256": "e76e890cbc821b94d7282deb18a3128d4761bd7415db09099ff12b71dfc13d7f",
+      "transcript_chars": 41551,
+      "total_pipeline_s": 649.521,
+      "model_load_s": 3.738,
+      "gpu": {
+        "gpu0": {
+          "asr": {
+            "peak_mem_MiB": 1701,
+            "avg_util_pct": 77.3,
+            "max_util_pct": 100
+          },
+          "align": {
+            "peak_mem_MiB": 1125,
+            "avg_util_pct": 0.0,
+            "max_util_pct": 0
+          }
+        },
+        "gpu1": {
+          "asr": {
+            "peak_mem_MiB": 38,
+            "avg_util_pct": 0.0,
+            "max_util_pct": 0
+          },
+          "align": {
+            "peak_mem_MiB": 1366,
+            "avg_util_pct": 57.1,
+            "max_util_pct": 100
+          }
+        }
+      }
+    }
+  ],
+  "error": null,
+  "mem_after_asr_load": {
+    "cuda:0": {
+      "total_MiB": 1992,
+      "free_MiB": 890,
+      "used_MiB": 1102
+    },
+    "cuda:1": {
+      "total_MiB": 1993,
+      "free_MiB": 1956,
+      "used_MiB": 37
+    }
+  },
+  "mem_after_align_load": {
+    "cuda:0": {
+      "total_MiB": 1992,
+      "free_MiB": 868,
+      "used_MiB": 1124
+    },
+    "cuda:1": {
+      "total_MiB": 1993,
+      "free_MiB": 1556,
+      "used_MiB": 437
+    }
+  },
+  "wall_clock_s": 679.5,
+  "host": {
+    "ram_free_min_KB": 897428,
+    "cpu_us_avg": 26.1,
+    "cpu_sy_avg": 2.5,
+    "cpu_wa_avg": 0.0
+  }
+}

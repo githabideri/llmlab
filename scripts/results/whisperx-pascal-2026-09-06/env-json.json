@@ -1,0 +1,48 @@
+{
+  "ctranslate2_version": "4.4.0",
+  "ct2_supported_compute_types": {
+    "cpu": [
+      "float32",
+      "int16",
+      "int8",
+      "int8_float32"
+    ],
+    "cuda (per device)": {
+      "device 0": {
+        "name": "NVIDIA GeForce GTX 1050",
+        "capability": [
+          6,
+          1
+        ],
+        "supported": [
+          "float32",
+          "int8",
+          "int8_float32"
+        ]
+      },
+      "device 1": {
+        "name": "NVIDIA GeForce GT 1030",
+        "capability": [
+          6,
+          1
+        ],
+        "supported": [
+          "float32",
+          "int8",
+          "int8_float32"
+        ]
+      }
+    }
+  },
+  "torch_version": "2.6.0+cu124",
+  "torch_cuda": "12.4",
+  "torch.backends.cudnn.version": 90100,
+  "whisperx_version": "3.4.1",
+  "faster_whisper_version": "1.1.1",
+  "ctranslate2_pkg": "4.4.0",
+  "python": "3.12.3 (main, Jul 15 2026, 23:46:41) [GCC 13.3.0]",
+  "cpu_count": 4,
+  "mem_total_kB": 8131732,
+  "nvidia_driver": "580.173.02",
+  "nvidia_smi_cuda_version": "13.0"
+}
