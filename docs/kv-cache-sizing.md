@@ -40,7 +40,7 @@ Architecture from [config.json](https://huggingface.co/Qwen/Qwen3.6-35B-A3B/blob
 | q8_0/q4_0 | 7.5 KiB | 30 MiB | 234 MiB | 938 MiB | 1.88 GiB |
 | q4_0/q4_0 | 5 KiB | 20 MiB | 156 MiB | 625 MiB | 1.25 GiB |
 
-**Key insight:** Despite being a "35B" model, the KV cache is tiny because 30/40 layers are linear attention. A dense 35B model with 64 layers would have ~6× the cache.
+**30/40 layers are linear attention, so the KV cache is tiny for a "35B" model** — a dense 35B with 64 layers would have ~6× the cache.
 
 ### Qwen3.6-27B (hybrid dense)
 
@@ -55,7 +55,7 @@ Architecture from [config.json](https://huggingface.co/Qwen/Qwen3.6-27B/blob/mai
 | q8_0/q4_0 | 24 KiB | 96 MiB | 768 MiB | 3 GiB | 3.75 GiB |
 | q4_0/q4_0 | 16 KiB | 64 MiB | 512 MiB | 2 GiB | 2.5 GiB |
 
-**Key insight:** Even this "dense" model is hybrid — 48/64 layers are linear attention with zero KV cache. Still, 16 full_attention layers with 4 KV heads means the cache is 2× the 35B-A3B per layer. On RTX 3090 (24 GB), 160K context at q8_0/q4_0 uses ~3.75 GiB for KV cache alone.
+**This "dense" model is hybrid too** — 48/64 layers are linear attention with zero KV cache. Still, 16 full_attention layers with 4 KV heads means the cache is 2× the 35B-A3B per layer. On RTX 3090 (24 GB), 160K context at q8_0/q4_0 uses ~3.75 GiB for KV cache alone.
 
 ---
 
