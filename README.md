@@ -2,25 +2,9 @@
 
 Personal lab notes on running local LLMs on consumer GPUs: working configs, models that fell short, and numbers from real serving.
 
-## The setup
+## Current setup
 
-The primary box runs **1× RTX 3090 24 GB + 2× RTX 3060 12 GB (48 GB)** on an **AMD Ryzen 5 5600X** — the 3090 came in early March 2026, and the CPU moved from a 7th-gen Intel i5-7400 to the 5600X in July 2026. Full specs, per-GPU deployment, and the rest of the fleet are under [docs/hardware](docs/hardware/README.md); serving layout and day-to-day operations under [architecture](docs/architecture.md) and [runbook](docs/runbook.md).
-
-## Tools
-
-- **[hub/](hub/README.md)** — live monitoring and control for the inference fleet: per-model generation and prompt-processing throughput, vLLM latency percentiles, GPU telemetry, model load/unload, and a token-authed JSON API for agents.
-
-  ![LLM Hub fleet overview: per-GPU state and live model throughput](hub/screenshots/llm-hub-overview-crop.png)
-
-- **[web/](web/README.md)** — FastAPI + htmx dashboard for running and monitoring benchmarks.
-- **[scripts/](scripts/)** — small tooling (logged `llama-bench`, model-info fetcher); the older context-ladder harness is under `scripts/legacy/`.
-
-## What this is about
-
-- **MoE and hybrid models** — the sweet spot for interactive use on limited VRAM: small active parameters keep generation fast, large total parameters keep quality up. With 48 GB, dense models are on the table too.
-- **Agentic tool-calling** — models driving multi-step tool chains (search → fetch → analyze → file ops).
-- **Real serving metrics** — `llama-bench` at empty context is a starting point; prompt cache, thinking tokens, and growing context change the numbers, and the live numbers are measured against the bench ones.
-- **Heterogeneous consumer-GPU inference** — measuring where tensors actually live, what crosses PCIe, what spills to RAM/SSD, and what that costs: automatic fitter placement, layer/tensor split, compute-buffer pressure ([guide](docs/multi-gpu-model-placement.md)).
+The primary box runs **1× RTX 3090 24 GB + 2× RTX 3060 12 GB (48 GB)** on an **AMD Ryzen 5 5600X**, plus a single-3060 backup box that doubles as an MTP inference endpoint, a laptop for iGPU/Vulkan experiments, and a secondary box with a 3060 and two Pascal cards. Specs, PCIe topology, and the upgrade history behind several of the results are under [docs/hardware](docs/hardware/README.md); serving layout under [architecture](docs/architecture.md), day-to-day operations under [runbook](docs/runbook.md).
 
 ## Currently serving
 
@@ -29,16 +13,27 @@ The primary box runs **1× RTX 3090 24 GB + 2× RTX 3060 12 GB (48 GB)** on an *
 | [Qwen3.8-27B](models/qwen3.8-27b-rtx3090.md) | W4A16-AutoRound | 1× RTX 3090 | 160K | vLLM 0.27.1, MTP k=3, text-only (stock llama.cpp Q4_K_M+MTP kept as rollback) |
 | [Qwen3.6-35B-A3B](models/qwen3.6-35b-a3b.md) | UD-IQ4_XS | 2× RTX 3060 (tensor-split 50/50) | 256K ×2 | llama.cpp + vision |
 
-The quant is the highest-quality that still leaves 100K+ context headroom; each model card shows the full comparison with exact sizes. Per-model write-ups and every model tested live in [models/](models/README.md).
+The quants are the highest-quality that still leave 100K+ context headroom; each model card shows the full comparison with exact sizes. An abliterated Qwen3.8-27B (Q4_K_M) rides on the dual-3060 router on demand, one model at a time. Per-model write-ups and every model tested live in [models/](models/README.md).
 
-**Notable lab results (not serving):**
+## Tools
 
-| Model | Quant | GPU | Result |
-|-------|-------|-----|--------|
-| [Qwen3.8-Flash-Next (Qwen4Exp: 125 B total / 6 B active, 51 B PLE table)](models/qwen3.8-flash-next.md) | Q2_K_XL | 3× (12+12+24 GB) | **30.2 t/s sustained decode**, ~390 pp/s (warm cache), 35.3 t/s with MTP (+17 %, single run, provisional). The fitter's selective expert spill beat all manual placement; on hold pending a production decision ([2026-09-02 report](reports/2026-09-02-qwen4exp-flash-next-three-gpu-campaign.md)) |
-| [Qwen3.6-35B-A3B](models/qwen3.6-35b-a3b.md) | UD-IQ2_XXS | 1× 3060 | 2-bit fully resident on one 12 GB card: 43–81 t/s at 0.02 GB/s PCIe — the residency-proof baseline ([2026-08-30 report](reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)) |
+- **[hub/](hub/README.md)** — live monitoring and control for the inference fleet: per-model generation (t/s) and prompt-processing (pp/s) throughput, vLLM latency percentiles, GPU telemetry, model load/unload, and a token-authed JSON API for agents.
 
-## What actually matters
+  [![LLM Hub fleet overview: per-GPU state and live model throughput](hub/screenshots/llm-hub-overview-crop.png)](hub/README.md)
+
+- **[web/](web/README.md)** — benchmark UI (legacy front-end for the context-ladder harness; current campaigns use per-campaign scripts).
+- **[scripts/](scripts/)** — small tooling (logged `llama-bench`, model-info fetcher); the older context-ladder harness is under `scripts/legacy/`.
+
+## What the lab measures
+
+- **Local model serving on consumer GPUs** — real inference performance and usability across dense, MoE, hybrid, and other architectures. Dense 27B-class models, small-active MoE, and hybrid SSM models are all in play; which one wins depends on the workload.
+- **Serving performance** — generation throughput (t/s), prompt processing (pp/s), latency, context growth, prefix caching, concurrency, and speculative decoding (MTP).
+- **Memory and placement** — quantization, VRAM residency, KV/compute buffers, PCIe traffic, and multi-GPU placement on heterogeneous cards ([guide](docs/multi-gpu-model-placement.md)).
+- **Agent workloads** — models evaluated doing multi-step tool work (search → fetch → analyze → file ops), which stresses context growth and prompt caching far beyond short synthetic prompts.
+
+Numbers here come from both controlled benchmarks and live serving. Placement work measures PCIe traffic and memory residency alongside throughput, and repeated-prompt tests use unique nonces where cache reuse would distort the result — which is why numbers in this repo often differ from a typical `llama-bench` screenshot ([methodology](docs/benchmarks.md)).
+
+## Findings
 
 ### Placement & residency
 
@@ -65,6 +60,7 @@ Mamba-2 holds up on its constant-time-attention promise; traditional GQA falls o
 
 ### Serving & speculation
 
+- **The dense 27B went from ~35 t/s to 96–118 t/s on one 3090** — the clearest single-model arc in this lab. Qwen3.8-27B cut over on stock llama.cpp (Q4_K_M + MTP) at 34.7–37 tok/s sustained; the move to vLLM with the W4A16-AutoRound quant, MTP k=3, and fp8 KV took decode to 96–118 tok/s (prefill up to ~1,050 tok/s, 3/3 needles at ~155K). Qwen3.8-27B holds the primary slot because it was the best available model at its 2026-08 cutover; the 35B-A3B keeps the multi-slot and vision cases ([model card](models/qwen3.8-27b-rtx3090.md)).
 - **MTP draft depth tops out at 2–3** — deeper drafts cost VRAM without measurable gain on 12 GB cards ([2026-08-27](reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md)).
 - **Two 3060s serve a 27B dense model at ~80% of 3090 speed for the same wall power** — but only as a single-user node: the KV pool (126K tokens) fits 1.9× a 64K context, and 4× 16K contexts collapse per-request decode to ~16 t/s ([2026-08-30](reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)).
 
@@ -76,11 +72,16 @@ Mamba-2 holds up on its constant-time-attention promise; traditional GQA falls o
 
 - **Repeated prompts are warm prompts** — vLLM prefix caching and llama.cpp `--cache-prompt` both made a llama.cpp node look 2.7× faster than the 3090 in one campaign until every request got a unique nonce ([methodology](docs/benchmarks.md)).
 
-## Where things live
+## Notable experiments (not serving)
 
-- [models/](models/README.md) — per-model write-ups: architecture, quant rationale, speed vs context, agentic results, known issues.
+| Model | Quant | GPU | Result |
+|-------|-------|-----|--------|
+| [Qwen3.8-Flash-Next (Qwen4Exp: 125 B total / 6 B active, 51 B PLE table)](models/qwen3.8-flash-next.md) | Q2_K_XL | 3× (12+12+24 GB) | **30.2 t/s sustained decode**, ~390 pp/s (warm cache), 35.3 t/s with MTP (+17 %, single run, provisional). The fitter's selective expert spill beat all manual placement; on hold pending a production decision ([2026-09-02 report](reports/2026-09-02-qwen4exp-flash-next-three-gpu-campaign.md)) |
+| [Qwen3.6-35B-A3B](models/qwen3.6-35b-a3b.md) | UD-IQ2_XXS | 1× 3060 | 2-bit fully resident on one 12 GB card: 43–81 t/s at 0.02 GB/s PCIe — the residency-proof baseline ([2026-08-30 report](reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)) |
+
+## Repository map
+
+- [models/](models/README.md) — per-model write-ups: architecture, quant rationale, speed vs context, agentic results, known issues. Production models are listed at the top; every other card is a frozen test record.
 - [docs/](docs/README.md) — methodology and reference, indexed by purpose and status: [model placement](docs/multi-gpu-model-placement.md), [benchmarking](docs/benchmarks.md), [KV-cache sizing](docs/kv-cache-sizing.md), [architecture](docs/architecture.md), [runbook](docs/runbook.md), [unit reference](docs/systemd.md), [hardware fleet](docs/hardware/README.md); frozen fork docs live under [docs/legacy/](docs/legacy/).
 - [reports/](reports/README.md) — date-stamped investigations and deployments (snapshots, no maintenance).
 - [benchmarks/](benchmarks/README.md) — benchmark harnesses (the March 2026 OpenClaw ladder is frozen under `benchmarks/legacy/`; future agent benchmarks target pi).
-
-Tools ([hub/](hub/README.md), [web/](web/README.md), [scripts/](scripts/)) are described in [Tools](#tools).
