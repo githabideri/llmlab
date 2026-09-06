@@ -1,0 +1,45 @@
+{
+  "capture_date": "2026-09-06T04:39:00+02:00",
+  "host": "Proxmox host (i5-7400, Gigabyte GA-B250-HD3P)",
+  "method": "sysfs /sys/bus/pci/devices/*/current_link_speed|width sampled at 2 Hz from host while VM ran faster-whisper ASR (24.6s, 124s audio). 120 samples covering full ASR window.",
+  "bandwidth": "PCIe Gen1 x4: 2.5 GT/s per lane; after 8b/10b encoding, ~8 Gbit/s aggregate payload = ~1.0 GB/s per direction, before PCIe protocol overhead",
+  "gpu0_gtx1050": {
+    "pci_bus_id_host": "0000:07:00.0",
+    "pci_bus_id_guest": "0000:01:00.0",
+    "endpoint_lnkcap": "Speed 8GT/s (Gen3), Width x16",
+    "endpoint_lnksta": "Speed 2.5GT/s (Gen1, downgraded), Width x4 (downgraded from x16)",
+    "root_port": "00:1d.0",
+    "root_port_lnkcap": "Speed 8GT/s (Gen3), Width x4, ASPM L1",
+    "root_port_lnksta": "Speed 2.5GT/s (Gen1), Width x4",
+    "slot": "GA-B250-HD3P PCIEX4_1 (physical x16, electrical x4, PCH-side)",
+    "idle_gen": 1,
+    "idle_width": 4,
+    "asr_load_gen": 1,
+    "asr_load_width": 4,
+    "notes": "Endpoint advertises Gen3 x16 but is limited to x4 by the upstream PCH root port. Speed is at Gen1 despite Gen3 target (LnkCtl2=8GT/s). Never transitions to Gen2/Gen3 during ASR load (120 samples)."
+  },
+  "gpu1_gt1030": {
+    "pci_bus_id_host": "0000:02:00.0",
+    "pci_bus_id_guest": "0000:02:00.0",
+    "endpoint_lnkcap": "Speed 8GT/s (Gen3), Width x4",
+    "endpoint_lnksta": "Speed 2.5GT/s (Gen1, downgraded), Width x4 (full width)",
+    "root_port": "00:1b.0",
+    "root_port_lnkcap": "Speed 8GT/s (Gen3), Width x4, ASPM L1",
+    "root_port_lnksta": "Speed 2.5GT/s (Gen1), Width x4",
+    "slot": "GA-B250-HD3P PCIEX4_2 (physical x16, electrical x4, PCH-side)",
+    "idle_gen": 1,
+    "idle_width": 4,
+    "asr_load_gen": 1,
+    "asr_load_width": 4,
+    "notes": "Card and slot are both x4. Speed at Gen1 despite Gen3 target. Same behavior as 1050."
+  },
+  "topology": {
+    "board": "Gigabyte GA-B250-HD3P",
+    "gpu0_gtx1050_path": "CPU → DMI → B250 PCH → PCIEX4_1 (x4) → GP107",
+    "gpu1_gt1030_path": "CPU → DMI → B250 PCH → PCIEX4_2 (x4) → GP108",
+    "virtualization": "VFIO passthrough to QEMU VM (Q35 + ICH9 virtual chipset)",
+    "note": "Both Pascal GPUs are on PCH-side PCIe (not CPU-direct). The RTX 3060 occupies the CPU-direct PCIEX16 slot."
+  },
+  "cause_of_speed_downgrade": "Unresolved. LnkCtl2 targets Gen3 on all four ports (both endpoints and both root ports), but all operate at Gen1. No AER errors; PCIe equalization completed successfully. Possible explanations: BIOS PCIe speed override, DMI/PCH firmware policy, link-training behavior, or signal integrity. The absence of AER errors and successful equalization makes a catastrophic signal problem less likely but does not diagnose the cause.",
+  "conclusion": "Both GPUs operate at Gen1 x4 (~1.0 GB/s payload per direction) at all times — idle and under load. This is a persistent 'downgraded' link state, not an idle power-management artifact. Under the measured int8 ASR workload (SM util 74–82%, 10.7× RT), no obvious PCIe bottleneck was observed. No direct bus-traffic measurement was taken (no DCGM; nvidia-smi power field is [N/A] on these Pascal cards), so the conclusion is 'no obvious bottleneck' rather than 'PCIe is irrelevant to performance.'"
+}

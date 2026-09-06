@@ -41,8 +41,10 @@ This experiment belongs in llmlab because it tests **useful local neural inferen
 | Compute capability | 6.1 |
 | Memory | 2048 MiB GDDR5 (max mem clock 1752 MHz × 2) |
 | Max SM clock | 1405 MHz |
-| PCIe capability | x4 (negotiated at Gen 1 ×4 in VM — 1 GT/s) |
-| Virtualization | Pass-through (VFIO) |
+| PCIe endpoint capability | Gen 3 ×16 (advertised by card) |
+| PCIe slot | GA-B250-HD3P PCIEX4_1 (physical x16, electrical x4, PCH-side) |
+| PCIe operating state | Gen 1 ×4 (~1.0 GB/s payload/direction) — persistent, confirmed under load |
+| Virtualization | VFIO pass-through (host bus 07:00.0) |
 
 ### GPU 1 — NVIDIA GeForce GT 1030 2 GB
 
@@ -53,9 +55,11 @@ This experiment belongs in llmlab because it tests **useful local neural inferen
 | Compute capability | 6.1 |
 | Memory | 2048 MiB **GDDR5** (max mem clock 1502 MHz × 2 = 3004 MHz effective — GDDR5, not DDR4) |
 | Max SM clock | 1405 MHz |
-| PCIe capability | x16 slot (negotiated at Gen 1 ×4 in VM — 1 GT/s) |
+| PCIe endpoint capability | Gen 3 ×4 |
+| PCIe slot | GA-B250-HD3P PCIEX4_2 (physical x16, electrical x4, PCH-side) |
+| PCIe operating state | Gen 1 ×4 (~1.0 GB/s payload/direction) — persistent, confirmed under load |
 | OEM | HP (OEM part for HP desktop) |
-| Virtualization | Pass-through (VFIO) |
+| Virtualization | VFIO pass-through (host bus 02:00.0) |
 
 > **Memory type proof:** `nvidia-smi -q` reports max memory clock 3004 MHz. The GT 1030 exists in GDDR5 (3004 MHz) and DDR4 (1800 MHz) variants. 3004 MHz = 1502 MHz core × 2 (GDDR5 data rate doubling), confirming GDDR5. The DDR4 variant would show 1800 MHz max.
 
@@ -67,9 +71,11 @@ This experiment belongs in llmlab because it tests **useful local neural inferen
 | RAM | 7.8 GiB (host: 32 GB, 4×8 GB) |
 | Disk | 25 GB (93% full at campaign time) |
 | VM type | KVM/QEMU VM on Proxmox |
-| Both GPUs | PCIe Gen 3 ×4 capability, negotiated at Gen 1 ×4 in the VM |
+| Both GPUs | PCIe Gen 3 capable; both operating at Gen 1 ×4 (persistent downgraded state) |
+| Motherboard | Gigabyte GA-B250-HD3P — PCIEX4_1 + PCIEX4_2 are PCH-side physical-x16/electrical-x4 slots |
+| Root ports | 00:1d.0 (1050, Gen3 x4), 00:1b.0 (1030, Gen3 x4) |
 
-> The VM negotiates Gen 1 links despite Gen 3-capable hardware. This is a VM passthrough limitation, not a hardware defect. The impact is negligible for compute-bound int8 GEMM workloads (PCIe bandwidth is well under link cap).
+> **PCIe link state (measured):** Both GPUs and their upstream PCH root ports show `LnkSta: Speed 2.5GT/s` despite `LnkCap: Speed 8GT/s` and `LnkCtl2: Target Link Speed: 8GT/s`. This state persists under full ASR load (120 host-side sysfs samples at 2 Hz covering a 24.6 s ASR run) — it is not an idle power-management artifact. The GTX 1050 endpoint advertises Gen3 ×16 but is limited to ×4 by the upstream root port (board slot is wired x4). The cause of the persistent Gen1 speed is **unresolved** (possible: BIOS PCIe speed override, DMI/PCH firmware policy, link-training behavior, or signal integrity; no AER errors observed, PCIe equalization completed successfully). Effective bandwidth: Gen1 ×4 ≈ 1.0 GB/s payload per direction before protocol overhead. In this measured pipeline (SM util 74–82%, 10.7× RT), no obvious PCIe bottleneck was observed, but no direct bus-traffic measurement was taken (no DCGM; `nvidia-smi` power field is `[N/A]` on these Pascal cards).
 
 ## Software Environment
 
@@ -340,7 +346,7 @@ The i5-7400 is a 4-core Kaby Lake with AVX2 support. However, CTranslate2 report
 ## Limitations
 
 1. **Single VM, single host.** All results are from one 4 vCPU KVM VM. Host-level CPU contention, NUMA effects, or KVM overhead may not generalize.
-2. **PCIe Gen 1 in VM.** The GPUs negotiate at 1 GT/s ×4 (0.5 GB/s) despite Gen 3 ×4 capability. For compute-bound int8 GEMM, this is negligible (PCIe is well under link cap during ASR), but for memory-bound workloads it could matter.
+2. **PCIe operating at Gen 1 ×4 (~1.0 GB/s payload/direction).** Both GPUs and their PCH root ports are Gen 3 capable but persistently operate at Gen 1 ×4 (confirmed under load). The cause of the speed downgrade is unresolved. Under the measured int8 ASR workload, no obvious PCIe bottleneck was observed, but no direct PCIe bus-traffic measurement was taken (no DCGM available), so the conclusion is "no obvious bottleneck" rather than "PCIe is irrelevant to performance."
 3. **No wall power measurement.** The VM has no dedicated PDU/smart-plug. GPU power draw is `[N/A]` on Pascal via `nvidia-smi` (driver limitation). The GT 1030 TDP is 30 W, GTX 1050 TDP is 75 W (reference specs).
 4. **No ground-truth WER/CER.** No reference transcripts exist for the test files. Quality validation is via SHA-256 consistency and manual spot-check.
 5. **Language detection on long-form.** The 79 min file was detected as `en` at 0.49 confidence. The actual content is a Romanian church presentation with English code-switching. This may affect ASR quality (not timing).
