@@ -1,0 +1,15 @@
+[Unit]
+Description=llm-hub — inference control & observability
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/llm-hub
+ExecStart=/usr/bin/python3 /opt/llm-hub/llm-hub.py
+Restart=always
+RestartSec=3
+# binds unprivileged :8443; no capabilities needed
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

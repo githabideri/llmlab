@@ -1,0 +1,31 @@
+{
+  "port": 8443,
+  "servers": [
+    {
+      "name": "example-router",
+      "kind": "llama-router",
+      "url": "http://<gpu-server>:8081",
+      "sidecar": "http://<gpu-server>:9421",
+      "description": "dual-GPU llama.cpp router",
+      "models": {
+        "example-model.gguf": {
+          "ctx": 131072,
+          "desc": "optional per-model notes shown in the UI"
+        }
+      }
+    },
+    {
+      "name": "example-vllm",
+      "kind": "vllm",
+      "url": "http://<gpu-server-2>:8080",
+      "sidecar": "http://<gpu-server-2>:9421",
+      "description": "dedicated vLLM server"
+    },
+    {
+      "name": "example-gpu",
+      "kind": "gpu-only",
+      "sidecar": "http://<some-host>:9421",
+      "description": "no inference API — GPU telemetry only"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+[Unit]
+Description=llm-hub GPU sidecar (nvidia-smi -> JSON :9421)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/llm-hub/gpu-sidecar.py
+Restart=always
+RestartSec=3
+# nvidia-smi can be slow right after boot
+ExecStartPost=/bin/sleep 1
+
+[Install]
+WantedBy=multi-user.target
+# Variant for a CT whose nvidia-smi sees all host GPUs (multi-GPU host):
+#   ExecStart=/usr/bin/python3 /opt/llm-hub/gpu-sidecar.py --only 2
