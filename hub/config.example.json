@@ -1,4 +1,14 @@
 {
+  "_notes": [
+    "port: the hub's HTTP port (default 8443).",
+    "servers: one entry per node. Required: name, kind.",
+    "  kind: llama-router | vllm | gpu-only.",
+    "  url: the inference server's base URL (required for llama-router and vllm, omit for gpu-only).",
+    "  sidecar: the gpu-sidecar URL on that host (optional; defaults to the server's host, port 9421).",
+    "  description: free text shown in the UI (optional).",
+    "  models: per-model hints — ctx (int) and desc (shown in the UI) — optional.",
+    "top-level gpu_sidecars: [{server, url}] — optional, overrides the per-server sidecar keys."
+  ],
   "port": 8443,
   "servers": [
     {

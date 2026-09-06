@@ -75,3 +75,4 @@ Mamba-2 holds up on its constant-time-attention promise; traditional GQA falls o
 - [benchmarks/](benchmarks/README.md) — benchmark harnesses (the March 2026 OpenClaw ladder is frozen under `benchmarks/legacy/`; future agent benchmarks target pi).
 - [scripts/](scripts/) — small tooling (logged `llama-bench`, model-info fetcher); the older context-ladder harness is under `scripts/legacy/`.
 - [web/](web/README.md) — FastAPI + htmx dashboard for running and monitoring benchmarks.
+- [hub/](hub/README.md) — lightweight live monitoring and control for the inference fleet: llama.cpp/vLLM metrics, GPU telemetry, and a JSON API for agents.

@@ -1,28 +1,32 @@
-# LLM Hub — inference fleet control & observability
+# LLM Hub — inference fleet monitoring & control
 
-A single-file, stdlib-only Python service that watches a fleet of
-llama.cpp / vLLM inference servers and gives it one control surface:
-a dark terminal-style web UI, a JSON API for agents, and a
-Prometheus-shaped `/metrics` export.
+A single-file, stdlib-only Python service for monitoring and controlling a
+mixed llama.cpp / vLLM inference fleet. It provides a web UI, a JSON API for
+agents, and a Prometheus-compatible `/metrics` endpoint.
 
-**The hub is never in the inference request path.** Clients talk directly to
-the inference servers; the hub only watches them (and proxies load/unload
-commands on demand). Losing the hub loses visibility, not inference.
+## Architecture
 
-## Files
+```text
+              browser / agents
+                    |
+                    v
+  +--------------------------------+
+  |             LLM Hub            |   web UI + JSON API + /metrics
+  +------+----------+----------+---+
+         |          |          |
+         v          v          v
+   llama.cpp      vLLM     gpu-sidecars
+   router(s)      server   (nvidia-smi -> JSON, one per GPU host)
 
-| File | Purpose |
-|------|---------|
-| `llm-hub.py` | the hub (poller + HTTP API + Prometheus export + UI server) |
-| `gpu-sidecar.py` | per-GPU-host `nvidia-smi` → JSON sidecar (the hub polls it) |
-| `ui/index.html` | the web UI (single file, no build step, no framework) |
-| `config.example.json` | config template |
-| `llm-hub.service` | systemd unit for the hub |
-| `gpu-sidecar.service` | systemd unit for the sidecar |
-| `screenshots/` | UI screenshots (redacted) |
+   inference clients talk directly to the llama.cpp / vLLM servers —
+   the hub is not in the request path
+```
 
-No dependencies beyond CPython stdlib. No Docker, no JS framework, no
-database. One process per role.
+The hub is outside the inference request path. Clients talk directly to the
+inference servers; if the hub goes down, inference continues and only
+monitoring and control are unavailable. Model load/unload commands are
+proxied through the hub on demand — the same native router API a client
+could call directly.
 
 ## Quick start
 
@@ -42,24 +46,49 @@ For the systemd layout, see [Deploy](#deploy).
 
 Per server, every 2 s:
 
-- **llama.cpp routers**: per-model tokens/s (generation) and
-  prefill rate (child-clock based, so it's physically bounded and decays to
-  idle after 30 s of no counter movement), MTP/spec-decode acceptance,
-  5-min rolling prompt-cache hit rate, requests in-flight / deferred, busy
-  decode slots. Load state from the router's own `/v1/models` catalog.
-- **vLLM**: tokens/s, **latency percentiles (p50/p95/p99) for TTFT, TPOT,
-  E2E, and queue time computed from the native histograms over a rolling
-  5-minute window** (bucket deltas — not lifetime cumulative), request
-  counts, KV cache usage, prefix-cache hit rate (window), preemptions
-  (window + total), engine sleep state, and wait-reason breakdown.
-- **GPUs**: per-card utilization, memory, temperature, power, from the
-  per-host sidecar.
+- **llama.cpp routers**: generation and prompt throughput,
+  speculative-decoding (MTP) acceptance, prompt-cache hit rate (5-min
+  window), in-flight and deferred requests, busy decode slots, and model
+  load state.
+- **vLLM**: throughput, rolling p50/p95/p99 percentiles for TTFT, TPOT,
+  E2E and queue time, queue and KV-cache state, prefix-cache hit rate,
+  preemptions, engine state, and finish reasons.
+- **GPU telemetry**: per-card utilization, VRAM, temperature, and power,
+  from the per-host sidecar.
 
-Model rows are collapsible: the collapsed line carries the rate + the key
+Model rows are collapsible: the collapsed line carries the rate and the key
 load signals; expanding shows the full diagnostics block. Node state is
-derived: `offline / idle / active / busy / degraded` — idle is the common
-state and looks calm, degraded is reserved for real problems
-(KV ≥ 90%, length-limited responses, preemptions under load).
+summarized as `offline`, `idle`, `active`, `busy`, or `degraded`; detailed
+diagnostics remain collapsed until needed.
+
+### State derivation
+
+States are derived per model (node state is the worst across its models):
+
+- `offline` — no answer for ~30 s (15 consecutive 2 s polls); model rows
+  show last-known state flagged `stale`.
+- `idle` — not loaded, stale, or no activity (the common state).
+- `active` — requests in flight or recent generation.
+- `busy` — requests waiting, deferred requests, or KV cache ≥ 75 %.
+- `degraded` — KV cache ≥ 90 %, responses hitting the length limit, or
+  preemptions while KV ≥ 80 %.
+
+### Metric semantics
+
+- **Generation rate** is computed against the child process's own
+  generation clock (`Δtokens_predicted / Δtokens_predicted_seconds`), so it
+  is physically bounded and immune to poll-gap artifacts.
+- Rates decay to "no data" 30 s after the counter **last moved** — idle is
+  shown as no value, not as a stale number.
+- A counter **decrease** (child restart / model reload) re-baselines
+  instead of producing a spike.
+- **vLLM percentiles** are interpolated from the engine's native histogram
+  buckets over a rolling window (default 300 s) — bucket deltas, not
+  process-lifetime cumulative values. Resolution is bounded by the engine's
+  bucket edges. llama.cpp has no equivalent latency histograms; that is a
+  vLLM-only capability.
+- Idle/unknown values are `null` in the API and `NaN` in `/metrics` —
+  never `0`, which must mean "measured, zero".
 
 ## API
 
@@ -71,8 +100,33 @@ state and looks calm, degraded is reserved for real problems
 | `POST /api/models/unload` | token/cookie | same, unload |
 | `POST /auth` | Bearer master token | exchange token for 7-day session cookie |
 | `GET /auth` | token/cookie | convenience: is my session valid? |
-| `GET /metrics` | public | Prometheus text (topology-level data) |
+| `GET /metrics` | public | Prometheus exposition format (topology-level data) |
 | `GET /health` | public | liveness + poller freshness |
+
+The JSON API is the agent interface: one call returns every server, its
+models, GPU state and the rolling metrics, so an orchestrating agent can
+decide "which node is free for a 100K-context job" without scraping each
+backend. Example:
+
+```console
+$ curl -H "Authorization: Bearer $TOKEN" http://hub:8443/api/models
+{
+  "ts": 1788710630.6,
+  "models": [
+    {"id": "some-35b.gguf", "loaded": false, "tgen": null, "tpp": null,
+     "spec_accept": null, "ctx": 262144, "stale": false, "cache_hit": null,
+     "n_proc": null, "n_deferred": null, "busy_slots": null,
+     "server": "router-a", "server_online": true},
+    {"id": "some-27b", "loaded": true, "tgen": 29.7, "tpp": 102.4,
+     "spec_accept": 0.57, "ctx": 102400, "stale": false,
+     "n_proc": 1, "n_deferred": 0, "busy_slots": 1,
+     "server": "router-a", "server_online": true}
+  ]
+}
+```
+
+(Fields trimmed for readability; vLLM entries additionally carry
+`latency`, `finish`, `kv_used`, `preempt_*`, `sleep`.)
 
 ### Auth model
 
@@ -81,9 +135,23 @@ state and looks calm, degraded is reserved for real problems
   HMAC-signed `HttpOnly` session cookie (7-day sliding). The UI shell is
   public; data requires auth. The page itself never contains the token.
 
-`/metrics` and `/health` are public by design — they expose server names,
-model names, and rates (topology-level), not prompts or payloads. If that's
-too much for your network, put the hub behind an auth proxy.
+## Security
+
+- **Treat the hub token as an administrative credential.** Authenticated
+  callers can trigger model load/unload on configured nodes (proxied to the
+  router's native API and appended to `audit.log`). Run the hub on a
+  trusted network or behind your existing access-control layer; it is not
+  designed for direct Internet exposure.
+- The session cookie is HMAC-signed with the master token: anyone who
+  obtains the token file can mint valid cookies. Rotate by replacing the
+  token file and restarting.
+- No CSRF token: state-changing endpoints accept `Authorization: Bearer` or
+  the `HttpOnly` session cookie (SameSite=Lax), which covers the
+  same-origin UI and agent usage. A cross-origin form post is the classic
+  residual gap if you expose the hub publicly.
+- `/metrics` and `/health` are public by design — topology-level data
+  (names, rates, GPU counters), no prompts or payloads. If that's too much
+  for your network, put the hub behind an auth proxy.
 
 ## Config
 
@@ -154,8 +222,8 @@ The hub is unprivileged; put TLS in front (reverse proxy) if you expose it.
 utilization/memory/temperature/power, per-model tokens/s, vLLM latency
 percentiles (seconds), request counts, KV usage, cache hit rates,
 preemptions, and engine sleep state. Idle/unknown values are `NaN`, not `0`.
-This is the stable scrape surface for a Grafana stack (separate concern —
-the hub does not require Prometheus).
+This is the stable scrape surface for a Grafana stack — a separate concern;
+the hub does not require Prometheus.
 
 ## State
 
@@ -164,50 +232,70 @@ server, plus a periodic `snapshot.json` in the state dir (restored on boot
 so the UI isn't blank after a hub restart). No historical storage — for
 long-term trends, scrape `/metrics`.
 
-## Security assumptions
+## Compatibility
 
-- Designed for a **trusted homelab / admin network**. Not intended to be
-  internet-exposed without an external secure access layer (reverse proxy
-  with TLS + auth, VPN, etc.).
-- One master token protects the whole fleet (read + load/unload control).
-  Rotate by replacing the token file and restarting.
-- The session cookie is HMAC-signed with the master token: anyone who
-  obtains the token file can mint valid cookies.
-- Load/unload is a **proxied passthrough** to the router's native
-  `/models/load|/models/unload` — same capability as calling the router
-  directly, audited to `audit.log` in the state dir.
-- No CSRF token: state-changing endpoints accept `Authorization: Bearer`
-  or the `HttpOnly` session cookie (SameSite=Lax), which covers the
-  same-origin UI and agent usage; a cross-origin form post to a GET-less
-  POST endpoint is the classic residual gap if you expose the hub
-  publicly.
-- Secrets never leave the hub host: the API never forwards upstream
-  payloads beyond a 500-char excerpt of the load/unload response.
+Currently tested with:
+
+- recent llama.cpp server builds (per-model `/metrics?model=`, OpenAI-style
+  `/v1/models` catalog)
+- vLLM 0.27.x
+- NVIDIA GPUs via `nvidia-smi` (any architecture; older "Pascal"-era
+  cards that report power as `[N/A]` are tolerated)
+
+Metric names do change upstream, so newer backend versions may require
+parser updates. `hub_vllm_metrics_ok` flags a vLLM counter-name mismatch
+instead of silently reading zero.
 
 ## Known limitations
 
-- **History is intentionally in-memory and short-lived**: a 30-min
-  sparkline ring and 5-min rolling windows per server. After a hub restart,
-  only the last `snapshot.json` is restored. For long-term trends, scrape
-  `/metrics`.
+- **History is in-memory and short-lived**: 30-min sparklines and 5-min
+  rolling windows; a hub restart loses history except the last snapshot.
+  No long-term storage — scrape `/metrics` for trends.
+- **No alerting** — state is shown, not notified.
 - vLLM latency percentiles need at least one observation inside the rolling
   window; with no recent requests they show `—` (no stale values).
-- vLLM is treated as one logical model per server (`(vllm)`); multi-model
-  vLLM deployments are not distinguished.
-- Percentiles are interpolated from histogram bucket deltas — resolution is
-  bounded by the engine's bucket edges.
-- The UI is a single page with a full 2 s refresh; it is built for a few
-  dozen nodes, not hundreds.
-- No TLS of its own — put a reverse proxy in front for anything beyond a
-  trusted LAN/tailnet.
+- vLLM is treated as one logical model per server; multi-model vLLM
+  deployments are not distinguished.
+- llama.cpp has no latency histograms, so TTFT/TPOT percentiles are a
+  vLLM-only feature.
+- The UI is a single page with a full 2 s refresh — built for a few dozen
+  nodes, not hundreds.
+- No TLS of its own; `/metrics` and `/health` are unauthenticated
+  (topology-level data only).
+- It is a monitoring/control layer for your own fleet, not a
+  Prometheus/Grafana replacement.
 
 ## Screenshots
 
-- [Fleet view (desktop)](screenshots/llm-hub-fleet.png) — one card per
-  server: GPU rows, per-model rates, derived state (IDLE/ACTIVE/BUSY/…).
-- [Expanded diagnostics](screenshots/llm-hub-diagnostics.png) — click a
-  model name for the latency percentile table (TTFT/TPOT/E2E/queue ×
-  p50/p95/p99 over the 5-min window), finish reasons, preemptions, cache.
-- [Mobile layout](screenshots/llm-hub-mobile.png).
+![LLM Hub fleet overview: one card per server with GPU utilization, model state, throughput, and 30-minute activity sparklines.](screenshots/llm-hub-fleet.png)
 
-Node names/descriptions in the screenshots are redacted.
+<details>
+<summary>Diagnostics view (expanded model row)</summary>
+
+![Expanded vLLM diagnostics: latency percentiles (TTFT/TPOT/E2E/queue, p50/p95/p99), finish reasons, preemptions, and cache hit rate.](screenshots/llm-hub-diagnostics.png)
+
+</details>
+
+<details>
+<summary>Mobile layout</summary>
+
+![LLM Hub on a narrow mobile viewport: single-column card layout.](screenshots/llm-hub-mobile.png)
+
+</details>
+
+Server names and descriptions in the screenshots are redacted.
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| `llm-hub.py` | the hub (poller + HTTP API + Prometheus export + UI server) |
+| `gpu-sidecar.py` | per-GPU-host `nvidia-smi` → JSON sidecar (the hub polls it) |
+| `ui/index.html` | the web UI (single file, no build step, no framework) |
+| `config.example.json` | config template |
+| `llm-hub.service` | systemd unit for the hub |
+| `gpu-sidecar.service` | systemd unit for the sidecar |
+| `screenshots/` | UI screenshots (redacted) |
+
+No dependencies beyond CPython stdlib. No Docker, no JS framework, no
+database. One process per role.
