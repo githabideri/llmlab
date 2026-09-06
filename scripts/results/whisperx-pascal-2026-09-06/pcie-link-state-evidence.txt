@@ -1,0 +1,45 @@
+# PCIe link state evidence — Pascal GPU VM (i5-7400, Gigabyte GA-B250-HD3P)
+# Captured: 2026-09-06, host-side lspci + sysfs
+# Board topology: PCIEX16 (CPU-direct, x16), PCIEX4_1 + PCIEX4_2 (PCH-side, physical x16 / electrical x4)
+
+## GTX 1050 endpoint (guest 01:00.0, host 07:00.0)
+LnkCap:  Speed 8GT/s, Width x16, ASPM L0s L1
+LnkSta:  Speed 2.5GT/s (downgraded), Width x4 (downgraded)
+LnkCap2: Supported Link Speeds: 2.5-8GT/s
+LnkCtl2: Target Link Speed: 8GT/s
+LnkSta2: EqualizationComplete+ EqualizationPhase1+
+
+## GTX 1050 upstream PCH root port (host 00:1d.0)
+LnkCap:  Speed 8GT/s, Width x4, ASPM L1, Exit Latency L1 <16us
+LnkSta:  Speed 2.5GT/s, Width x4
+LnkCap2: Supported Link Speeds: 2.5-8GT/s
+LnkCtl2: Target Link Speed: 8GT/s
+LnkSta2: EqualizationComplete+ EqualizationPhase1+
+
+## GT 1030 endpoint (guest 02:00.0, host 02:00.0)
+LnkCap:  Speed 8GT/s, Width x4, ASPM L0s L1
+LnkSta:  Speed 2.5GT/s (downgraded), Width x4
+LnkCap2: Supported Link Speeds: 2.5-8GT/s
+LnkCtl2: Target Link Speed: 8GT/s
+LnkSta2: EqualizationComplete+ EqualizationPhase1+
+
+## GT 1030 upstream PCH root port (host 00:1b.0)
+LnkCap:  Speed 8GT/s, Width x4, ASPM L1, Exit Latency L1 <16us
+LnkSta:  Speed 2.5GT/s, Width x4
+LnkCap2: Supported Link Speeds: 2.5-8GT/s
+LnkCtl2: Target Link Speed: 8GT/s
+LnkSta2: EqualizationComplete+ EqualizationPhase1+
+
+## Interpretation
+- Both root ports are Gen3 x4 — the motherboard slots are electrically x4.
+- GTX 1050 endpoint advertises x16 but is limited to x4 by the upstream root port.
+- All four ports target Gen3 (LnkCtl2) but operate at Gen1 (LnkSta = 2.5 GT/s).
+- The Gen1 speed is persistent under load (see pcie-link-samples.csv).
+- Cause of the speed downgrade is unresolved. Possible explanations: BIOS PCIe
+  speed override, DMI link training, PCH firmware policy, or signal integrity.
+  No AER errors observed; PCIe equalization completed successfully.
+
+## nvidia-smi (in-VM, at idle)
+index, name, pci.bus_id, pcie.link.gen.current, pcie.link.gen.max, pcie.link.width.current, pcie.link.width.max
+0, NVIDIA GeForce GTX 1050, 00000000:01:00.0, 1, 3, 4, 16
+1, NVIDIA GeForce GT 1030, 00000000:02:00.0, 1, 3, 4, 4
