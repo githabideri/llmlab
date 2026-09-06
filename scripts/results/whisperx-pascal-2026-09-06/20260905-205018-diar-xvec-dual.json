@@ -1,0 +1,124 @@
+{
+  "label": "diar-xvec-dual",
+  "mode": "cold",
+  "audio": "<whisperx-service>/test-clip-124s.mp4",
+  "audio_sha256": "3ff1ff7c7cf08d7f68a4660daf9761d9c58247fbfde5bbbc140af8450b4060b7",
+  "audio_duration_s": 124.207,
+  "config": {
+    "audio": "<whisperx-service>/test-clip-124s.mp4",
+    "label": "diar-xvec-dual",
+    "out": "<bench-dir>/results",
+    "mode": "cold",
+    "reps": 3,
+    "asr_device": "cuda:0",
+    "align_device": "cuda:1",
+    "diarize_device": "cuda:0",
+    "compute": "int8",
+    "language": null,
+    "batch_size": 1,
+    "chunk_size": 30,
+    "beam_size": 5,
+    "diarize": true,
+    "diarize_method": "xvec",
+    "model": "dropbox-dash/faster-whisper-large-v3-turbo",
+    "ct2_verbose": true
+  },
+  "env": {
+    "CUDA_VISIBLE_DEVICES": null,
+    "CUDA_DEVICE_ORDER": null,
+    "LD_LIBRARY_PATH": "<whisperx-service>/cudnn8/nvidia/cudnn/lib",
+    "HF_TOKEN_SET": false
+  },
+  "reps": [
+    {
+      "rep": 1,
+      "audio_load_s": 0.569,
+      "transcribe_incl_vad_s": 11.863,
+      "detected_language": "en",
+      "segments": 4,
+      "align_model_load_s": 1.022,
+      "align_s": 5.925,
+      "diarize_model_load_s": 0.398,
+      "diarize_method": "xvec",
+      "_expected_speakers": 2,
+      "diarize_speakers": 2,
+      "diarize_speech_s": 90.57,
+      "diarize_segments": 23,
+      "diarize_s": 3.668,
+      "transcript_sha256": "d7d934ac1da7514e0689ac4baa0519b8ae3ef78b36dc403ffd694279aa922984",
+      "transcript_chars": 1178,
+      "total_pipeline_s": 21.456,
+      "model_load_s": 3.868,
+      "gpu": {
+        "gpu0": {
+          "asr": {
+            "peak_mem_MiB": 1701,
+            "avg_util_pct": 78.6,
+            "max_util_pct": 100
+          },
+          "align": {
+            "peak_mem_MiB": 1125,
+            "avg_util_pct": 0.0,
+            "max_util_pct": 0
+          },
+          "diarize": {
+            "peak_mem_MiB": 1165,
+            "avg_util_pct": 0.0,
+            "max_util_pct": 0
+          }
+        },
+        "gpu1": {
+          "asr": {
+            "peak_mem_MiB": 38,
+            "avg_util_pct": 0.0,
+            "max_util_pct": 0
+          },
+          "align": {
+            "peak_mem_MiB": 1116,
+            "avg_util_pct": 60.0,
+            "max_util_pct": 100
+          },
+          "diarize": {
+            "peak_mem_MiB": 1116,
+            "avg_util_pct": 0.0,
+            "max_util_pct": 0
+          }
+        }
+      }
+    }
+  ],
+  "error": null,
+  "diarize_method": "xvec",
+  "mem_after_asr_load": {
+    "cuda:0": {
+      "total_MiB": 1992,
+      "free_MiB": 890,
+      "used_MiB": 1102
+    },
+    "cuda:1": {
+      "total_MiB": 1993,
+      "free_MiB": 1956,
+      "used_MiB": 37
+    }
+  },
+  "mem_after_align_load": {
+    "cuda:0": {
+      "total_MiB": 1992,
+      "free_MiB": 868,
+      "used_MiB": 1124
+    },
+    "cuda:1": {
+      "total_MiB": 1993,
+      "free_MiB": 1556,
+      "used_MiB": 437
+    }
+  },
+  "_xvec_vram_load": 31.0,
+  "wall_clock_s": 28.7,
+  "host": {
+    "ram_free_min_KB": 1108540,
+    "cpu_us_avg": 25.3,
+    "cpu_sy_avg": 3.7,
+    "cpu_wa_avg": 0.0
+  }
+}

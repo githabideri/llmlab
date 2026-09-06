@@ -1,0 +1,40 @@
+{
+  "label": "smoke-dual-cold",
+  "mode": "cold",
+  "audio": "<whisperx-service>/test-clip-124s.mp4",
+  "audio_sha256": "3ff1ff7c7cf08d7f68a4660daf9761d9c58247fbfde5bbbc140af8450b4060b7",
+  "audio_duration_s": 124.207,
+  "config": {
+    "audio": "<whisperx-service>/test-clip-124s.mp4",
+    "label": "smoke-dual-cold",
+    "out": "<bench-dir>/results",
+    "mode": "cold",
+    "reps": 3,
+    "asr_device": "cuda:0",
+    "align_device": "cuda:1",
+    "diarize_device": null,
+    "compute": "int8",
+    "language": null,
+    "batch_size": 1,
+    "chunk_size": 30,
+    "beam_size": 5,
+    "diarize": false,
+    "model": "dropbox-dash/faster-whisper-large-v3-turbo",
+    "ct2_verbose": true
+  },
+  "env": {
+    "CUDA_VISIBLE_DEVICES": null,
+    "CUDA_DEVICE_ORDER": null,
+    "LD_LIBRARY_PATH": null,
+    "HF_TOKEN_SET": false
+  },
+  "reps": [],
+  "error": "ValueError: unsupported device cuda:0\nTraceback (most recent call last):\n  File \"<bench-dir>/whisperx_bench.py\", line 180, in main\n    model = whisperx_transcribe.load_model(\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<whisperx-service>/.venv/lib/python3.12/site-packages/whisperx/asr.py\", line 336, in load_model\n    model = model or WhisperModel(whisper_arch,\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<whisperx-service>/.venv/lib/python3.12/site-packages/faster_whisper/transcribe.py\", line 647, in __init__\n    self.model = ctranslate2.models.Whisper(\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: unsupported device cuda:0\n",
+  "wall_clock_s": 1.5,
+  "host": {
+    "ram_free_min_KB": 1406588,
+    "cpu_us_avg": 3.0,
+    "cpu_sy_avg": 0.5,
+    "cpu_wa_avg": 0.0
+  }
+}

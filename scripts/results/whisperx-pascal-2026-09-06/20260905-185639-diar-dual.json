@@ -1,0 +1,64 @@
+{
+  "label": "diar-dual",
+  "mode": "cold",
+  "audio": "<whisperx-service>/test-clip-124s.mp4",
+  "audio_sha256": "3ff1ff7c7cf08d7f68a4660daf9761d9c58247fbfde5bbbc140af8450b4060b7",
+  "audio_duration_s": 124.207,
+  "config": {
+    "audio": "<whisperx-service>/test-clip-124s.mp4",
+    "label": "diar-dual",
+    "out": "<bench-dir>/results",
+    "mode": "cold",
+    "reps": 3,
+    "asr_device": "cuda:0",
+    "align_device": "cuda:1",
+    "diarize_device": "cuda:1",
+    "compute": "int8",
+    "language": null,
+    "batch_size": 1,
+    "chunk_size": 30,
+    "beam_size": 5,
+    "diarize": true,
+    "model": "dropbox-dash/faster-whisper-large-v3-turbo",
+    "ct2_verbose": true
+  },
+  "env": {
+    "CUDA_VISIBLE_DEVICES": "0,1",
+    "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+    "LD_LIBRARY_PATH": "<whisperx-service>/cudnn8/nvidia/cudnn/lib",
+    "HF_TOKEN_SET": true
+  },
+  "reps": [],
+  "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 312.00 MiB. GPU 1 has a total capacity of 1.95 GiB of which 241.81 MiB is free. Including non-PyTorch memory, this process has 1.71 GiB memory in use. Of the allocated memory 1.33 GiB is allocated by PyTorch, and 322.25 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)\nforward\n    input = module(input)\n            ^^^^^^^^^^^^^\n  File \"<whisperx-service>/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1739, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<whisperx-service>/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1750, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<whisperx-service>/.venv/lib/python3.12/site-packages/pyannote/audio/models/embedding/wespeaker/resnet.py\", line 142, in forward\n    out = self.bn2(self.conv2(out))\n          ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<whisperx-service>/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1739, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<whisperx-service>/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1750, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<whisperx-service>/.venv/lib/python3.12/site-packages/torch/nn/modules/batchnorm.py\", line 193, in forward\n    return F.batch_norm(\n           ^^^^^^^^^^^^^\n  File \"<whisperx-service>/.venv/lib/python3.12/site-packages/torch/nn/functional.py\", line 2822, in batch_norm\n    return torch.batch_norm(\n           ^^^^^^^^^^^^^^^^^\ntorch.OutOfMemoryError: CUDA out of memory. Tried to allocate 312.00 MiB. GPU 1 has a total capacity of 1.95 GiB of which 241.81 MiB is free. Including non-PyTorch memory, this process has 1.71 GiB memory in use. Of the allocated memory 1.33 GiB is allocated by PyTorch, and 322.25 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)\n",
+  "mem_after_asr_load": {
+    "cuda:0": {
+      "total_MiB": 1992,
+      "free_MiB": 890,
+      "used_MiB": 1102
+    },
+    "cuda:1": {
+      "total_MiB": 1993,
+      "free_MiB": 1956,
+      "used_MiB": 37
+    }
+  },
+  "mem_after_align_load": {
+    "cuda:0": {
+      "total_MiB": 1992,
+      "free_MiB": 868,
+      "used_MiB": 1124
+    },
+    "cuda:1": {
+      "total_MiB": 1993,
+      "free_MiB": 1556,
+      "used_MiB": 437
+    }
+  },
+  "wall_clock_s": 26.7,
+  "host": {
+    "ram_free_min_KB": 1044856,
+    "cpu_us_avg": 24.5,
+    "cpu_sy_avg": 4.1,
+    "cpu_wa_avg": 0.4
+  }
+}

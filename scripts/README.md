@@ -7,7 +7,7 @@ Small active tooling; the March 2026 context-ladder harness lives in `legacy/`.
 - **`run_llama_bench_logged.sh`** — runs `llama-bench` while capturing env, command line, and full output to a timestamped log (default `benchmarks/legacy/openclaw/logs/`, override with `LOGDIR=`).
 - **`fetch_model_info.py`** — model metadata fetcher for reports.
 - **`forensics/.env.example`** — env template for the forensics runbook.
-- **`results/`** — historical ladder outputs (data only, March 2026).
+- **`results/`** — benchmark data (JSON per run): March 2026 ladder outputs, [2026-09-06 WhisperX Pascal campaign](results/whisperx-pascal-2026-09-06/).
 
 ## legacy/
 

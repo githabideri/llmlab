@@ -1,0 +1,67 @@
+{
+  "label": "longro-xvec",
+  "mode": "cold",
+  "audio": "<bench-dir>/audio/longro.wav",
+  "audio_sha256": "be8ef91848b1ec54bf6b78c2776cfdcd8c8cca59fb7c94bc4125093a4f7b15fc",
+  "audio_duration_s": 4750.933,
+  "config": {
+    "audio": "<bench-dir>/audio/longro.wav",
+    "label": "longro-xvec",
+    "out": "<bench-dir>/results",
+    "mode": "cold",
+    "reps": 3,
+    "asr_device": "cuda:0",
+    "align_device": "cuda:1",
+    "diarize_device": "cuda:0",
+    "compute": "int8",
+    "language": null,
+    "batch_size": 1,
+    "chunk_size": 30,
+    "beam_size": 5,
+    "diarize": true,
+    "diarize_method": "xvec",
+    "model": "dropbox-dash/faster-whisper-large-v3-turbo",
+    "ct2_verbose": true
+  },
+  "env": {
+    "CUDA_VISIBLE_DEVICES": "0,1",
+    "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+    "LD_LIBRARY_PATH": "<whisperx-service>/cudnn8/nvidia/cudnn/lib",
+    "HF_TOKEN_SET": true
+  },
+  "reps": [],
+  "error": "TypeError: AgglomerativeClustering.__init__() got an unexpected keyword argument 'affinity'\nTraceback (most recent call last):\n  File \"<bench-dir>/whisperx_bench.py\", line 285, in main\n    diarize_pass(out)\n  File \"<bench-dir>/whisperx_bench.py\", line 238, in diarize_pass\n    segs = dmodel.diarize(args.audio, num_speakers=out.get(\"_expected_speakers\", 3))\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<whisperx-service>/.venv/lib/python3.12/site-packages/simple_diarizer/diarizer.py\", line 258, in diarize\n    cluster_labels = self.cluster(\n                     ^^^^^^^^^^^^^\n  File \"<whisperx-service>/.venv/lib/python3.12/site-packages/simple_diarizer/cluster.py\", line 34, in cluster_AHC\n    cluster_model = AgglomerativeClustering(\n                    ^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: AgglomerativeClustering.__init__() got an unexpected keyword argument 'affinity'\n",
+  "diarize_method": "xvec",
+  "mem_after_asr_load": {
+    "cuda:0": {
+      "total_MiB": 1992,
+      "free_MiB": 890,
+      "used_MiB": 1102
+    },
+    "cuda:1": {
+      "total_MiB": 1993,
+      "free_MiB": 1956,
+      "used_MiB": 37
+    }
+  },
+  "mem_after_align_load": {
+    "cuda:0": {
+      "total_MiB": 1992,
+      "free_MiB": 868,
+      "used_MiB": 1124
+    },
+    "cuda:1": {
+      "total_MiB": 1993,
+      "free_MiB": 1556,
+      "used_MiB": 437
+    }
+  },
+  "_xvec_vram_load": 31.0,
+  "wall_clock_s": 775.3,
+  "host": {
+    "ram_free_min_KB": 119112,
+    "cpu_us_avg": 25.6,
+    "cpu_sy_avg": 2.5,
+    "cpu_wa_avg": 0.1
+  }
+}

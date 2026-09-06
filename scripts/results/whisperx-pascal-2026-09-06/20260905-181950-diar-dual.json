@@ -1,0 +1,64 @@
+{
+  "label": "diar-dual",
+  "mode": "cold",
+  "audio": "<whisperx-service>/test-clip-124s.mp4",
+  "audio_sha256": "3ff1ff7c7cf08d7f68a4660daf9761d9c58247fbfde5bbbc140af8450b4060b7",
+  "audio_duration_s": 124.207,
+  "config": {
+    "audio": "<whisperx-service>/test-clip-124s.mp4",
+    "label": "diar-dual",
+    "out": "<bench-dir>/results",
+    "mode": "cold",
+    "reps": 3,
+    "asr_device": "cuda:0",
+    "align_device": "cuda:1",
+    "diarize_device": "cuda:1",
+    "compute": "int8",
+    "language": null,
+    "batch_size": 1,
+    "chunk_size": 30,
+    "beam_size": 5,
+    "diarize": true,
+    "model": "dropbox-dash/faster-whisper-large-v3-turbo",
+    "ct2_verbose": true
+  },
+  "env": {
+    "CUDA_VISIBLE_DEVICES": "0,1",
+    "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+    "LD_LIBRARY_PATH": "<whisperx-service>/cudnn8/nvidia/cudnn/lib",
+    "HF_TOKEN_SET": true
+  },
+  "reps": [],
+  "error": "AttributeError: 'DiarizationPipeline' object has no attribute 'diarize'\nTraceback (most recent call last):\n  File \"<bench-dir>/whisperx_bench.py\", line 264, in main\n    diarize_pass(out)\n  File \"<bench-dir>/whisperx_bench.py\", line 229, in diarize_pass\n    d = dmodel.diarize(out[\"_audio\"])\n        ^^^^^^^^^^^^^^\nAttributeError: 'DiarizationPipeline' object has no attribute 'diarize'\n",
+  "mem_after_asr_load": {
+    "cuda:0": {
+      "total_MiB": 1992,
+      "free_MiB": 890,
+      "used_MiB": 1102
+    },
+    "cuda:1": {
+      "total_MiB": 1993,
+      "free_MiB": 1956,
+      "used_MiB": 37
+    }
+  },
+  "mem_after_align_load": {
+    "cuda:0": {
+      "total_MiB": 1992,
+      "free_MiB": 868,
+      "used_MiB": 1124
+    },
+    "cuda:1": {
+      "total_MiB": 1993,
+      "free_MiB": 1556,
+      "used_MiB": 437
+    }
+  },
+  "wall_clock_s": 24.9,
+  "host": {
+    "ram_free_min_KB": 1357684,
+    "cpu_us_avg": 24.8,
+    "cpu_sy_avg": 4.1,
+    "cpu_wa_avg": 0.2
+  }
+}

@@ -59,6 +59,10 @@ Mamba-2 holds up on its constant-time-attention promise; traditional GQA falls o
 - **MTP draft depth tops out at 2–3** — deeper drafts cost VRAM without measurable gain on 12 GB cards ([2026-08-27](reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md)).
 - **Two 3060s serve a 27B dense model at ~80% of 3090 speed for the same wall power** — but only as a single-user node: the KV pool (126K tokens) fits 1.9× a 64K context, and 4× 16K contexts collapse per-request decode to ~16 t/s ([2026-08-30](reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)).
 
+### Specialized inference (non-LLM)
+
+- **2 GB Pascal cards run WhisperX at 10× realtime** — CTranslate2's int8 execution path makes the large-v3-turbo ASR model viable on CC 6.1 hardware with no Tensor Cores. The dual-GPU config is about avoiding CPU fallback (align on second card), not parallelism. See [2026-09-06 report](reports/2026-09-06-whisperx-pascal-dual-gpu-benchmark.md).
+
 ### Benchmark traps
 
 - **Repeated prompts are warm prompts** — vLLM prefix caching and llama.cpp `--cache-prompt` both made a llama.cpp node look 2.7× faster than the 3090 in one campaign until every request got a unique nonce ([methodology](docs/benchmarks.md)).
