@@ -1,0 +1,580 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LLM Hub</title>
+<style>
+  :root {
+    --bg:   #101112;
+    --panel:#16181a;
+    --line: #26292d;
+    --line2:#1d2023;
+    --text: #d6d9dc;
+    --dim:  #8b9097;
+    --faint:#5c6168;
+    --ok:   #71b893;
+    --err:  #cf6e62;
+    --warn: #cf9d4e;
+    --s1:   #d6d9dc;  /* tokens/s */
+    --s2:   #6b7480;  /* gpu util */
+    --s3:   #cf9d4e;  /* ttft p95 */
+  }
+  * { box-sizing:border-box; margin:0; }
+  html { background:var(--bg); }
+  body {
+    background:var(--bg); color:var(--text);
+    font:13px/1.5 ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    font-variant-numeric:tabular-nums;
+    padding:20px 20px 28px; max-width:1280px; margin:0 auto;
+  }
+  header { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:16px; }
+  h1 { font-size:15px; font-weight:700; letter-spacing:.02em; }
+  .sub { color:var(--faint); font-size:12px; }
+  .tick { color:var(--faint); font-size:11px; margin-left:auto; }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(440px,1fr)); gap:12px; }
+  .grid > .card { min-width:0; }   /* let nowrap-ish table content wrap, not stretch */
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:6px;
+          padding:14px 16px 12px; }
+  .card.offline { opacity:.5; }
+  .card.busy { border-color:rgba(207,157,78,.40); }
+  .card.degraded { border-color:rgba(207,110,98,.55); }
+
+  .label { font-size:10px; letter-spacing:.10em; text-transform:uppercase;
+           color:var(--faint); margin:12px 0 6px; }
+  .card-head { display:flex; align-items:baseline; gap:10px; }
+  .card h2 { font-size:14px; font-weight:700; }
+  .kind { color:var(--faint); font-size:11px; }
+  .state { margin-left:auto; font-size:11px; letter-spacing:.08em; text-transform:uppercase; }
+  .state.offline  { color:var(--err); }
+  .state.idle     { color:var(--faint); }
+  .state.active   { color:var(--ok); }
+  .state.busy     { color:var(--warn); }
+  .state.degraded { color:var(--err); font-weight:700; }
+  .desc { color:var(--dim); font-size:12px; margin-top:2px; }
+
+  .gpus { display:grid; gap:5px; }
+  .gpu { display:grid; grid-template-columns:2ch 118px 1fr 40px 108px 86px;
+         gap:10px; align-items:center; font-size:12px; }
+  .gpu .gidx { color:var(--faint); }
+  .gpu .gname { color:var(--dim); white-space:nowrap; overflow:hidden; }
+  .bar { height:7px; background:var(--line2); border-radius:2px; overflow:hidden; }
+  .bar > div { height:100%; background:#4d545e; transition:width .5s; }
+  .gpu .gstat { color:var(--dim); text-align:right; white-space:nowrap; }
+  .gmiss { color:var(--faint); font-size:12px; }
+
+  table { width:100%; border-collapse:collapse; }
+  th { color:var(--faint); font-weight:500; font-size:10px; letter-spacing:.10em;
+       text-transform:uppercase; text-align:left; padding:2px 6px 5px;
+       border-bottom:1px solid var(--line); white-space:nowrap; }
+  td { padding:7px 6px; border-bottom:1px solid var(--line2); vertical-align:middle; }
+  tr:last-child td { border-bottom:none; }
+  .mname { font-weight:600; font-size:13px; cursor:pointer; }
+  .mname:hover { color:var(--ok); }
+  .mdl { color:var(--faint); font-size:11px; margin-top:1px; }
+  .ms { font-size:11px; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; }
+  .ms.loaded { color:var(--ok); }
+  .ms.idle   { color:var(--faint); }
+  .ms.stale  { color:var(--err); }
+  .mctx { color:var(--dim); }
+  .mrate { text-align:right; color:var(--dim); white-space:normal; word-break:break-word; }
+  th.mrate { white-space:nowrap; }
+  .mrate b { color:var(--text); font-weight:600; }
+  .mrate .warn { color:var(--warn); }
+  .mrate .dim  { color:var(--faint); }
+  .mact { text-align:right; white-space:nowrap; }
+  .btn { border:1px solid var(--line); background:transparent; color:var(--dim);
+         border-radius:3px; padding:3px 10px; font:inherit; font-size:11px;
+         letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
+  .btn:hover { background:var(--line2); color:var(--text); }
+  .btn.load { color:var(--ok); border-color:rgba(113,184,147,.45); }
+  .btn.unload { color:var(--warn); border-color:rgba(207,157,78,.45); }
+
+  /* diagnostics (expanded model row) */
+  tr.diagrow td { padding:4px 6px 10px; background:rgba(16,17,18,.5); }
+  .diag { display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start; min-width:0; }
+  .diag > * { min-width:0; max-width:100%; }
+  .diag-t { border-collapse:collapse; font-size:12px; }
+  .diag-t th { color:var(--faint); font-size:10px; letter-spacing:.08em;
+               text-transform:uppercase; text-align:left; padding:1px 10px 3px 0; }
+  .diag-t td { color:var(--dim); padding:1px 10px 1px 0; border:none; }
+  .diag-t td:first-child { color:var(--faint); }
+  .diag-x { color:var(--dim); font-size:12px; line-height:1.7; }
+  .diag-w { color:var(--warn); }
+
+  .spark-head { display:flex; align-items:baseline; gap:14px; }
+  .spark-head .label { margin:12px 0 0; }
+  canvas { width:100%; height:auto; display:block; margin-top:6px; }
+
+  .footer { color:var(--faint); font-size:11px; margin-top:16px; max-width:900px; }
+  .toast { position:fixed; bottom:14px; right:14px; background:var(--panel);
+           border:1px solid var(--line); border-radius:4px; padding:9px 13px;
+           font-size:12px; opacity:0; transition:opacity .3s;
+           max-width:calc(100vw - 28px); }
+  .toast.show { opacity:1; }
+  .toast.err { border-color:var(--err); color:var(--err); }
+
+  /* unlock (401) overlay */
+  #auth { position:fixed; inset:0; background:rgba(16,17,18,.92); z-index:10;
+          display:flex; align-items:center; justify-content:center; }
+  #auth[hidden] { display:none; }  /* must win over the display:flex above */
+  #auth .abox { background:var(--panel); border:1px solid var(--line); border-radius:6px;
+                padding:22px 24px; width:340px; }
+  #auth h2 { font-size:14px; margin-bottom:4px; }
+  #auth p { color:var(--dim); font-size:12px; margin-bottom:12px; }
+  #auth input { width:100%; background:var(--bg); border:1px solid var(--line);
+                border-radius:3px; color:var(--text); font:inherit; padding:7px 9px; }
+  #auth button { margin-top:10px; width:100%; border:1px solid rgba(113,184,147,.45);
+                 background:transparent; color:var(--ok); border-radius:3px;
+                 padding:7px 10px; font:inherit; font-size:12px;
+                 letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
+  #auth .aerr { color:var(--err); font-size:12px; margin-top:8px; min-height:16px;
+                line-height:1.4; }
+
+  /* mobile: one card per row, compact rows */
+  @media (max-width: 720px) {
+    body { padding:10px 10px 20px; }
+    header { margin-bottom:10px; gap:8px; }
+    h1 { font-size:14px; }
+    .sub { font-size:11px; }
+    .tick { margin-left:0; }
+    .grid { grid-template-columns:1fr; gap:10px; }
+    .desc { font-size:11px; }
+    .card-head { flex-wrap:wrap; gap:8px; }
+    .gpu { grid-template-columns:2ch 74px 1fr 30px 82px; gap:6px; font-size:11px; }
+    .gpu .gname { font-size:10px; }
+    .gpu .gstat:last-child { display:none; }   /* temp·W only on wider screens */
+    th, td { padding:6px 4px; }
+    th:nth-child(3), .mctx { display:none; }   /* ctx is in the model desc line */
+    .mname { font-size:12px; }
+    .mdl { font-size:10px; }
+    .btn { padding:5px 9px; }                 /* bigger tap target */
+    .mrate { white-space:normal; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>LLM Hub</h1>
+  <span class="sub" id="sub">inference fleet</span>
+  <span class="tick" id="tick"></span>
+</header>
+<div id="grid" class="grid"></div>
+<div class="footer">
+  control = direct HTTP to each server's native API (proxied by the hub on demand) ·
+  the hub is observability + UI, never in the inference path ·
+  gpu data from per-machine nvidia-smi sidecars · poll 2 s ·
+  click a model name for diagnostics · source of truth: <code>/api/servers</code>
+</div>
+<div id="toast" class="toast"></div>
+<div id="auth" hidden>
+  <div class="abox">
+    <h2>LLM Hub — unlock</h2>
+    <p>Enter the hub token to enable live data and load/unload control. It is the
+    file configured as <code>LLM_HUB_TOKEN</code> on the hub host (default
+    <code>/etc/llm-hub/token</code>). Valid for 7 days in this browser.</p>
+    <input type="password" id="authinput" placeholder="token" autocomplete="off">
+    <button id="authbtn">unlock</button>
+    <div class="aerr" id="autherr"></div>
+  </div>
+</div>
+
+<script>
+const grid = document.getElementById("grid");
+const toast = document.getElementById("toast");
+const tickEl = document.getElementById("tick");
+const subEl = document.getElementById("sub");
+let toastTimer;
+function notify(msg, err) {
+  toast.textContent = msg;
+  toast.className = "toast show" + (err ? " err" : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.className = "toast", 4500);
+}
+const fmt = (n, d = 0) => n == null ? "—" : n.toLocaleString(undefined,
+  { maximumFractionDigits: d, minimumFractionDigits: d });
+const ctxFmt = c => c ? (c >= 1000 ? Math.round(c / 1000) + "k" : c) : null;
+const fmtMs = s => {
+  if (s == null) return "—";
+  if (s < 1) return Math.round(s * 1000) + "ms";
+  if (s < 60) return (Math.round(s * 10) / 10).toFixed(1) + "s";
+  return Math.floor(s / 60) + "m" + Math.round(s % 60) + "s";
+};
+const winLbl = w => !w ? "" : w >= 90 ? Math.round(w / 60) + "m" : Math.round(w) + "s";
+// everything from the API/config that lands in innerHTML goes through this
+const esc = s => String(s == null ? "" : s)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+function api(path, method, body) {
+  return fetch("/api" + path, {
+    method: method || "GET",
+    // auth: the hub's session cookie (set by POST /auth) — same-origin,
+    // HttpOnly, so this page never contains the token itself
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  }).then(async r => {
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) { const e = new Error(j.error || "unauthorized"); e.unauthorized = true; throw e; }
+    if (!r.ok) throw new Error(j.error || r.status);
+    return j;
+  });
+}
+
+// ---- unlock flow (401 -> token form -> POST /auth -> session cookie)
+const authBox = document.getElementById("auth");
+const authInput = document.getElementById("authinput");
+const authErr = document.getElementById("autherr");
+let authVisible = false;
+let authed = false;   // true once a 200 proves the session works; a single
+                      // stale in-flight 401 must not re-lock a valid session
+let n401 = 0;
+function showAuth() {
+  if (authVisible) return;
+  authVisible = true;
+  authErr.textContent = "";
+  authBox.hidden = false;
+  authInput.focus();
+}
+function hideAuth() { authVisible = false; authBox.hidden = true; }
+async function doAuth() {
+  const t = authInput.value.trim();
+  if (!t) return;
+  authErr.textContent = "";
+  try {
+    const r = await fetch("/auth", { method: "POST",
+      headers: { "Authorization": "Bearer " + t } });
+    if (r.status === 401)
+      throw new Error("token rejected — copy the current one from the hub host (it may have been rotated)");
+    if (!r.ok) throw new Error("auth failed (HTTP " + r.status + ")");
+    authed = true; n401 = 0;
+    authInput.value = "";   // never retain the master token in the form
+    hideAuth();
+    refresh();
+  } catch (e) {
+    const m = String(e.message || e);
+    authErr.textContent = (m === "Error" || m.includes("fetch"))
+      ? "network error — the hub is unreachable from this browser"
+      : m;
+  }
+}
+document.getElementById("authbtn").addEventListener("click", doAuth);
+authInput.addEventListener("keydown", e => { if (e.key === "Enter") doAuth(); });
+
+// ---- states
+function modelState(m) {
+  if (m.stale || !m.loaded) return "idle";
+  const kv = m.kv_used || 0;
+  const active = (m.tgen != null) || (m.tpp != null) ||
+                 (m.req_running != null && m.req_running > 0) ||
+                 (m.n_proc != null && m.n_proc > 0);
+  const degraded = kv >= 0.9 ||
+                   (m.finish && m.finish.length > 0) ||
+                   (m.preempt_win != null && m.preempt_win > 0 && kv >= 0.8);
+  const busy = (m.req_waiting != null && m.req_waiting > 0) ||
+               kv >= 0.75 ||
+               (m.n_deferred != null && m.n_deferred > 0);
+  if (degraded) return "degraded";
+  if (busy) return "busy";
+  if (active) return "active";
+  return "idle";
+}
+function nodeState(s) {
+  if (!s.online) return "offline";
+  const rank = { idle: 0, active: 1, busy: 2, degraded: 3 };
+  let st = "idle";
+  for (const m of s.models) {
+    const ms = modelState(m);
+    if (rank[ms] > rank[st]) st = ms;
+  }
+  return st;
+}
+
+// ---- model row content
+function rateLine(m) {
+  if (m.stale) return "";
+  if (!m.loaded) return "—";
+  const parts = [];
+  if (m.tgen != null) parts.push(`<b>${fmt(m.tgen, 1)} t/s</b>`);
+  if (m.tpp != null) parts.push(`${fmt(m.tpp, 0)} pp`);
+  if (m.spec_accept != null) parts.push(`mtp ${Math.round(m.spec_accept * 100)}%`);
+  const lat = m.latency;
+  if (lat) {
+    const seg = [];
+    if (lat.ttft && lat.ttft.p95 != null)
+      seg.push(`ttft ${fmtMs(lat.ttft.p50)}/${fmtMs(lat.ttft.p95)}`);
+    if (lat.tpot && lat.tpot.p50 != null) seg.push(`tpot ${fmtMs(lat.tpot.p50)}`);
+    if (seg.length) {
+      parts.push(seg.join(" "));
+      parts.push(`<span class="dim">[${winLbl(lat.window_s)}]</span>`);
+    }
+  }
+  // load signals — only when non-zero
+  if (m.req_running != null && (m.req_running > 0 || (m.req_waiting || 0) > 0))
+    parts.push(`req ${m.req_running}${m.req_waiting ? "+" + m.req_waiting : ""}`);
+  if (m.kv_used != null && m.kv_used >= 0.01)
+    parts.push(`kv ${Math.round(m.kv_used * 100)}%`);
+  if (m.n_proc != null && m.n_proc > 0) parts.push(`${m.n_proc} proc`);
+  if (m.n_deferred != null && m.n_deferred > 0) parts.push(`${m.n_deferred} defer`);
+  // warnings — only when relevant
+  if (m.preempt_win != null && m.preempt_win > 0)
+    parts.push(`<span class="warn">preempt +${m.preempt_win}</span>`);
+  if (m.finish && m.finish.length > 0)
+    parts.push(`<span class="warn">${m.finish.length} length-limited</span>`);
+  if (m.sleep && m.sleep !== "awake")
+    parts.push(`<span class="warn">sleep:${m.sleep}</span>`);
+  if (m.cache_hit != null) parts.push(`cache ${Math.round(m.cache_hit * 100)}%`);
+  return parts.length ? parts.join(" · ") : "—";
+}
+
+// expanded diagnostics
+const expanded = new Set();   // "server|model" — survives the 2 s rebuilds
+function diagHtml(s, m) {
+  const bits = [];
+  if (m.kind === "vllm") {
+    const lat = m.latency;
+    if (lat && (lat.ttft || lat.tpot || lat.e2e || lat.queue)) {
+      const rows = [["ttft", "ttft"], ["tpot", "tpot"],
+                    ["e2e", "e2e"], ["queue", "queue"]];
+      let h = `<table class="diag-t"><tr><th>${"latency [" + winLbl(lat.window_s) + "]"}</th><th>p50</th><th>p95</th><th>p99</th></tr>`;
+      for (const [k] of rows) {
+        const q = lat[k] || {};
+        h += `<tr><td>${k}</td><td>${fmtMs(q.p50)}</td><td>${fmtMs(q.p95)}</td><td>${fmtMs(q.p99)}</td></tr>`;
+      }
+      bits.push(h + "</table>");
+    }
+    const x = [];
+    if (m.finish)
+      x.push(`finish [${winLbl(m.finish.window_s)}]: ${m.finish.total} req — ` +
+             `${m.finish.stop} stop · ${m.finish.length} length · ${m.finish.abort} abort` +
+             (m.finish.other ? ` · ${m.finish.other} other` : ""));
+    if (m.preempt_total != null)
+      x.push(`preemptions: ${m.preempt_total} total · +${m.preempt_win != null ? m.preempt_win : "—"} window`);
+    if (m.cache_hit != null)
+      x.push(`prefix cache: ${Math.round(m.cache_hit * 100)}% (window)`);
+    if (m.sleep) x.push(`engine: ${m.sleep}`);
+    if (m.wait_reason) x.push(`waiting reason: ${m.wait_reason}`);
+    if (x.length) bits.push(`<div class="diag-x">${esc(x.join(" · "))}</div>`);
+  } else {
+    const x = [];
+    if (m.ctx) x.push(`ctx ${m.ctx.toLocaleString()}`);
+    if (m.cache_hit != null)
+      x.push(`prompt cache: ${Math.round(m.cache_hit * 100)}% (5-min window)`);
+    if (m.busy_slots != null) x.push(`busy decode slots: ${fmt(m.busy_slots, 1)}`);
+    if (m.n_deferred != null) x.push(`deferred: ${m.n_deferred}`);
+    if (m.spec_accept != null) x.push(`spec acceptance: ${Math.round(m.spec_accept * 100)}%`);
+    if (x.length) bits.push(`<div class="diag-x">${esc(x.join(" · "))}</div>`);
+  }
+  return bits.length ? `<div class="diag">${bits.join("")}</div>`
+                     : `<div class="diag-x">no diagnostics yet (wait for the first window)</div>`;
+}
+
+function card(s) {
+  const el = document.createElement("div");
+  const st = nodeState(s);
+  el.className = "card" + (st === "offline" ? " offline" : " " + st);
+  el.dataset.name = s.name;
+  const isRouter = s.kind !== "vllm";
+  const gpus = s.gpus.length
+    ? '<div class="gpus">' + s.gpus.map(g => `
+        <div class="gpu">
+          <span class="gidx">${esc(g.index)}</span>
+          <span class="gname">${esc(g.name.replace("NVIDIA GeForce ", ""))}</span>
+          <div class="bar"><div style="width:${Math.min(100, g.util_pct || 0)}%"></div></div>
+          <span class="gstat">${g.util_pct != null ? Math.round(g.util_pct) + '%' : '—'}</span>
+          <span class="gstat">${fmt(g.mem_used_mib / 1024, 1)}/${fmt(g.mem_total_mib / 1024)} GB</span>
+          <span class="gstat">${[g.temp_c != null ? Math.round(g.temp_c) + '°C' : null,
+                                g.power_w != null ? Math.round(g.power_w) + 'W' : null]
+                                .filter(Boolean).join(' · ')}</span>
+        </div>`).join("") + '</div>'
+    : (s.gpus_stale ? '<div class="gmiss">gpu sidecar unreachable / error</div>' : "");
+  const rows = s.models.map(m => {
+    const key = s.name + "|" + m.id;
+    const rate = rateLine(m);
+    const state = m.stale ? '<span class="ms stale">stale</span>'
+      : `<span class="ms ${m.loaded ? "loaded" : "idle"}">${m.loaded ? "loaded" : "idle"}</span>`;
+    const note = (m.desc ? `<div class="mdl">${esc(m.desc)}</div>`
+      : (!isRouter ? `<div class="mdl">managed by the vLLM service</div>` : ""))
+      + (m.loaded && m.metrics_ok === false
+         ? `<div class="mdl" style="color:var(--warn)">metrics degraded — engine counter names changed?</div>` : "");
+    const btns = isRouter && !m.stale
+      ? `<button class="btn ${m.loaded ? "unload" : "load"}"
+                 data-server="${esc(s.name)}" data-model="${esc(m.id)}"
+                 data-action="${m.loaded ? "unload" : "load"}">${m.loaded ? "unload" : "load"}</button>`
+      : "";
+    const diag = `<tr class="diagrow" ${expanded.has(key) ? "" : "hidden"}>
+      <td colspan="5">${diagHtml(s, m)}</td></tr>`;
+    return `<tr data-mid="${esc(key)}">
+      <td><div class="mname">${esc(m.id)}</div>${note}</td>
+      <td>${state}</td>
+      <td class="mctx">${esc(ctxFmt(m.ctx)) || "—"}</td>
+      <td class="mrate">${rate}</td>
+      <td class="mact">${btns}</td>
+    </tr>` + diag;
+  }).join("");
+  el.innerHTML = `
+    <div class="card-head">
+      <h2>${esc(s.name)}</h2>
+      <span class="kind">[${esc(s.kind)}]</span>
+      <span class="state ${st}">${st}</span>
+    </div>
+    <div class="desc">${esc(s.description)}</div>
+    ${gpus ? '<div class="label">gpu</div>' : ""}${gpus}
+    <div class="label">models</div>
+    <table>
+      <tr><th>model</th><th>state</th><th>ctx</th><th class="mrate">now</th><th></th></tr>
+      ${rows || (s.models.length === 0 ? '<tr><td colspan="5" class="mdl">no models seen yet</td></tr>' : "")}
+    </table>
+    <div class="spark-head"><span class="label">last 30 min</span></div>
+    <canvas id="spark-${s.name.replace(/[^a-zA-Z0-9_-]/g, '_')}"
+            width="640" height="${isRouter ? 60 : 90}"></canvas>`;
+  return el;
+}
+
+// multi-lane sparkline: independently scaled lanes sharing one time axis.
+// vLLM: tokens/s, ttft p95, gpu %. llama.cpp: tokens/s, gpu %.
+function drawSpark(name, spark, isVllm) {
+  const c = document.getElementById("spark-" + name.replace(/[^a-zA-Z0-9_-]/g, "_"));
+  if (!c) return;
+  const ctx = c.getContext("2d");
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  if (!spark || spark.length < 2) return;
+  const t0 = spark[0][0], t1 = spark[spark.length - 1][0];
+  const span = Math.max(1, t1 - t0);
+  const lanes = isVllm
+    ? [ { idx: 1, color: "#d6d9dc", label: "tok/s",
+          max: () => Math.max(10, ...spark.map(p => p[1] || 0)) * 1.1,
+          fmt: v => fmt(v, 1) },
+        { idx: 3, color: "#cf9d4e", label: "ttft p95",
+          max: () => Math.max(0.5, ...spark.map(p => (p[3] || 0) / 1000)) * 1.15,
+          to: v => v / 1000, fmt: v => fmtMs(v / 1000) },
+        { idx: 2, color: "#6b7480", label: "gpu %",
+          max: () => 100, fmt: v => Math.round(v) + "%" } ]
+    : [ { idx: 1, color: "#d6d9dc", label: "tok/s",
+          max: () => Math.max(10, ...spark.map(p => p[1] || 0)) * 1.1,
+          fmt: v => fmt(v, 1) },
+        { idx: 2, color: "#6b7480", label: "gpu %",
+          max: () => 100, fmt: v => Math.round(v) + "%" } ];
+  const n = lanes.length;
+  const lh = H / n;
+  lanes.forEach((ln, i) => {
+    const y0 = Math.round(i * lh);
+    if (i > 0) {
+      ctx.strokeStyle = "#1d2023";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, y0 + 0.5); ctx.lineTo(W, y0 + 0.5); ctx.stroke();
+    }
+    ctx.fillStyle = "#5c6168";
+    ctx.font = "11px ui-monospace,monospace";
+    ctx.textAlign = "left";
+    ctx.fillText(ln.label, 4, y0 + 13);
+    const max = ln.max();
+    if (!(max > 0)) return;
+    const top = y0 + 17, bot = y0 + lh - 3;
+    const y = v => bot - Math.min(v, max) / max * (bot - top);
+    ctx.strokeStyle = ln.color;
+    ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    let started = false;
+    for (const p of spark) {
+      const raw = p[ln.idx];
+      if (raw == null) continue;
+      const v = ln.to ? ln.to(raw) : raw;
+      const x = (p[0] - t0) / span * W;
+      if (!started) { ctx.moveTo(x, y(v)); started = true; }
+      else ctx.lineTo(x, y(v));
+    }
+    if (started) ctx.stroke();
+    const last = spark[spark.length - 1];
+    if (last[ln.idx] != null) {
+      ctx.fillStyle = ln.color;
+      ctx.textAlign = "right";
+      ctx.fillText(ln.fmt(last[ln.idx]), W - 4, y0 + 13);
+    }
+  });
+  const allQuiet = !spark.some(p => (p[1] || 0) > 0 || (p[3] || 0) > 0 || (p[2] || 0) > 0);
+  if (allQuiet) {
+    ctx.fillStyle = "#5c6168";
+    ctx.font = "11px ui-monospace,monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("no activity in window", W / 2, H / 2 + 4);
+  }
+}
+
+// ---- delegated clicks: buttons (load/unload) and model rows (diagnostics)
+grid.addEventListener("click", e => {
+  const b = e.target.closest("button.btn");
+  if (b && b.dataset.server) {
+    act(b.dataset.server, b.dataset.model, b.dataset.action);
+    return;
+  }
+  const tr = e.target.closest("tr[data-mid]");
+  if (tr) {
+    const k = tr.dataset.mid;
+    if (expanded.has(k)) expanded.delete(k); else expanded.add(k);
+    const d = tr.nextElementSibling;
+    if (d && d.classList.contains("diagrow")) d.hidden = !expanded.has(k);
+  }
+});
+
+async function act(server, model, action) {
+  try {
+    const r = await api("/models/" + action, "POST", { server, model });
+    const okc = r.upstream_status >= 200 && r.upstream_status < 300;
+    notify(`${action} ${model} on ${server}: ` +
+           (okc ? "ok" : "upstream HTTP " + r.upstream_status), !okc);
+    setTimeout(refresh, 800);
+  } catch (e) {
+    if (e.unauthorized) showAuth();
+    else notify(`${action} ${model}: ${e.message}`, true);
+  }
+}
+
+async function refresh() {
+  let j;
+  try {
+    j = await api("/servers");
+    authed = true; n401 = 0;
+    hideAuth();   // self-heal: a live 200 means the session works
+    if (!subEl.dataset.set) {
+      subEl.dataset.set = "1";
+      subEl.textContent = j.servers.map(s => s.name).join(" · ");
+    }
+  } catch (e) {
+    if (e.unauthorized) {
+      n401++;
+      // never-unlocked: lock immediately. already-unlocked: require two
+      // consecutive 401s before re-locking (a genuine expiry/rotation hits
+      // both; one stale in-flight request does not)
+      if (!authed || n401 >= 2) { authed = false; showAuth(); }
+      return;
+    }
+    notify("hub API: " + e.message, true);
+    return;
+  }
+  const struct = JSON.stringify(j.servers.map(s => [s.name, s.kind, s.online,
+    s.models.map(m => [m.id, m.loaded, m.stale]), s.gpus.length]));
+  if (!grid.dataset.struct || grid.dataset.struct !== struct
+      || !grid.matches(":hover")) {
+    if (grid.dataset.struct !== struct) grid.innerHTML = "";
+    j.servers.forEach(s => {
+      let el = [...grid.children].find(e => e.dataset.name === s.name);
+      if (!el) { el = card(s); grid.appendChild(el); }
+      else el.replaceWith(card(s));
+      drawSpark(s.name, s.spark, s.kind === "vllm");
+    });
+    grid.dataset.struct = struct;
+  }
+  if (j.poll_tick) {
+    const age = Date.now() / 1000 - j.poll_tick;
+    tickEl.textContent = `poll ${Math.round(age)}s ago`;
+    if (age > 30) notify(`poller appears stopped (last tick ${Math.round(age)}s ago)`, true);
+  }
+}
+setInterval(refresh, 2000);
+refresh();
+</script>
+</body>
+</html>
