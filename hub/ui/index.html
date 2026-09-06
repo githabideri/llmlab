@@ -263,6 +263,10 @@ document.getElementById("authbtn").addEventListener("click", doAuth);
 authInput.addEventListener("keydown", e => { if (e.key === "Enter") doAuth(); });
 
 // ---- states
+// threshold source of truth (keep the README "State derivation" in sync):
+//   busy     = req_waiting>0 | n_deferred>0 | kv >= 0.75
+//   degraded = kv >= 0.90 | length-limited responses | preempt_win>0 && kv >= 0.80
+//   offline  = OFFLINE_AFTER consecutive 2 s polls without an answer (~30 s)
 function modelState(m) {
   if (m.stale || !m.loaded) return "idle";
   const kv = m.kv_used || 0;
@@ -297,7 +301,7 @@ function rateLine(m) {
   if (!m.loaded) return "—";
   const parts = [];
   if (m.tgen != null) parts.push(`<b>${fmt(m.tgen, 1)} t/s</b>`);
-  if (m.tpp != null) parts.push(`${fmt(m.tpp, 0)} pp`);
+  if (m.tpp != null) parts.push(`${fmt(m.tpp, 0)} pp/s`);
   if (m.spec_accept != null) parts.push(`mtp ${Math.round(m.spec_accept * 100)}%`);
   const lat = m.latency;
   if (lat) {
@@ -323,7 +327,7 @@ function rateLine(m) {
   if (m.finish && m.finish.length > 0)
     parts.push(`<span class="warn">${m.finish.length} length-limited</span>`);
   if (m.sleep && m.sleep !== "awake")
-    parts.push(`<span class="warn">sleep:${m.sleep}</span>`);
+    parts.push(`<span class="warn">sleep:${esc(m.sleep)}</span>`);
   if (m.cache_hit != null) parts.push(`cache ${Math.round(m.cache_hit * 100)}%`);
   return parts.length ? parts.join(" · ") : "—";
 }

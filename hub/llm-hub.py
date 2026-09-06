@@ -26,14 +26,16 @@ not inference.
 
 Auth: master Bearer token (TOKEN file, chmod 600) for agents/CLI; the browser
 exchanges it once via POST /auth for an HMAC-signed HttpOnly session cookie
-(7-day sliding). /metrics and /health are public (topology-level data).
+(7 days). /metrics and /health are public (topology-level data).
 
 Env overrides (all optional, for testing):
-  LLM_HUB_CONFIG       config path      (default /etc/llm-hub/config.json)
-  LLM_HUB_TOKEN        token file       (default /etc/llm-hub/token)
-  LLM_HUB_STATE        state dir        (default /var/lib/llm-hub)
-  LLM_HUB_UI           ui dir           (default /opt/llm-hub/ui)
-  LLM_HUB_LAT_WINDOW   percentile window seconds (default 300)
+  LLM_HUB_CONFIG        config path      (default /etc/llm-hub/config.json)
+  LLM_HUB_TOKEN         token file       (default /etc/llm-hub/token)
+  LLM_HUB_STATE         state dir        (default /var/lib/llm-hub)
+  LLM_HUB_UI            ui dir           (default /opt/llm-hub/ui)
+  LLM_HUB_LAT_WINDOW    percentile window seconds (default 300)
+  LLM_HUB_COOKIE_SECURE add `Secure` to the session cookie (1/true; default off
+                        so plain-HTTP local testing works — set it behind HTTPS)
 """
 import collections
 import hashlib
@@ -64,6 +66,7 @@ SIDECAR_TIMEOUT = 7                 # sidecar runs nvidia-smi (~1 s), allow marg
 RATE_DECAY = 30                     # measured rates decay to idle after this
 LAT_WINDOW = int(os.environ.get("LLM_HUB_LAT_WINDOW", "300"))
 WIN_SAMPLES = max(2, LAT_WINDOW // POLL_INTERVAL)   # window ring buffer size
+COOKIE_SECURE = os.environ.get("LLM_HUB_COOKIE_SECURE", "").lower() in ("1", "true", "yes")
 
 # vLLM latency histograms (emitted per engine/model; buckets incl. +Inf).
 VLLM_HISTS = (
@@ -585,7 +588,7 @@ def _master_token_ok(auth_header):
         auth_header or "", "Bearer " + TOKEN)
 
 
-SESSION_TTL = 7 * 86400          # 7 days, sliding
+SESSION_TTL = 7 * 86400          # 7 days, fixed from issuance
 
 
 def _session_ok(cookie_header):
@@ -612,7 +615,10 @@ def _session_ok(cookie_header):
 def _session_cookie():
     exp = str(int(time.time() + SESSION_TTL))
     sig = hmac.new(TOKEN.encode(), exp.encode(), hashlib.sha256).hexdigest()
-    return f"hub_session={exp}.{sig}; Path=/; HttpOnly; SameSite=Lax; Max-Age={SESSION_TTL}"
+    c = f"hub_session={exp}.{sig}; Path=/; HttpOnly; SameSite=Lax; Max-Age={SESSION_TTL}"
+    if COOKIE_SECURE:
+        c += "; Secure"    # behind an HTTPS proxy; off by default for plain-HTTP local use
+    return c
 
 
 # ---------------------------------------------------------------------------
@@ -721,6 +727,8 @@ class Handler(BaseHTTPRequestHandler):
             s = next((x for x in SERVERS if x.name == server_name), None)
             if s is None:
                 return self._send(404, {"error": f"unknown server {server_name!r}"})
+            if s.url is None:   # gpu-only: no inference API to proxy to
+                return self._send(400, {"error": f"server {server_name!r} has no inference API"})
             if not model:
                 return self._send(400, {"error": "missing model"})
             endpoint = "load" if path.endswith("/load") else "unload"
@@ -750,8 +758,18 @@ class Handler(BaseHTTPRequestHandler):
 # ---------------------------------------------------------------------------
 
 def _f(v):
-    """Prometheus float: None -> NaN (idle/unknown), not 0."""
-    return "NaN" if v is None else repr(float(v))
+    """Prometheus float formatting; None -> line omitted (see _g)."""
+    return None if v is None else repr(float(v))
+
+
+def _g(L, name, lab, v):
+    """Append a gauge line; unknown (None) values are omitted rather than NaN
+    — a NaN would poison avg()/sum() over the whole series in PromQL, while an
+    absent sample shows as a gap, which is what "no data" means. A measured
+    zero is still exported as 0."""
+    f = _f(v)
+    if f is not None:
+        L.append(f"{name}{lab} {f}")
 
 
 def prom_text():
@@ -767,41 +785,41 @@ def prom_text():
                      f"{1.0 if s.gpus_stale else 0.0}")
         for g in s.gpus:
             gl = f'{{server="{s.name}",gpu="{g.get("name", "")[:40]}"}}'
-            L.append(f"hub_gpu_utilization_pct{gl} {_f(g.get('util_pct'))}")
-            L.append(f"hub_gpu_memory_used_mib{gl} {_f(g.get('mem_used_mib'))}")
-            L.append(f"hub_gpu_memory_total_mib{gl} {_f(g.get('mem_total_mib'))}")
-            L.append(f"hub_gpu_temp_c{gl} {_f(g.get('temp_c'))}")
-            L.append(f"hub_gpu_power_w{gl} {_f(g.get('power_w'))}")
+            _g(L, "hub_gpu_utilization_pct", gl, g.get('util_pct'))
+            _g(L, "hub_gpu_memory_used_mib", gl, g.get('mem_used_mib'))
+            _g(L, "hub_gpu_memory_total_mib", gl, g.get('mem_total_mib'))
+            _g(L, "hub_gpu_temp_c", gl, g.get('temp_c'))
+            _g(L, "hub_gpu_power_w", gl, g.get('power_w'))
         for m in s.models.values():
             ml = f'{{server="{s.name}",model="{m["id"]}"}}'
             L.append(f"hub_model_loaded{ml} {1.0 if m.get('loaded') else 0.0}")
-            L.append(f"hub_model_tokens_per_second{ml} {_f(m.get('tgen'))}")
-            L.append(f"hub_model_prompt_tokens_per_second{ml} {_f(m.get('tpp'))}")
+            _g(L, "hub_model_tokens_per_second", ml, m.get('tgen'))
+            _g(L, "hub_model_prompt_tokens_per_second", ml, m.get('tpp'))
             if m.get("kind") == "vllm":
-                L.append(f"hub_model_requests_running{ml} {_f(m.get('req_running'))}")
-                L.append(f"hub_model_requests_waiting{ml} {_f(m.get('req_waiting'))}")
-                L.append(f"hub_model_kv_cache_used{ml} {_f(m.get('kv_used'))}")
+                _g(L, "hub_model_requests_running", ml, m.get('req_running'))
+                _g(L, "hub_model_requests_waiting", ml, m.get('req_waiting'))
+                _g(L, "hub_model_kv_cache_used", ml, m.get('kv_used'))
                 lat = m.get("latency") or {}
                 for key in ("ttft", "tpot", "e2e", "queue"):
                     q = lat.get(key) or {}
                     for qn in ("p50", "p95", "p99"):
-                        L.append(f"hub_model_{key}_{qn}_seconds{ml} {_f(q.get(qn))}")
-                L.append(f"hub_model_preemptions_total{ml} {_f(m.get('preempt_total'))}")
-                L.append(f"hub_model_preemptions_window{ml} {_f(m.get('preempt_win'))}")
+                        _g(L, f"hub_model_{key}_{qn}_seconds", ml, q.get(qn))
+                _g(L, "hub_model_preemptions_total", ml, m.get('preempt_total'))
+                _g(L, "hub_model_preemptions_window", ml, m.get('preempt_win'))
                 fin = m.get("finish") or {}
-                L.append(f"hub_model_finish_total_window{ml} {_f(fin.get('total'))}")
-                L.append(f"hub_model_finish_length_window{ml} {_f(fin.get('length'))}")
-                L.append(f"hub_model_finish_abort_window{ml} {_f(fin.get('abort'))}")
-                L.append(f"hub_model_prefix_cache_hit{ml} {_f(m.get('cache_hit'))}")
+                _g(L, "hub_model_finish_total_window", ml, fin.get('total'))
+                _g(L, "hub_model_finish_length_window", ml, fin.get('length'))
+                _g(L, "hub_model_finish_abort_window", ml, fin.get('abort'))
+                _g(L, "hub_model_prefix_cache_hit", ml, m.get('cache_hit'))
                 if m.get("sleep"):
                     L.append(f"hub_model_engine_asleep{ml} "
                              f"{0.0 if m.get('sleep') == 'awake' else 1.0}")
             else:
-                L.append(f"hub_model_requests_processing{ml} {_f(m.get('n_proc'))}")
-                L.append(f"hub_model_requests_deferred{ml} {_f(m.get('n_deferred'))}")
-                L.append(f"hub_model_busy_slots{ml} {_f(m.get('busy_slots'))}")
-                L.append(f"hub_model_prompt_cache_hit{ml} {_f(m.get('cache_hit'))}")
-            L.append(f"hub_model_spec_acceptance{ml} {_f(m.get('spec_accept'))}")
+                _g(L, "hub_model_requests_processing", ml, m.get('n_proc'))
+                _g(L, "hub_model_requests_deferred", ml, m.get('n_deferred'))
+                _g(L, "hub_model_busy_slots", ml, m.get('busy_slots'))
+                _g(L, "hub_model_prompt_cache_hit", ml, m.get('cache_hit'))
+            _g(L, "hub_model_spec_acceptance", ml, m.get('spec_accept'))
     L.append("# generated " + time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
     return "\n".join(L) + "\n"
 
@@ -889,6 +907,20 @@ def load_config():
     if not TOKEN:
         print(f"WARNING: no token at {TOKEN_PATH} — API auth disabled "
               f"(anyone with network access can read/control)", file=sys.stderr)
+    errs = []
+    for c in CONFIG.get("servers", []):
+        if not c.get("name"):
+            errs.append("server entry missing 'name'")
+            continue
+        if c.get("kind") not in ("llama-router", "vllm", "gpu-only"):
+            errs.append(f"{c['name']}: kind must be 'llama-router', 'vllm' or 'gpu-only'")
+        elif c.get("kind") != "gpu-only" and not c.get("url"):
+            errs.append(f"{c['name']}: kind '{c.get('kind')}' requires 'url'")
+    if errs:    # fail fast at boot instead of silently misrouting a typo'd kind
+        print("config errors in " + CONFIG_PATH + ":", file=sys.stderr)
+        for e in errs:
+            print("  - " + e, file=sys.stderr)
+        sys.exit(1)
     SERVERS = [Server(c) for c in CONFIG.get("servers", [])]
     # gpu_sidecars list (name -> url) overrides per-server "sidecar" keys
     for sc in CONFIG.get("gpu_sidecars", []):
