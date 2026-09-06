@@ -28,6 +28,8 @@ monitoring and control are unavailable. Model load/unload commands are
 proxied through the hub on demand — the same native router API a client
 could call directly.
 
+![LLM Hub showing two inference nodes: per-GPU utilization/VRAM/temperature/power rows, model load state, and live generation and prompt-processing throughput.](screenshots/llm-hub-overview-crop.png)
+
 ## Quick start
 
 ```sh
@@ -46,13 +48,13 @@ For the systemd layout, see [Deploy](#deploy).
 
 Per server, every 2 s:
 
-- **llama.cpp routers**: generation and prompt throughput,
-  speculative-decoding (MTP) acceptance, prompt-cache hit rate (5-min
-  window), in-flight and deferred requests, busy decode slots, and model
-  load state.
-- **vLLM**: throughput, rolling p50/p95/p99 percentiles for TTFT, TPOT,
-  E2E and queue time, queue and KV-cache state, prefix-cache hit rate,
-  preemptions, engine state, and finish reasons.
+- **llama.cpp routers**: generation throughput (t/s) and
+  prompt-processing throughput (pp/s), speculative-decoding (MTP)
+  acceptance, prompt-cache hit rate (5-min window), in-flight and deferred
+  requests, busy decode slots, and model load state.
+- **vLLM**: generation and prompt-processing throughput, rolling p50/p95/p99
+  percentiles for TTFT, TPOT, E2E and queue time, queue and KV-cache state,
+  prefix-cache hit rate, preemptions, engine state, and finish reasons.
 - **GPU telemetry**: per-card utilization, VRAM, temperature, and power,
   from the per-host sidecar.
 
@@ -75,11 +77,15 @@ States are derived per model (node state is the worst across its models):
 
 ### Metric semantics
 
-- **Generation rate** is computed against the child process's own
-  generation clock (`Δtokens_predicted / Δtokens_predicted_seconds`), so it
-  is physically bounded and immune to poll-gap artifacts.
+- **Throughput rates** (generation and prompt-processing) come from counter
+  deltas. On llama.cpp the generation rate is measured against the child
+  process's own generation clock (`Δtokens_predicted /
+  Δtokens_predicted_seconds`), so it is physically bounded and immune to
+  poll-gap artifacts; vLLM counters are process-lifetime cumulative, so
+  wall-clock deltas are used.
 - Rates decay to "no data" 30 s after the counter **last moved** — idle is
-  shown as no value, not as a stale number.
+  shown as no value, not as a stale number. This applies to every rate,
+  including vLLM prompt throughput.
 - A counter **decrease** (child restart / model reload) re-baselines
   instead of producing a spike.
 - **vLLM percentiles** are interpolated from the engine's native histogram
@@ -87,8 +93,9 @@ States are derived per model (node state is the worst across its models):
   process-lifetime cumulative values. Resolution is bounded by the engine's
   bucket edges. llama.cpp has no equivalent latency histograms; that is a
   vLLM-only capability.
-- Idle/unknown values are `null` in the API and `NaN` in `/metrics` —
-  never `0`, which must mean "measured, zero".
+- Unknown values are `null` in the API and **omitted** in `/metrics` (not
+  `NaN`, which would poison PromQL aggregates; not `0`, which must mean
+  "measured, zero").
 
 ## API
 
@@ -132,7 +139,7 @@ $ curl -H "Authorization: Bearer $TOKEN" http://hub:8443/api/models
 
 - **Agents/CLI**: master Bearer token (one file, `chmod 600`).
 - **Browser**: exchanges the master token once via `POST /auth` for an
-  HMAC-signed `HttpOnly` session cookie (7-day sliding). The UI shell is
+  HMAC-signed `HttpOnly` session cookie (7 days). The UI shell is
   public; data requires auth. The page itself never contains the token.
 
 ## Security
@@ -144,11 +151,13 @@ $ curl -H "Authorization: Bearer $TOKEN" http://hub:8443/api/models
   designed for direct Internet exposure.
 - The session cookie is HMAC-signed with the master token: anyone who
   obtains the token file can mint valid cookies. Rotate by replacing the
-  token file and restarting.
-- No CSRF token: state-changing endpoints accept `Authorization: Bearer` or
-  the `HttpOnly` session cookie (SameSite=Lax), which covers the
-  same-origin UI and agent usage. A cross-origin form post is the classic
-  residual gap if you expose the hub publicly.
+  token file and restarting. The cookie is `HttpOnly; SameSite=Lax`; set
+  `LLM_HUB_COOKIE_SECURE=1` when the hub sits behind an HTTPS reverse proxy
+  (off by default so plain-HTTP local testing works).
+- No separate CSRF token is used. The browser session cookie is
+  `SameSite=Lax`, which prevents it from being sent with ordinary cross-site
+  POST requests. The hub is still intended for trusted-network deployment
+  rather than direct Internet exposure.
 - `/metrics` and `/health` are public by design — topology-level data
   (names, rates, GPU counters), no prompts or payloads. If that's too much
   for your network, put the hub behind an auth proxy.
@@ -197,6 +206,7 @@ available.
 | `LLM_HUB_STATE` | `/var/lib/llm-hub` |
 | `LLM_HUB_UI` | `/opt/llm-hub/ui` |
 | `LLM_HUB_LAT_WINDOW` | `300` (percentile window seconds) |
+| `LLM_HUB_COOKIE_SECURE` | off (`1`/`true` adds `Secure` to the session cookie) |
 
 ## Deploy
 
@@ -219,9 +229,11 @@ The hub is unprivileged; put TLS in front (reverse proxy) if you expose it.
 ## Prometheus export
 
 `/metrics` emits `hub_*` gauges: server online state, per-GPU
-utilization/memory/temperature/power, per-model tokens/s, vLLM latency
-percentiles (seconds), request counts, KV usage, cache hit rates,
-preemptions, and engine sleep state. Idle/unknown values are `NaN`, not `0`.
+utilization/memory/temperature/power, per-model generation and
+prompt-processing throughput, vLLM latency percentiles (seconds), request
+counts, KV usage, cache hit rates, preemptions, and engine sleep state.
+Unknown values are omitted rather than exported as `NaN` (which would poison
+`avg()`/`sum()` in PromQL); a measured zero is exported as `0`.
 This is the stable scrape surface for a Grafana stack — a separate concern;
 the hub does not require Prometheus.
 
@@ -236,8 +248,8 @@ long-term trends, scrape `/metrics`.
 
 Currently tested with:
 
-- recent llama.cpp server builds (per-model `/metrics?model=`, OpenAI-style
-  `/v1/models` catalog)
+- llama.cpp server builds tested in September 2026 (per-model
+  `/metrics?model=`, OpenAI-style `/v1/models` catalog)
 - vLLM 0.27.x
 - NVIDIA GPUs via `nvidia-smi` (any architecture; older "Pascal"-era
   cards that report power as `[N/A]` are tolerated)
@@ -260,6 +272,9 @@ instead of silently reading zero.
   vLLM-only feature.
 - The UI is a single page with a full 2 s refresh — built for a few dozen
   nodes, not hundreds.
+- Polling is a single shared loop: a stalled backend (4 s fetch timeout)
+  delays the other servers by up to one fetch per configured model per
+  cycle.
 - No TLS of its own; `/metrics` and `/health` are unauthenticated
   (topology-level data only).
 - It is a monitoring/control layer for your own fleet, not a
