@@ -141,6 +141,10 @@ $ curl -H "Authorization: Bearer $TOKEN" http://hub:8443/api/models
 - **Browser**: exchanges the master token once via `POST /auth` for an
   HMAC-signed `HttpOnly` session cookie (7 days). The UI shell is
   public; data requires auth. The page itself never contains the token.
+- **Missing token fails boot.** The token file is required unless
+  `LLM_HUB_ALLOW_NO_AUTH=1` is set — an unauthenticated hub is a deliberate
+  dev choice, not an accident, and warns loudly on startup. `/metrics` and
+  `/health` stay public either way (see below).
 
 ## Security
 
@@ -187,6 +191,12 @@ $ curl -H "Authorization: Bearer $TOKEN" http://hub:8443/api/models
 as the server). A `gpu_sidecars` list of `{server, url}` entries may also be
 used; it overrides the per-server keys.
 
+Validation at boot (all errors listed, exit 1): every entry needs a
+unique `name` (names are API selectors and metric labels), `kind` must be
+one of the three values above, non-gpu-only entries need a `url`, and
+each `gpu_sidecars` entry needs a `url` and a `server` that exists in
+`servers`.
+
 Per-model hints are supported via a `models` object on a server entry:
 
 ```json
@@ -207,6 +217,7 @@ available.
 | `LLM_HUB_UI` | `/opt/llm-hub/ui` |
 | `LLM_HUB_LAT_WINDOW` | `300` (percentile window seconds) |
 | `LLM_HUB_COOKIE_SECURE` | off (`1`/`true` adds `Secure` to the session cookie) |
+| `LLM_HUB_ALLOW_NO_AUTH` | off (`1`/`true` boots without a token file; default fails boot) |
 
 ## Deploy
 
@@ -230,8 +241,10 @@ The hub is unprivileged; put TLS in front (reverse proxy) if you expose it.
 
 `/metrics` emits `hub_*` gauges: server online state, per-GPU
 utilization/memory/temperature/power, per-model generation and
-prompt-processing throughput, vLLM latency percentiles (seconds), request
-counts, KV usage, cache hit rates, preemptions, and engine sleep state.
+prompt-processing throughput, backend parser-compat flags
+(`hub_vllm_metrics_ok`, `hub_llama_metrics_ok`), vLLM latency percentiles
+(seconds), request counts, KV usage, cache hit rates, preemptions, and
+engine sleep state.
 Unknown values are omitted rather than exported as `NaN` (which would poison
 `avg()`/`sum()` in PromQL); a measured zero is exported as `0`.
 This is the stable scrape surface for a Grafana stack — a separate concern;
@@ -255,8 +268,18 @@ Currently tested with:
   cards that report power as `[N/A]` are tolerated)
 
 Metric names do change upstream, so newer backend versions may require
-parser updates. `hub_vllm_metrics_ok` flags a vLLM counter-name mismatch
-instead of silently reading zero.
+parser updates. The `*_metrics_ok` gauges exist exactly for that: they are
+`1` when the backend is reachable **and** the core counters the hub's rate
+math depends on were found, `0` when the backend answered but the parser
+reads nothing (a counter-name mismatch), and omitted for unloaded models
+(the backend endpoint simply wasn't queried):
+
+- `hub_vllm_metrics_ok` — `generation_tokens_total` present
+- `hub_llama_metrics_ok` — `tokens_predicted_total` and
+  `prompt_tokens_total` present
+
+An idle backend still reads `1`; a measured zero is a `0` on the
+throughput gauges, never on these.
 
 ## Known limitations
 

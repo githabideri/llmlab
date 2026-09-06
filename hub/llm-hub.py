@@ -26,7 +26,9 @@ not inference.
 
 Auth: master Bearer token (TOKEN file, chmod 600) for agents/CLI; the browser
 exchanges it once via POST /auth for an HMAC-signed HttpOnly session cookie
-(7 days). /metrics and /health are public (topology-level data).
+(7 days). A missing token file fails boot (LLM_HUB_ALLOW_NO_AUTH=1 for a
+deliberate unauthenticated dev deploy). /metrics and /health are public
+(topology-level data).
 
 Env overrides (all optional, for testing):
   LLM_HUB_CONFIG        config path      (default /etc/llm-hub/config.json)
@@ -36,6 +38,8 @@ Env overrides (all optional, for testing):
   LLM_HUB_LAT_WINDOW    percentile window seconds (default 300)
   LLM_HUB_COOKIE_SECURE add `Secure` to the session cookie (1/true; default off
                         so plain-HTTP local testing works — set it behind HTTPS)
+  LLM_HUB_ALLOW_NO_AUTH fail open on a missing token file (1/true) — dev
+                        escape hatch; the default is fail-closed at boot
 """
 import collections
 import hashlib
@@ -78,6 +82,7 @@ VLLM_HISTS = (
 
 CONFIG = {}
 TOKEN = ""
+NO_AUTH = False
 last_tick = None                    # poller heartbeat (API-visible)
 
 
@@ -480,7 +485,11 @@ class Server:
                                "n_deferred": None, "busy_slots": None,
                                "metrics_ok": False})
                     continue
-                st["metrics_ok"] = True
+                # parser-compat probe: the two counters every hub rate
+                # depends on. False = backend reachable but counter names broke
+                st["metrics_ok"] = (
+                    get_metric(p, "tokens_predicted_total") is not None
+                    and get_metric(p, "prompt_tokens_total") is not None)
                 st["tgen"] = self._rate(
                     mid, "gen", get_metric(p, "tokens_predicted_total"), now,
                     secs=get_metric(p, "tokens_predicted_seconds_total"))
@@ -584,6 +593,8 @@ class Server:
 # ---------------------------------------------------------------------------
 
 def _master_token_ok(auth_header):
+    if NO_AUTH:
+        return True
     return bool(TOKEN) and hmac.compare_digest(
         auth_header or "", "Bearer " + TOKEN)
 
@@ -714,7 +725,7 @@ class Handler(BaseHTTPRequestHandler):
             tok = self.headers.get("Authorization", "")[len("Bearer "):] \
                 if (self.headers.get("Authorization") or "").startswith("Bearer ") \
                 else payload.get("token", "")
-            if TOKEN and hmac.compare_digest(tok, TOKEN):
+            if (TOKEN and hmac.compare_digest(tok, TOKEN)) or NO_AUTH:
                 return self._send(200, {"ok": True},
                                   extra=[("Set-Cookie", _session_cookie())])
             return self._send(401, {"error": "bad token"})
@@ -796,6 +807,9 @@ def prom_text():
             _g(L, "hub_model_tokens_per_second", ml, m.get('tgen'))
             _g(L, "hub_model_prompt_tokens_per_second", ml, m.get('tpp'))
             if m.get("kind") == "vllm":
+                if m.get("loaded"):
+                    L.append(f"hub_vllm_metrics_ok{ml} "
+                             f"{1.0 if m.get('metrics_ok') else 0.0}")
                 _g(L, "hub_model_requests_running", ml, m.get('req_running'))
                 _g(L, "hub_model_requests_waiting", ml, m.get('req_waiting'))
                 _g(L, "hub_model_kv_cache_used", ml, m.get('kv_used'))
@@ -815,6 +829,9 @@ def prom_text():
                     L.append(f"hub_model_engine_asleep{ml} "
                              f"{0.0 if m.get('sleep') == 'awake' else 1.0}")
             else:
+                if m.get("loaded"):
+                    L.append(f"hub_llama_metrics_ok{ml} "
+                             f"{1.0 if m.get('metrics_ok') else 0.0}")
                 _g(L, "hub_model_requests_processing", ml, m.get('n_proc'))
                 _g(L, "hub_model_requests_deferred", ml, m.get('n_deferred'))
                 _g(L, "hub_model_busy_slots", ml, m.get('busy_slots'))
@@ -900,22 +917,41 @@ def poller():
 
 
 def load_config():
-    global CONFIG, TOKEN, SERVERS
+    global CONFIG, TOKEN, SERVERS, NO_AUTH
     with open(CONFIG_PATH) as f:
         CONFIG = json.load(f)
     TOKEN = _read_token() or ""
+    NO_AUTH = os.environ.get("LLM_HUB_ALLOW_NO_AUTH", "") in ("1", "true", "True")
+    if not TOKEN and not NO_AUTH:
+        print(f"config error: no token at {TOKEN_PATH} — create one, or set "
+              "LLM_HUB_ALLOW_NO_AUTH=1 for a deliberate unauthenticated (dev) "
+              "deploy", file=sys.stderr)
+        sys.exit(1)
     if not TOKEN:
-        print(f"WARNING: no token at {TOKEN_PATH} — API auth disabled "
-              f"(anyone with network access can read/control)", file=sys.stderr)
+        print(f"WARNING: LLM_HUB_ALLOW_NO_AUTH=1 — API is UNAUTHENTICATED "
+              f"(anyone with network access can read AND load/unload models)",
+              file=sys.stderr)
     errs = []
+    seen = set()
     for c in CONFIG.get("servers", []):
-        if not c.get("name"):
+        n = c.get("name")
+        if not n:
             errs.append("server entry missing 'name'")
             continue
+        if n in seen:
+            errs.append(f"duplicate server name: {n!r}")
+        seen.add(n)
         if c.get("kind") not in ("llama-router", "vllm", "gpu-only"):
-            errs.append(f"{c['name']}: kind must be 'llama-router', 'vllm' or 'gpu-only'")
+            errs.append(f"{n}: kind must be 'llama-router', 'vllm' or 'gpu-only'")
         elif c.get("kind") != "gpu-only" and not c.get("url"):
-            errs.append(f"{c['name']}: kind '{c.get('kind')}' requires 'url'")
+            errs.append(f"{n}: kind '{c.get('kind')}' requires 'url'")
+    for sc in CONFIG.get("gpu_sidecars", []):
+        if not isinstance(sc, dict) or not sc.get("url"):
+            errs.append(f"gpu_sidecars entry needs a 'url': {sc!r}")
+            continue
+        if sc.get("server") not in seen:
+            errs.append(f"gpu_sidecars references unknown server "
+                        f"{sc.get('server')!r}")
     if errs:    # fail fast at boot instead of silently misrouting a typo'd kind
         print("config errors in " + CONFIG_PATH + ":", file=sys.stderr)
         for e in errs:
