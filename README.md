@@ -6,12 +6,21 @@ Personal lab notes on running local LLMs on consumer GPUs: working configs, mode
 
 The primary box runs **1× RTX 3090 24 GB + 2× RTX 3060 12 GB (48 GB)** on an **AMD Ryzen 5 5600X** — the 3090 came in early March 2026, and the CPU moved from a 7th-gen Intel i5-7400 to the 5600X in July 2026. Full specs, per-GPU deployment, and the rest of the fleet are under [docs/hardware](docs/hardware/README.md); serving layout and day-to-day operations under [architecture](docs/architecture.md) and [runbook](docs/runbook.md).
 
+## Tools
+
+- **[hub/](hub/README.md)** — live monitoring and control for the inference fleet: per-model generation and prompt-processing throughput, vLLM latency percentiles, GPU telemetry, model load/unload, and a token-authed JSON API for agents.
+
+  ![LLM Hub fleet overview: per-GPU state and live model throughput](hub/screenshots/llm-hub-overview-crop.png)
+
+- **[web/](web/README.md)** — FastAPI + htmx dashboard for running and monitoring benchmarks.
+- **[scripts/](scripts/)** — small tooling (logged `llama-bench`, model-info fetcher); the older context-ladder harness is under `scripts/legacy/`.
+
 ## What this is about
 
-- **MoE and hybrid models** — the sweet spot for interactive use on limited VRAM: small active parameters keep generation fast while large total parameters keep quality up. Dense models are on the table now that 48 GB is available.
-- **Agentic tool-calling** — models driving multi-step tool chains (search → fetch → analyze → file ops), not just chat.
-- **Real serving metrics** — `llama-bench` at empty context is only a starting point; prompt cache, thinking tokens, and growing context change the numbers. Both are measured.
-- **Heterogeneous consumer-GPU inference** — not just "run on N cards": measuring where tensors actually live, what crosses PCIe, what spills to RAM/SSD, and what that costs — across automatic fitter placement, layer/tensor split, and compute-buffer pressure ([guide](docs/multi-gpu-model-placement.md)).
+- **MoE and hybrid models** — the sweet spot for interactive use on limited VRAM: small active parameters keep generation fast, large total parameters keep quality up. With 48 GB, dense models are on the table too.
+- **Agentic tool-calling** — models driving multi-step tool chains (search → fetch → analyze → file ops).
+- **Real serving metrics** — `llama-bench` at empty context is a starting point; prompt cache, thinking tokens, and growing context change the numbers, and the live numbers are measured against the bench ones.
+- **Heterogeneous consumer-GPU inference** — measuring where tensors actually live, what crosses PCIe, what spills to RAM/SSD, and what that costs: automatic fitter placement, layer/tensor split, compute-buffer pressure ([guide](docs/multi-gpu-model-placement.md)).
 
 ## Currently serving
 
@@ -26,7 +35,7 @@ The quant is the highest-quality that still leaves 100K+ context headroom; each 
 
 | Model | Quant | GPU | Result |
 |-------|-------|-----|--------|
-| [Qwen3.8-Flash-Next (Qwen4Exp: 125 B total / 6 B active, 51 B PLE table)](models/qwen3.8-flash-next.md) | Q2_K_XL | 3× (12+12+24 GB) | **30.2 t/s sustained decode** / ~390 pp/s (warm cache) / 35.3 t/s with MTP (+17 %, single run — provisional) — the fitter's selective expert spill beat all manual placement; on hold pending a production decision ([2026-09-02 report](reports/2026-09-02-qwen4exp-flash-next-three-gpu-campaign.md)) |
+| [Qwen3.8-Flash-Next (Qwen4Exp: 125 B total / 6 B active, 51 B PLE table)](models/qwen3.8-flash-next.md) | Q2_K_XL | 3× (12+12+24 GB) | **30.2 t/s sustained decode**, ~390 pp/s (warm cache), 35.3 t/s with MTP (+17 %, single run, provisional). The fitter's selective expert spill beat all manual placement; on hold pending a production decision ([2026-09-02 report](reports/2026-09-02-qwen4exp-flash-next-three-gpu-campaign.md)) |
 | [Qwen3.6-35B-A3B](models/qwen3.6-35b-a3b.md) | UD-IQ2_XXS | 1× 3060 | 2-bit fully resident on one 12 GB card: 43–81 t/s at 0.02 GB/s PCIe — the residency-proof baseline ([2026-08-30 report](reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)) |
 
 ## What actually matters
@@ -73,6 +82,5 @@ Mamba-2 holds up on its constant-time-attention promise; traditional GQA falls o
 - [docs/](docs/README.md) — methodology and reference, indexed by purpose and status: [model placement](docs/multi-gpu-model-placement.md), [benchmarking](docs/benchmarks.md), [KV-cache sizing](docs/kv-cache-sizing.md), [architecture](docs/architecture.md), [runbook](docs/runbook.md), [unit reference](docs/systemd.md), [hardware fleet](docs/hardware/README.md); frozen fork docs live under [docs/legacy/](docs/legacy/).
 - [reports/](reports/README.md) — date-stamped investigations and deployments (snapshots, no maintenance).
 - [benchmarks/](benchmarks/README.md) — benchmark harnesses (the March 2026 OpenClaw ladder is frozen under `benchmarks/legacy/`; future agent benchmarks target pi).
-- [scripts/](scripts/) — small tooling (logged `llama-bench`, model-info fetcher); the older context-ladder harness is under `scripts/legacy/`.
-- [web/](web/README.md) — FastAPI + htmx dashboard for running and monitoring benchmarks.
-- [hub/](hub/README.md) — lightweight live monitoring and control for the inference fleet: llama.cpp/vLLM metrics, GPU telemetry, and a JSON API for agents.
+
+Tools ([hub/](hub/README.md), [web/](web/README.md), [scripts/](scripts/)) are described in [Tools](#tools).
