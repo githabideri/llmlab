@@ -12,6 +12,8 @@ Serves:
   * GET  /api/models        flat model list across servers (auth)
   * POST /api/models/load   {server, model} — proxies to the router (auth)
   * POST /api/models/unload {server, model} — proxies to the router (auth)
+  * GET  /api/vision/route  advisor: best vision endpoint for an upcoming
+                           multimodal request — read-only, zero mutation (auth)
   * POST /auth              {token} or Bearer header -> 7-day session cookie
   * GET  /metrics           Prometheus text (public)
   * GET  /health            liveness + poller freshness (public)
@@ -56,6 +58,8 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import vision_routing  # pure policy module, same directory (underscore: importable)
+
 CONFIG_PATH = os.environ.get("LLM_HUB_CONFIG", "/etc/llm-hub/config.json")
 TOKEN_PATH = os.environ.get("LLM_HUB_TOKEN", "/etc/llm-hub/token")
 STATE_DIR = os.environ.get("LLM_HUB_STATE", "/var/lib/llm-hub")
@@ -84,6 +88,11 @@ CONFIG = {}
 TOKEN = ""
 NO_AUTH = False
 last_tick = None                    # poller heartbeat (API-visible)
+
+# Vision advisor: decisions served via GET /api/vision/route (counter only —
+# the decision itself is recomputed on demand, stateless).
+VISION_LOCK = threading.Lock()
+VISION_ROUTES_TOTAL = collections.defaultdict(int)   # (server, model) -> picks
 
 
 # ---------------------------------------------------------------------------
@@ -247,6 +256,19 @@ def _ctx_from_args(entry):
     args = (entry.get("status") or {}).get("args") or []
     for i, a in enumerate(args):
         if a == "--ctx-size" and i + 1 < len(args):
+            try:
+                return int(args[i + 1])
+            except ValueError:
+                return None
+    return None
+
+
+def _parallel_from_args(entry):
+    """--parallel N from a router /v1/models status.args list (or None).
+    Slot capacity the vision advisor's IMMEDIATE/QUEUED split needs."""
+    args = (entry.get("status") or {}).get("args") or []
+    for i, a in enumerate(args):
+        if a == "--parallel" and i + 1 < len(args):
             try:
                 return int(args[i + 1])
             except ValueError:
@@ -471,6 +493,12 @@ class Server:
             for mid, loaded, p, entry in fetched:
                 hint = self.model_hints.get(mid, {})
                 ctx = _ctx_from_args(entry) or hint.get("ctx")
+                # catalog metadata the vision advisor needs: input modalities
+                # (newer llama.cpp builds report [text,image] for mmproj models)
+                # and slot capacity (--parallel in the launch args).
+                arch = entry.get("architecture") or {}
+                mods = arch.get("input_modalities")
+                par = _parallel_from_args(entry)
                 st = self.models.setdefault(mid, {
                     "id": mid, "kind": "llama.cpp", "ctx": ctx,
                     "desc": hint.get("desc", ""),
@@ -478,6 +506,8 @@ class Server:
                 st["loaded"] = loaded
                 if ctx:
                     st["ctx"] = ctx
+                st["input_modalities"] = list(mods) if isinstance(mods, list) else None
+                st["parallelism"] = par
                 st["desc"] = hint.get("desc") or st.get("desc") or ""
                 if not loaded or p is None:
                     st.update({"tgen": None, "tpp": None, "spec_accept": None,
@@ -636,9 +666,50 @@ def _session_cookie():
 # HTTP handler
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Vision advisor (read-only; the hub never mutates the backends for it)
+# ---------------------------------------------------------------------------
+
+def _vision_candidates(now):
+    """Normalized vision-route candidates from the current server state.
+    Read-only: touches nothing, polls nothing. The route decision itself
+    lives in vision_routing.route_vision (pure, unit-tested)."""
+    cands = []
+    for s in SERVERS:
+        if s.kind == "gpu-only":
+            continue
+        age = None if s.last_seen is None else now - s.last_seen
+        utils = [g.get("util_pct") for g in (s.gpus or [])
+                 if isinstance(g.get("util_pct"), (int, float))]
+        for m in s.api(now)["models"]:
+            vcfg = (s.model_hints.get(m["id"]) or {}).get("vision") or {}
+            cands.append(vision_routing.normalize_candidate({
+                "server": s.name, "model": m["id"], "url": s.url,
+                "kind": m.get("kind"), "online": s.online,
+                "state_age_s": age, "loaded": m.get("loaded"),
+                "input_modalities": m.get("input_modalities"),
+                "vision_override": vcfg.get("image_capable"),
+                "enabled": vcfg.get("enabled", True),
+                "tier": vcfg.get("tier"),
+                "parallelism": m.get("parallelism"),
+                "busy_slots": m.get("busy_slots"),
+                "n_proc": m.get("n_proc"), "n_deferred": m.get("n_deferred"),
+                "gpu_util_max": max(utils) if utils else None,
+                "gpus_stale": s.gpus_stale,
+                "tpp": m.get("tpp"),
+            }))
+    return cands
+
+
+def _vision_policy():
+    p = dict(vision_routing.DEFAULT_POLICY)
+    p.update(CONFIG.get("vision") or {})
+    return p
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server_version = "llm-hub/1.2"
+    server_version = "llm-hub/1.3"
 
     def _send(self, code, body, ctype="application/json", extra=None):
         if isinstance(body, (dict, list)):
@@ -673,6 +744,44 @@ class Handler(BaseHTTPRequestHandler):
         except OSError:
             pass
 
+    def _vision_route(self):
+        """GET /api/vision/route — advisor (auth). Read-only: answers from
+        asynchronously polled state in well under a second; it never loads
+        or unloads anything and never proxies the request. The caller sends
+        the OpenAI-compatible multimodal request directly to choice.url and
+        keeps its own static emergency fallback for when the hub is down
+        (documented in README.md). Query params: images, max_width,
+        max_height (accepted; Phase 1 scoring is shape-independent)."""
+        q = urllib.parse.parse_qs(
+            self.path.split("?", 1)[1] if "?" in self.path else "")
+
+        def _i(key, default=None):
+            v = (q.get(key) or [None])[0]
+            try:
+                return int(v) if v is not None else default
+            except ValueError:
+                return default
+
+        request = {"images": max(0, _i("images", 0) or 0),
+                   "max_width": _i("max_width"),
+                   "max_height": _i("max_height")}
+        try:
+            res = vision_routing.route_vision(_vision_candidates(time.time()),
+                                             request, _vision_policy())
+        except ValueError as e:
+            self._audit("vision.route", {"error": str(e)}, 500)
+            return self._send(500, {"error": f"vision policy misconfigured: {e}"})
+        if res["choice"]:
+            with VISION_LOCK:
+                VISION_ROUTES_TOTAL[(res["choice"]["server"],
+                                     res["choice"]["model"])] += 1
+        self._audit("vision.route",
+                    {"ok": res["ok"],
+                     "choice": (res["choice"]["server"] + "/" + res["choice"]["model"]
+                                if res["choice"] else None),
+                     "reason_codes": res["reason_codes"]}, 200)
+        self._send(200, res)
+
     def do_GET(self):
         path = self.path.split("?")[0]
         if path in ("/", "/index.html"):
@@ -695,6 +804,10 @@ class Handler(BaseHTTPRequestHandler):
                     row["server_online"] = s.online
                     out.append(row)
             self._send(200, {"ts": time.time(), "models": out})
+        elif path == "/api/vision/route":
+            if not self._authed():
+                return self._send(401, {"error": "unauthorized"})
+            self._vision_route()
         elif path == "/auth":
             self._send(200 if self._authed() else 401, {"ok": self._authed()})
         elif path == "/metrics":
@@ -837,6 +950,39 @@ def prom_text():
                 _g(L, "hub_model_busy_slots", ml, m.get('busy_slots'))
                 _g(L, "hub_model_prompt_cache_hit", ml, m.get('cache_hit'))
             _g(L, "hub_model_spec_acceptance", ml, m.get('spec_accept'))
+    # --- vision advisor: route recomputed from current state at scrape time ---
+    now = time.time()
+    try:
+        cands = _vision_candidates(now)
+        vres = vision_routing.route_vision(cands, {}, _vision_policy())
+    except ValueError:
+        cands, vres = None, None
+    if vres is None:
+        L.append("hub_vision_route_available 0.0")
+    else:
+        L.append(f"hub_vision_route_available {1.0 if vres['ok'] else 0.0}")
+        rej = {r["name"]: r["code"] for r in vres["rejected"]}
+        for c in cands:
+            lab = f'{{server="{c["server"]}",model="{c["model"]}"}}'
+            code = rej.get(c["server"] + "/" + c["model"])
+            L.append(f"hub_vision_candidate_eligible{lab} "
+                     f"{0.0 if code else 1.0}")
+            if code:
+                L.append(f'hub_vision_candidate_reject_code'
+                         f'{{server="{c["server"]}",model="{c["model"]}",'
+                         f'code="{code}"}} 1.0')
+            if vres["choice"] and vres["choice"]["server"] == c["server"] \
+                    and vres["choice"]["model"] == c["model"]:
+                L.append(f"hub_vision_candidate_selected{lab} 1.0")
+                L.append(f"hub_vision_choice_score{lab} {vres['choice']['score']}")
+        for s in SERVERS:
+            if s.last_seen is not None:
+                L.append(f'hub_vision_state_age_seconds{{server="{s.name}"}} '
+                         f"{now - s.last_seen:.1f}")
+    with VISION_LOCK:
+        for (sv, md), n in sorted(VISION_ROUTES_TOTAL.items()):
+            L.append(f'hub_vision_routes_total'
+                     f'{{server="{sv}",model="{md}"}} {n}')
     L.append("# generated " + time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
     return "\n".join(L) + "\n"
 

@@ -15,6 +15,7 @@ The directory is flat and date-sorted. Use the per-run structure above for exper
 
 ## Recent
 
+- `2026-09-07-llm-hub-adaptive-vision-routing.md` — four-day silent vision outage (static primary/fallback on a `--models-max 1` router; evicted model + slot-pinned fallback) → llm-hub advisor endpoint `GET /api/vision/route`: read-only, payload-free, two capacity classes (IMMEDIATE > QUEUED), filter-then-score, no backend mutation in Phase 1; measured fleet vision speeds (27B = 2× image tokens = worst route, not second-best); advisor-not-gateway rationale
 - `2026-09-06-whisperx-pascal-dual-gpu-benchmark.md` — WhisperX large-v3-turbo (int8_float32) on 2× 2 GB Pascal (GTX 1050 + GT 1030, CC 6.1): ASR at 10.7× RT, full pipeline 7.1× RT; GPU placement proven per-stage; X-vector diarization replaces pyannote (322× faster, 31 MiB vs 1.5 GB)
 - `2026-09-02-qwen4exp-flash-next-three-gpu-campaign.md` — 125 B Qwen4Exp MoE (51 B PLE table) on 3060/3060/3090: the master-build fitter's auto expert-spill beats every manual placement knob (30.2 t/s decode, ~390 prefill, +17 % MTP, ~1 Wh/1K tokens); last-`--override-tensor`-wins and fitter-disabling pitfalls; n-gram is code-toxic
 - `2026-08-30-dual-3060-35b-squeeze-27b-node.md` — 2-bit 35B proven resident on one 12 GB 3060 (PCIe counters, 43–81 t/s); 27B dense on the 3060 pair at ~80% of 3090 speed for the same wall draw, with the ctx-degradation curve, concurrency cliff, and the cache-artifact retraction

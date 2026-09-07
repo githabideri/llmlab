@@ -6,10 +6,24 @@
     "  url: the inference server's base URL (required for llama-router and vllm, omit for gpu-only).",
     "  sidecar: the gpu-sidecar URL on that host (optional; defaults to the server's host, port 9421).",
     "  description: free text shown in the UI (optional).",
-    "  models: per-model hints — ctx (int) and desc (shown in the UI) — optional.",
+    "  models: per-model hints — ctx (int), desc (UI text), vision (object) — optional.",
+    "  models.<id>.vision: vision-route policy for this model: tier (int, lower =",
+    "    preferred; default 10 — encode measured vision speed, e.g. 0 for the fastest),",
+    "    image_capable (bool override for the /v1/models metadata — needed on older",
+    "    llama.cpp builds that report text-only for a loaded mmproj), enabled (bool,",
+    "    default true — set false to exclude from vision routing, e.g. text-only models).",
+    "top-level vision: policy for GET /api/vision/route (read-only advisor):",
+    "  enabled (bool, default true), stale_after_s (default 60 — reject candidates",
+    "  whose state is older), gpu_busy_threshold (percent, default 80 — ordering",
+    "  penalty when the server's card is contended by co-tenants).",
     "top-level gpu_sidecars: [{server, url}] — optional, overrides the per-server sidecar keys."
   ],
   "port": 8443,
+  "vision": {
+    "enabled": true,
+    "stale_after_s": 60,
+    "gpu_busy_threshold": 80
+  },
   "servers": [
     {
       "name": "example-router",
@@ -20,7 +34,13 @@
       "models": {
         "example-model.gguf": {
           "ctx": 131072,
-          "desc": "optional per-model notes shown in the UI"
+          "desc": "optional per-model notes shown in the UI",
+          "vision": { "tier": 0 }
+        },
+        "example-model-27b.gguf": {
+          "ctx": 102400,
+          "desc": "loaded on demand — emergency-tier vision route",
+          "vision": { "tier": 20 }
         }
       }
     },

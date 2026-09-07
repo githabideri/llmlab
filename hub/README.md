@@ -103,6 +103,7 @@ States are derived per model (node state is the worst across its models):
 |----------|------|---------|
 | `GET /api/servers` | token/cookie | full fleet JSON (UI + agents) |
 | `GET /api/models` | token/cookie | flat model list with server attribution (agents) |
+| `GET /api/vision/route` | token/cookie | advisor: best vision endpoint for an upcoming multimodal request (read-only) |
 | `POST /api/models/load` | token/cookie | `{server, model}` → proxies to router |
 | `POST /api/models/unload` | token/cookie | same, unload |
 | `POST /auth` | Bearer master token | exchange token for 7-day session cookie |
@@ -134,6 +135,86 @@ $ curl -H "Authorization: Bearer $TOKEN" http://hub:8443/api/models
 
 (Fields trimmed for readability; vLLM entries additionally carry
 `latency`, `finish`, `kv_used`, `preempt_*`, `sleep`.)
+
+### Vision advisor (`GET /api/vision/route`)
+
+A **read-only advisor** for consumers about to send an OpenAI-compatible
+multimodal (image) request: it answers from the hub's asynchronously polled
+state (typical response well under a second) which node to send it to, and
+**nothing more** — it never loads/unloads models, never proxies the request,
+and never sees the image or prompt payload. The consumer sends the request
+directly to `choice.url` (e.g. `POST {url}/v1/chat/completions`) and keeps a
+static emergency fallback of its own for when the hub is unreachable.
+
+The motivation is the failure mode of a static primary/fallback pair on a
+`--models-max 1` router: the preferred model can be evicted, and the fallback
+on the same node can be pinned by a single long-context request — so "the
+configured vision node" can be unavailable for days while every probe still
+times out. The design report with the measurements, the two-class capacity
+model and the rejected alternatives: [reports/2026-09-07-llm-hub-adaptive-vision-routing.md](../reports/2026-09-07-llm-hub-adaptive-vision-routing.md).
+
+Query parameters (all optional): `images`, `max_width`, `max_height` — accepted
+in the contract; Phase 1 scoring is request-shape-independent.
+
+```console
+$ curl -H "Authorization: Bearer $TOKEN" "http://hub:8443/api/vision/route?images=1"
+{
+  "ok": true,
+  "policy_version": 1,
+  "choice": {
+    "server": "router-a", "model": "some-35b.gguf", "url": "http://<gpu-server>:8081",
+    "api": "openai-chat", "kind": "llama.cpp", "capacity": "immediate",
+    "score": 0.9, "state_age_ms": 2100
+  },
+  "reason": "lowest configured vision tier among eligible candidates; execution capacity free",
+  "reason_codes": ["loaded", "image_capable", "immediate_capacity", "preferred_tier"],
+  "alternates": [
+    {"server": "router-b", "model": "some-35b", "url": "http://<gpu-server-2>:8080",
+     "api": "openai-chat", "kind": "llama.cpp", "capacity": "queued", "score": 0.8,
+     "state_age_ms": 2100}
+  ],
+  "rejected": [
+    {"name": "router-a/some-27b", "code": "not_loaded",
+     "detail": "model not currently resident in the backend"}
+  ]
+}
+```
+
+Semantics:
+
+- **Hard filters first** (in order): server online → state fresh (not older
+  than `vision.stale_after_s`) → model loaded → image-capable → not disabled
+  in the policy. Each rejection is reported with its code in `rejected`.
+- **Two capacity classes**: any **IMMEDIATE** candidate (a request would not
+  join a queue) outranks any **QUEUED** one (all slots busy / requests
+  deferred). This ordering exists because a queued single-slot model is the
+  outage mode, not a slow-but-working one.
+- **Within a class**: configured tier (lower = preferred; encode measured
+  vision speed, not host identity), then GPU contention, then in-flight load.
+- **Honest degradation**: if only queued candidates exist, the best one is
+  returned with `reason_codes: [..., "queued", "only_queued_available"]` so
+  the consumer can warn the user about expected wait; if none exist, `ok:
+  false` with the reject codes. `state_age_ms` tells the consumer how fresh
+  the decision is.
+- **Vision capability** comes from the backend's `/v1/models`
+  `architecture.input_modalities` (llama.cpp). Absent metadata: a llama.cpp
+  model is treated as capable (older builds under-reported — see
+  [the 27B card](../models/qwen3.8-27b-uncensored-dual3060.md)), while a vLLM
+  model is treated as *not* capable (its `/v1/models` exposes no modalities
+  at all) until opted in via `vision: {"image_capable": true}`. A per-model
+  `vision: {"image_capable": false}` excludes a model that reports image
+  input, and `vision: {"enabled": false}` removes it from routing entirely.
+- **Security note**: the endpoint is token-protected (like the other control
+  plane), returns only server names, model ids, URLs and metrics — never
+  request payloads — and the hub stays outside the inference data path, so a
+  hub outage degrades routing to the consumer's static fallback instead of
+  breaking inference.
+
+Exposed to Prometheus as `hub_vision_route_available`,
+`hub_vision_candidate_eligible`, `hub_vision_candidate_reject_code`,
+`hub_vision_candidate_selected`, `hub_vision_choice_score`,
+`hub_vision_state_age_seconds` and `hub_vision_routes_total` (the last
+incremented per advisor call, per chosen endpoint).
 
 ### Auth model
 
@@ -327,7 +408,9 @@ Server names and descriptions in the screenshots are redacted.
 
 | File | Purpose |
 |------|---------|
-| `llm-hub.py` | the hub (poller + HTTP API + Prometheus export + UI server) |
+| `llm-hub.py` | the hub (poller + HTTP API + vision advisor + Prometheus export + UI server) |
+| `vision_routing.py` | the vision-routing policy (pure module: eligibility, capacity classes, ordering) |
+| `test_vision_routing.py` | unit tests for the vision policy (stdlib `unittest`, no network) |
 | `gpu-sidecar.py` | per-GPU-host `nvidia-smi` → JSON sidecar (the hub polls it) |
 | `ui/index.html` | the web UI (single file, no build step, no framework) |
 | `config.example.json` | config template |
