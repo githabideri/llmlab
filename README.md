@@ -4,16 +4,16 @@ Personal lab notes on running local LLMs on consumer GPUs: working configs, mode
 
 ## Current setup
 
-The primary box runs **1× RTX 3090 24 GB + 2× RTX 3060 12 GB (48 GB)** on an **AMD Ryzen 5 5600X**, plus a single-3060 backup box that doubles as an MTP inference endpoint, a laptop for iGPU/Vulkan experiments, and a secondary box with a 3060 and two Pascal cards. Specs, PCIe topology, and the upgrade history behind several of the results are under [docs/hardware](docs/hardware/README.md); serving layout under [architecture](docs/architecture.md), day-to-day operations under [runbook](docs/runbook.md).
+The primary box runs **2× RTX 3090 24 GB (48 GB)** on an **AMD Ryzen 5 5600X**, plus a single-3060 backup box that doubles as an MTP inference endpoint, a laptop for iGPU/Vulkan experiments, and a secondary box with a 3060 and two Pascal cards. Specs, PCIe topology, and the upgrade history behind several of the results are under [docs/hardware](docs/hardware/README.md); serving layout under [architecture](docs/architecture.md), day-to-day operations under [runbook](docs/runbook.md).
 
 ## Currently serving
 
 | Model | Quant | GPU | Context | Backend |
 |-------|-------|-----|---------|---------|
-| [Qwen3.8-27B](models/qwen3.8-27b-rtx3090.md) | W4A16-AutoRound | 1× RTX 3090 | 160K | vLLM 0.27.1, MTP k=3, text-only (stock llama.cpp Q4_K_M+MTP kept as rollback) |
-| [Qwen3.6-35B-A3B](models/qwen3.6-35b-a3b.md) | UD-IQ4_XS | 2× RTX 3060 (tensor-split 50/50) | 256K ×2 | llama.cpp + vision |
+| [Qwen3.8-27B](models/qwen3.8-27b-rtx3090.md) | W4A16-AutoRound | 2× RTX 3090 (vLLM TP2) | 256K | vLLM 0.28.0, MTP k=3, fp8 KV, vision — since 2026-09-08 |
+| [Qwen3.6-35B-A3B](models/qwen3.6-35b-a3b.md) | Q4_K_XL (interim) | 1× RTX 3060 (secondary box) | 128K | llama.cpp + MTP + vision — interim since the 3060 pair left the primary box 2026-09-08 |
 
-The quants are the highest-quality that still leave 100K+ context headroom; each model card shows the full comparison with exact sizes. An abliterated Qwen3.8-27B (Q4_K_M) rides on the dual-3060 router on demand, one model at a time. Per-model write-ups and every model tested live in [models/](models/README.md).
+The quants are the highest-quality that still leave 100K+ context headroom; each model card shows the full comparison with exact sizes. The 35B's home on the primary box (dual-3060 router, which also carried an abliterated Qwen3.8-27B on demand) was dismantled 2026-09-08 in favour of the second 3090 — see [models/legacy](models/legacy/) for that card. Per-model write-ups and every model tested live in [models/](models/README.md).
 
 ## Tools
 

@@ -1,31 +1,32 @@
 # Runbook
 
-## Qwen3.8-27B — Production (Port 8080, RTX 3090)
+## Qwen3.8-27B — Production (Port 8082, dual RTX 3090, TP2)
 
-**Runtime:** vLLM 0.27.1 (W4A16-AutoRound, MTP k=3, fp8 KV, 160K ctx, keyless, text-only) in a **dedicated LXC** on the GPU server host — unit `llama-vllm-qwen3.8-27b.service` inside that LXC.
+**Runtime:** vLLM **0.28.0** (W4A16-AutoRound, **tensor-parallel 2**, MTP k=3, fp8 KV, **262K ctx**, vision, 250 W/card, keyless) in a **dedicated LXC** on the GPU server host — unit `vllm-dual.service` inside that LXC.
 
 ```bash
 # From the Proxmox host (the vLLM LXC):
-pct exec <vllm-lxc-id> -- systemctl status llama-vllm-qwen3.8-27b
-pct exec <vllm-lxc-id> -- journalctl -u llama-vllm-qwen3.8-27b -f
+pct exec <vllm-lxc-id> -- systemctl status vllm-dual
+pct exec <vllm-lxc-id> -- journalctl -u vllm-dual -f
 # Health (from inside the LXC or over the LAN):
-curl -s http://localhost:8080/health
+curl -s http://localhost:8082/health
 
-# Rollback to stock llama.cpp (Q4_K_M + native MTP, dormant config)
+# Rollback to the pre-cutover single-3090 vLLM 0.27.1 (disabled unit kept as .bak-*),
+# or to stock llama.cpp (Q4_K_M + native MTP, dormant config) —
 # see models/qwen3.8-27b-rtx3090.md for the full llama.cpp command
 ```
 
-> **History:** 2026-06-19: BeeLlama Qwen3.6-27B (DFlash) production → 2026-08-15: stock llama.cpp 5f754ea Q4_K_M+MTP → 2026-08-21: vLLM 0.27.1 cutover (current). The llama.cpp unit is kept dormant; the BeeLlama unit is a disk-only backup. See [`systemd.md`](systemd.md) and [`models/qwen3.6-27b-rtx3090.md`](../models/qwen3.6-27b-rtx3090.md).
+> **History:** 2026-06-19: BeeLlama Qwen3.6-27B (DFlash) production → 2026-08-15: stock llama.cpp 5f754ea Q4_K_M+MTP → 2026-08-21: vLLM 0.27.1 single-3090 → 2026-09-08: vLLM 0.28.0 dual-3090 TP2 (current; 3060 pair removed for a second 3090). The 0.27.1 unit is kept disabled; the llama.cpp unit is dormant; the BeeLlama unit is a disk-only backup. See [`systemd.md`](systemd.md) and [`models/qwen3.6-27b-rtx3090.md`](../models/qwen3.6-27b-rtx3090.md).
 
 ### MTP Debugging (Qwen3.8 production — vLLM)
 
 ```bash
 # vLLM spec-decoding stats in logs (acceptance, draft tokens)
-pct exec <vllm-lxc-id> -- journalctl -u llama-vllm-qwen3.8-27b | grep -iE 'spec|acceptance'
+pct exec <vllm-lxc-id> -- journalctl -u vllm-dual | grep -iE 'spec|acceptance'
 # Per-request timing via the OpenAI API usage fields
 ```
 
-### MTP Debugging (llama.cpp 35B dual-3060)
+### MTP Debugging (llama.cpp 35B dual-3060 — historic, unit dismantled 2026-09-08)
 
 ```bash
 # Check draft acceptance in logs (MTP: 'draft acceptance' / 'mean len')
@@ -76,7 +77,7 @@ llama-server \
   --host 0.0.0.0 --port 8080
 ```
 
-## llama.cpp — start (Qwen3.6-35B-A3B, dual 3060)
+## llama.cpp — start (Qwen3.6-35B-A3B, dual 3060 — historic, unit dismantled 2026-09-08)
 
 Normally run via the `llama-server-qwen3.6-vision.service` unit; manual equivalent (matches the live unit, 2026-08-27):
 

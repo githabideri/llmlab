@@ -1,5 +1,8 @@
 # Qwen3.8-27B-Uncensored on Dual RTX 3060
 
+> **NO LONGER IN PRODUCTION (2026-09-08).** The dual-3060 node that served this model (router mode, on-demand) was dismantled — the 3060 pair left the primary box for a second RTX 3090. Everything below is a frozen historical record of the deployment and its tests.
+
+
 **Model:** Qwen3.8-27B-Uncensored (abliterated, [JonathanColetti](https://huggingface.co/JonathanColetti/Qwen3.8-27B-Uncensored-GGUF))  
 **Base:** orcarouter/Qwen3.8-27B-Uncensored → Qwen3.8-27B (dense, hybrid SSM + attention)  
 **Tested Quantization:** Q4_K_M (15.66 GB)  
