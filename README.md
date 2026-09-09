@@ -23,6 +23,7 @@ The quants are the highest-quality that still leave 100K+ context headroom; each
 
 - **[web/](web/README.md)** — benchmark UI (legacy front-end for the context-ladder harness; current campaigns use per-campaign scripts).
 - **[scripts/](scripts/)** — small tooling (logged `llama-bench`, model-info fetcher); the older context-ladder harness is under `scripts/legacy/`.
+- **[agents/](agents/)** — agent-facing operational tooling (pi-style skills): [llmlab-bench](agents/llmlab-bench/SKILL.md) — how to *run* benchmark campaigns (pre-boot budgeting, version/flag drift, data discipline), the operational companion to [docs/benchmarks.md](docs/benchmarks.md).
 
 ## What the lab measures
 

@@ -1,6 +1,6 @@
 # Benchmarks
 
-How we benchmark. This page keeps the **durable method** — flags and comparison discipline. Specific numbers are point-in-time snapshots and live in [reports/](../reports/README.md).
+How we benchmark. This page keeps the **durable method** — flags and comparison discipline. Specific numbers are point-in-time snapshots and live in [reports/](../reports/README.md). The operational companion for agent-run campaigns (what to verify before boot, version/flag drift, data discipline) is [agents/llmlab-bench](../agents/llmlab-bench/SKILL.md).
 
 ## Context sweep (`llama-bench`)
 
