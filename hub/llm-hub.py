@@ -908,7 +908,7 @@ def prom_text():
             L.append(f'hub_server_gpus_stale{{server="{s.name}"}} '
                      f"{1.0 if s.gpus_stale else 0.0}")
         for g in s.gpus:
-            gl = f'{{server="{s.name}",gpu="{g.get("name", "")[:40]}"}}'
+            gl = f'{{server="{s.name}",gpu="{g.get("name", "")[:40]}",idx="{g.get("index", "")}"}}'
             _g(L, "hub_gpu_utilization_pct", gl, g.get('util_pct'))
             _g(L, "hub_gpu_memory_used_mib", gl, g.get('mem_used_mib'))
             _g(L, "hub_gpu_memory_total_mib", gl, g.get('mem_total_mib'))
