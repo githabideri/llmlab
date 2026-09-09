@@ -19,6 +19,17 @@ hours — follow them.
 
 ## Golden rule: don't touch production
 
+- **Never benchmark-stop an endpoint that currently provides the campaign controller's own
+  model.** Before entering an exclusive GPU maintenance phase, move the controlling
+  agent/session to an independent endpoint or a cloud model, and verify that path with a live
+  request. A controller whose provider is the endpoint under test dies at `maint.sh enter` —
+  and with it the cheapest recovery path (the 2026-09-08 incident pattern).
+- **Every destructive/exclusive phase needs an out-of-band restore path whose execution does
+  not depend on the agent session surviving** — an independent deadline watchdog (owned-PID
+  kills only, prod-unit start, `/health` + live-completion proof) that a normal campaign
+  completion simply disarms. The watchdog is the difference between "wake up with the endpoint
+  alive" and "hope the orchestrator's final `finally:` ran".
+
 - Benchmark a **throwaway server instance on a spare port** (e.g. 8093) started from the same
   build/model, **not** the production service.
 - If the measured config cannot run side-by-side (VRAM contention), measure **inside a verified
@@ -97,11 +108,15 @@ pip install) and run a small loop/garble battery first.
 
 ## Hybrid (GDN) state accounting
 
-Qwen3.8-class hybrids (GDN linear-attention layers) carry **recurrent state on top of KV**:
-measured ~305 B/token/slot (~0.3 GB per 1K context per slot), and it scales with
-`-np`/`--n-slots` (default 4). It is a non-linear memory term: a single 12GB card with a ~9GB
-27B GGUF is a **2K-class pool** at np=1 (4K is the ceiling), regardless of quant. Size pools from
-the pool the engine *reports* at startup, not from a KV-only formula.
+For hybrid GDN/Mamba + attention models, **do not estimate capacity from attention KV alone**:
+recurrent state and hybrid-page allocation add engine-specific overhead. Use the engine's
+startup profiler as authoritative. On the current Qwen3.8-27B vLLM 0.28.0 TP2 deployment,
+13.24 GiB/rank yields 776,928 logical tokens — ≈35.7 KiB/logical token aggregate
+(≈17.9 KiB/rank) versus the 32 KiB architectural fp8 attention-KV floor (~12% overhead).
+That is an **effective cache-allocation measurement, not a standalone GDN-state measurement**
+(and "per token/slot" phrasing is misleading for it). The older "305 B/token/slot (~0.3 GB per
+1K)" figure was a 1000× unit slip and could not be traced to a real measurement — removed.
+Size pools from the pool the engine *reports* at startup, not from a KV-only formula.
 
 ## Co-resident CPU accounting
 
@@ -163,9 +178,10 @@ separated a 43–82 t/s resident MoE (~11–24 MB/s PCIe RX in decode) from its 
 - During decode (SM high, mem high): **~0–25 MB/s RX ⇒ resident**; **≥1 GB/s ⇒
   weight/expert streaming from host** (MoE `--n-cpu-moe` always shows this).
 - Always run the non-resident control on the same model/card.
-- Weak PCIe links (x4/x8) are usually **not** the LLM bottleneck — dual-GPU prefill on consumer
-  cards is compute-bound (SM 100%, PCIe well under link cap); check this before blaming the
-  interconnect.
+- Weak PCIe links (x4/x8) were **not** the LLM bottleneck in this lab's measured dual-GPU runs
+  (compute-bound: SM ~100%, PCIe well under link cap). Treat this as a measured observation to
+  re-verify — keep dmon residency evidence in every run — rather than doctrine, especially after
+  a topology change.
 
 ## Artifact provenance
 
@@ -186,7 +202,8 @@ invalid structured responses
   crashes `load_model` instead of refusing. Verify fit *before* TP runs (Pre-boot budgeting
   above) — a 32K pool on a ~11GB/card 27B split dies in the loader, not at startup.
 - **vLLM first long request** can crash once in the FlashInfer drafter path (transient) and/or
-  show a one-off JIT dip — the warmup request above fixes both.
+  show a one-off JIT dip — the warmup request above avoided both on this lab's build (evidence
+  for this build, not a universal guarantee).
 
 ## Scheduling / gating
 
@@ -225,3 +242,23 @@ Tag everything consistently (`<campaign>-<tag>`), and capture in parallel:
 - Internal details (identifiers, exact units, incident forensics) → your private repo.
 - State the verification level honestly: *implemented / locally verified / live verified /
   remotely verified* — never collapse to "works".
+
+## Speculative-decoding correctness gate (mandatory)
+
+A performance row for a speculative configuration (MTP / ngram / DFlash / any drafter) is
+**invalid until the generated output passes a content-sanity check**: coherent on-topic text at
+both short and long context, no multilingual garbling, no runaway repetition, clean
+stop/formatting. High token rate alone is not evidence of a valid result — community
+Flash-Next work has produced impressive counters while emitting corrupted text beyond short
+context on certain MTP implementations. Run the gate (a fixed prompt battery: short prose,
+long-prompt continuation, structured output) at short and deep context for every new
+speculative path before accepting its throughput numbers.
+
+## Patch-stack provenance
+
+For fast-moving experimental engines, "the commit" is not the provenance: record the **full
+stack** — upstream base SHA + every applied PR SHA + local patches + build flags + CUDA/GGML
+version + which MTP / top-k / fitter implementation the binary contains. Two binaries of the
+same "version family" can behave radically differently (community Flash-Next stacks are
+literally master + expert-cache PR + mmap fix + MTP PR + a local safety gate). Put the stack
+next to the model artifact provenance above — it is part of the result, not a footnote.
