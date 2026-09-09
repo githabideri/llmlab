@@ -199,7 +199,7 @@ Semantics:
 - **Vision capability** comes from the backend's `/v1/models`
   `architecture.input_modalities` (llama.cpp). Absent metadata: a llama.cpp
   model is treated as capable (older builds under-reported — see
-  [the 27B card](../models/qwen3.8-27b-uncensored-dual3060.md)), while a vLLM
+  [the 27B card](../models/legacy/qwen3.8-27b-uncensored-dual3060.md)), while a vLLM
   model is treated as *not* capable (its `/v1/models` exposes no modalities
   at all) until opted in via `vision: {"image_capable": true}`. A per-model
   `vision: {"image_capable": false}` excludes a model that reports image

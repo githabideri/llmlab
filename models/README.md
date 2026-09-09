@@ -15,9 +15,9 @@ Experiments in `reports/` are dated raw logs. This directory **distills findings
 
 Status: **primary** · **multi-slot + vision** · **on-demand**. Every other card in this directory is a frozen test record; a card without a link below means the model is not in production use.
 
-- [Qwen3.8-27B (RTX 3090)](qwen3.8-27b-rtx3090.md) — **primary** — vLLM 0.27.1, MTP k=3, 160K, text-only
-- [Qwen3.6-35B-A3B](qwen3.6-35b-a3b.md) — **multi-slot + vision** — dual 3060 (tensor 50/50, MTP n=3, 256K ×2); the same model also serves the single-3060 backup box as a llama.cpp MTP endpoint ([2026-06-30 report](../reports/2026-06-30-qwen3.6-35b-a3b-mtp-single-3060.md))
-- [Qwen3.8-27B-Uncensored (Dual RTX 3060)](qwen3.8-27b-uncensored-dual3060.md) — **on-demand** — abliterated, Q4_K_M, via router mode (one-model-at-a-time with the 35B)
+- [Qwen3.8-27B (dual RTX 3090)](qwen3.8-27b-rtx3090.md) — **primary** — vLLM 0.28.0 TP2, MTP k=3, fp8 KV, 256K, vision (since 2026-09-08)
+- [Qwen3.6-35B-A3B](qwen3.6-35b-a3b.md) — **multi-slot + vision** — interim host: single-3060 secondary box (Q4_K_XL MTP variant, 128K) since 2026-09-08, when its dual-3060 home on the primary box was dismantled; also served by the single-3060 backup box in its backup window ([2026-06-30 report](../reports/2026-06-30-qwen3.6-35b-a3b-mtp-single-3060.md))
+- ~~[Qwen3.8-27B-Uncensored (Dual RTX 3060)](legacy/qwen3.8-27b-uncensored-dual3060.md)~~ — **no longer served 2026-09-08** — its dual-3060 home was dismantled for the second 3090; card moved to [legacy](legacy/)
 
 Every other card in this directory is a **historic test record** — a frozen point-in-time snapshot that is deliberately not maintained.
 

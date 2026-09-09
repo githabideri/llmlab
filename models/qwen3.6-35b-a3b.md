@@ -6,6 +6,8 @@
 
 ## Current deployment (production)
 
+> **Interim (since 2026-09-08):** the dual-3060 home below was dismantled — the 3060 pair left the primary box for a second RTX 3090 (dual-3090 vLLM TP2 for Qwen3.8-27B). The 35B now rides on the **secondary GPU server (i5-7400, single RTX 3060 LHR)** as the `Qwen3.6-35B-A3B-MTP` variant (Q4_K_XL + mmproj, 128K ctx, MTP, vision) — a shared card with document-AI work, so expect hub-mediated load/unload around those jobs — with the **single-3060 backup box** as the usual window fallback. The dual-3060 config below is preserved as the historical home; a final placement decision for the 35B follows the dual-3090 campaign.
+
 The MoE half of the primary GPU server — dual RTX 3060 on a mainline llama.cpp build (`/opt/llama.cpp-mainline`). Verified against the live unit `llama-server-qwen3.6-vision.service` (:8081), 2026-08-27.
 
 | Param | Value |

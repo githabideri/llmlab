@@ -1,11 +1,11 @@
-# Qwen3.8-27B on RTX 3090
+# Qwen3.8-27B on the RTX 3090 pair
 
 **Model:** Qwen3.8-27B (Dense, hybrid SSM + attention)  
 **Tested Quantization:** W4A16-AutoRound (vLLM production), Q4_K_M (llama.cpp baseline/rollback), UD-Q4_K_XL (tested, heavier)  
-**Hardware:** 1× RTX 3090 24 GB  
-**Runtime:** vLLM 0.27.1 (production since 2026-08-21); llama.cpp 5f754ea retained as validated fallback  
-**Status:** ✅ Production — vLLM (W4A16-AutoRound, MTP k=3, fp8 KV, 163840 ctx, keyless, text-only); llama.cpp Q4_K_M+MTP config below remains the documented rollback  
-**Multimodal:** ✅ Deployed (mmproj BF16 on CPU via `--no-mmproj-offload`)  
+**Hardware:** 2× RTX 3090 24 GB — vLLM tensor-parallel 2 since 2026-09-08 (single-3090 vLLM until then; single-3090 llama.cpp kept as dormant rollback)  
+**Runtime:** vLLM 0.28.0 (production since 2026-09-08); 0.27.1 until then; llama.cpp 5f754ea retained as validated fallback  
+**Status:** ✅ Production — vLLM TP2 (W4A16-AutoRound, MTP k=3, fp8 KV, 262,144 ctx, vision, 250 W/card); the single-3090 llama.cpp Q4_K_M+MTP config below remains the documented rollback  
+**Multimodal:** ✅ vLLM vision (weight-sharded vision tower, +0.86 GB across the pair) + llama.cpp fallback (mmproj BF16 on CPU via `--no-mmproj-offload`)  
 **Supersedes:** Qwen3.6-27B BeeLlama deployment (see [`qwen3.6-27b-rtx3090.md`](qwen3.6-27b-rtx3090.md))
 
 ---
@@ -15,11 +15,11 @@
 | Parameter | Value |
 |-----------|-------|
 | **Parameters** | ~27.3 billion |
-| **Context Window** | 262,144 tokens (native), 163,840 deployed |
+| **Context Window** | 262,144 tokens (native) — deployed in full on the dual-3090 TP2 pool (776,928-token KV ≈ 2.96× max concurrency); was 163,840 on the single 3090 |
 | **Embedding Dimension** | 5120 |
 | **Vocabulary Size** | 248,320 |
 | **Quantization** | Q4_K_M (17.1 GB) |
-| **Multimodal** | llama.cpp fallback only (mmproj BF16, ~0.9 GB, CPU-resident) — vLLM production is text-only by design (`--language-model-only`) |
+| **Multimodal** | vLLM vision (weight-sharded across the pair) since 2026-09-08; llama.cpp fallback: mmproj BF16 ~0.9 GB CPU-resident |
 | **Speculative Decoding** | MTP (draft-mtp, n-max 2, p-min 0.4) — no separate draft model |
 | **Full-attention layers** | 17 of 66 (rest are SSM/hybrid) |
 
@@ -90,13 +90,19 @@ The upstream `f8f0a47a` "quantized-KV flash-attention scratch blowup" does **not
 ## Known Limits
 
 - **CPU KV offload is not functional for this model** (vLLM 0.27.1): native offload stored to RAM but hit rate stayed 0% — the scheduler has no hybrid-aware offload planner (upstream #38230/#49537). Do not retry it, including via lmcache. See [2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md](../reports/2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md).
-- **160K context** is the deployed size; the model's native 262K needs more VRAM than a single 3090 has with q8 KV.
-- **No multi-GPU split** — designed for a single 24 GB GPU.
+- **TP2 has no NVLink on this board** — collectives run over PCIe (NCCL; custom allreduce disabled), both cards CPU-direct Gen4 x8. Adequate for the current workload; a PCIe-bound TP2 is the thing a full campaign should characterise (pending).
 - MTP requires the GGUF to include MTP heads (it does, natively for Qwen3.8).
 
 ---
 
 ## Changelog
+
+### 2026-09-08: Dual-3090 TP2 goes production (3060 pair removed)
+- The 3060 pair was removed from the box; a second RTX 3090 took the freed CPU x8 slot (the previous chipset-attached slot is now free for storage — de-congesting the chipset uplink that shared it with the model SSD).
+- vLLM **0.28.0** (same `syv-ai` patch stack), **tensor-parallel 2**, `--max-model-len 262144`, fp8 KV, MTP k=3 (drafter capped at 163,840, same override as before), prefix caching, `qwen3` reasoning + `qwen3_xml` tool parsers, vision **enabled** (weight-sharded vision tower, +0.44 GiB per rank). Both cards capped at 250 W (220 W was the single-3090 setting; +6.2–6.5% prefill at equal stability). Memory per rank: 8.34 GiB consumed, 1.04 GiB peak activation, 0.59 GiB CUDA graphs (PIECEWISE, forced by spec-decode+FlashInfer as before) → **13.24 GiB KV per rank = 776,928-token pool**, 34.9 KiB/logical token — the 2×160K + 10×32K target (640K) fits with ~21% spare.
+- Smoke suite all green: text, reasoning split, tool call, first-ever vision request on TP2, 16K prompt (~17K tok/s warm), 2/4 concurrency, 24.1% prefix-cache hit rate on identical prompts, MTP acceptance 73–87% (mean accepted length ~3.2–3.6). No NCCL/scheduler/preemption errors.
+- The previous single-3090 vLLM (0.27.1, 163,840, text-only) and the llama.cpp 27B unit were disabled, not deleted — rollback path intact.
+- **Full benchmark campaign (ctx ladder, MTP depth, batched-tokens, power, wall draw) pending — a dated report will follow.**
 
 ### 2026-08-30: Dual-3060 node evaluated as a candidate second inference unit
 - The two 3060s (normally serving 35B) ran this model under vLLM **TP2 + MTP k=4, fp8 KV, FlashInfer, 64K max len**: decode 87 / 77 / 67 / 57 / 57 t/s at 2K / 16K / 24K / 48K / 64K (3090 does 105 / 93 / — / — / 73 in the same cells), prefill 560–700 tok/s vs the 3090's ~1,000. Wall power ~340–370 W (the pair at ~220 W) — i.e. ~80% of 3090 speed at ~the same wall draw; the box idles at ~93 W.

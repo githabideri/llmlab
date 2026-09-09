@@ -1,11 +1,13 @@
 # LLM Serving — systemd Unit Reference
 
 **Services (current):**
-- `llama-vllm-qwen3.8-27b.service` — Qwen3.8-27B, **vLLM** (production since 2026-08-21, port 8080)
-- `llama-server-qwen3.6-vision.service` — Qwen3.6-35B-A3B, llama.cpp, dual 3060 (production, port 8081)
+- `vllm-dual.service` — Qwen3.8-27B, **vLLM 0.28.0 tensor-parallel 2** (production since 2026-09-08, port 8082, both RTX 3090s)
+- `gpu-power-limits.service` — 250 W per 3090 (default via `GPU_POWER_LIMIT_W`; was 220 W single-card / 115 W 3060s)
 - `llama-server.service` — Qwen3.6-35B-A3B MTP, llama.cpp, backup box (port 8080)
-- `llama-qwen3.8-27b.service` — Qwen3.8-27B, llama.cpp (**dormant fallback** for the vLLM endpoint)
+- `llama-qwen3.8-27b.service` — Qwen3.8-27B, llama.cpp (**disabled, kept on disk** as validated rollback)
 - plus historic units (BeeLlama DFlash, old longctx/reference configs)
+
+**Dismantled 2026-09-08 (3060 pair removed from the box):** `llama-server-qwen3.6-vision.service` (dual-3060 35B router, port 8081) stopped + disabled, unit kept; the old single-3090 `llama-vllm-qwen3.8-27b.service` (vLLM 0.27.1, port 8080) disabled, kept as `.bak-*` rollback.
 
 **Logs:** `journalctl -u <service>`
 
@@ -13,12 +15,16 @@
 
 ---
 
-## vLLM — Qwen3.8-27B (Port 8080, RTX 3090)
+## vLLM — Qwen3.8-27B (Port 8082, dual RTX 3090, TP2 — current)
 
-**Service:** `llama-vllm-qwen3.8-27b.service` — **production since 2026-08-21** (supersedes the llama.cpp 27B unit below)  
-**Placement:** dedicated LXC on the GPU-server host (Ubuntu 24.04); from the host: `pct exec <lxc-id> -- systemctl status llama-vllm-qwen3.8-27b`  
-**Runtime:** vLLM 0.27.1 (PyTorch cu130, Python 3.12) · **Model:** Qwen3.8-27B W4A16-AutoRound (19.5 GB; int8 embed + MTP int4 "fast" prep)  
-**Effective config:** fp8 KV (FlashInfer) · MTP speculative decoding k=3 · max-model-len 163,840 · gpu-mem-util 0.93 · max-num-seqs 8 · prefix caching + mamba-align resume · `--reasoning-parser qwen3` · `--language-model-only` · tool-call parser · **keyless**
+**Service:** `vllm-dual.service` — **production since 2026-09-08** (supersedes the single-3090 0.27.1 unit, kept disabled as rollback)  
+**Placement:** dedicated LXC on the GPU-server host (Ubuntu 24.04); from the host: `pct exec <lxc-id> -- systemctl status vllm-dual`  
+**Runtime:** vLLM **0.28.0** (`syv-ai` patch stack, CUDA 12 venv; first-request FlashInfer JIT needs `CUDA_PATH` set) · **Model:** Qwen3.8-27B W4A16-AutoRound, served as `qwen3.8-27b-dual`  
+**Effective config:** `--tensor-parallel-size 2` (`CUDA_VISIBLE_DEVICES=0,1`) · `--max-model-len 262144` · `--max-num-seqs 16` · `--max-num-batched-tokens 2048` · fp8 KV · MTP `num_speculative_tokens 3` (drafter capped 163,840) · prefix caching · mamba-cache-mode align · `--reasoning-parser qwen3` · `--enable-auto-tool-choice --tool-call-parser qwen3_xml` · `--mamba-ssm-cache-dtype float16` · `--async-scheduling` · `--limit-mm-per-prompt {image:1}` (vision **on** — weight-sharded tower) · `VLLM_USE_FLASHINFER_SAMPLER=0` · **keyless**, port 8082
+
+KV pool: 776,928 tokens (13.24 GiB/rank) → 34.9 KiB/logical token; thinking is **on by default per request** — non-reasoning consumers should pass `enable_thinking: false` (same behaviour as the old production). Power: 250 W/card (220 W single-card was the pre-cutover setting; 250 W is +6.2–6.5% prefill at equal stability).
+
+<details><summary>Historic: single-3090 vLLM 0.27.1 unit (pre-2026-09-08, kept for rollback)</summary>
 
 ```ini
 [Unit]
@@ -46,9 +52,11 @@ LimitNOFILE=65536
 WantedBy=multi-user.target
 ```
 
-> ⚠️ **Do not replace the start script wholesale** — it carries the MTP/fp8/13-patch wiring (verified by the recipe's `verify.sh`). Add flags via `EXTRA_ARGS`, then restart (~3 min warm). The 35B vision unit's `ExecStartPre` polls this endpoint's :8080 health, so a vLLM restart transiently blocks the 35B boot chain.
+</details>
+
+> ⚠️ **Do not replace the start script wholesale** — it carries the MTP/fp8/13-patch wiring (verified by the recipe's `verify.sh`). Add flags via `EXTRA_ARGS`, then restart (~3 min warm).
 >
-> **LXC memory:** raised 24 → **40 GiB** on 2026-08-30 during the (failed, reverted) CPU KV-offload experiment; kept in place — harmless, and it prepositions the box for hybrid-aware offload once it lands upstream. **Do not add KV-offload flags** to this model — it's a silent no-op (0% hit rate) on hybrid SSM/GDN architectures; see [the 2026-08-30 offload report](../reports/2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md). The first long prompt after a restart also pays a one-time Triton JIT warmup storm (~60–120 s).
+> **LXC memory:** raised 24 → **40 GiB** on 2026-08-30 during the (failed, reverted) CPU KV-offload experiment; kept in place — harmless, and it prepositions the box for hybrid-aware offload once it lands upstream. **Do not add KV-offload flags** to this model — it's a silent no-op (0% hit rate) on hybrid SSM/GDN architectures; see [the 2026-08-30 offload report](../reports/2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md). The first long prompt after a restart also pays a one-time JIT warmup storm (FlashInfer nvcc compile if the cache is cold; the 0.28.0 script sets `CUDA_PATH` for exactly this).
 
 ---
 
@@ -105,11 +113,12 @@ LimitNOFILE=65536
 WantedBy=multi-user.target
 ```
 
-### Qwen3.6-35B-A3B Vision (Port 8081, Dual RTX 3060)
+### Qwen3.6-35B-A3B Vision (Port 8081, Dual RTX 3060 — dismantled 2026-09-08)
+
+**Status:** ⛔ **Stopped + disabled 2026-09-08** — the 3060 pair was removed from the box (second RTX 3090 instead); the unit and preset INI are kept on the LXC as the rollback path. 35B-A3B is interim on the secondary box (see [card](../../models/qwen3.6-35b-a3b.md)). Config below frozen as found.
 
 **Service:** `llama-server-qwen3.6-vision.service`  
-**Status:** ✅ Active, enabled — **current production** (optimization campaign 2026-08-27, [report](../reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md))  
-**Model:** Qwen3.6-35B-A3B-UD-IQ4_XS (MTP variant) + vision F16 — mainline llama.cpp, `/opt/llama.cpp-mainline`  
+**Model:** Qwen3.6-35B-A3B-UD-IQ4_XS (MTP variant) + vision F16 — mainline llama.cpp, `/opt/llama.cpp-mainline` (historical config from the 2026-08-27 optimization campaign, [report](../reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md))  
 **GPU:** 2× RTX 3060 12GB (tensor-split 50,50)  
 **Context:** 256K, 2 parallel slots, MTP n=3 (acceptance 0.93–0.98)
 
