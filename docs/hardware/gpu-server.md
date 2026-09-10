@@ -29,6 +29,11 @@
 
 Both cards are CPU-direct Gen4 x8 and share one vLLM engine (tensor-parallel 2); there is no NVLink on this board, so TP collectives run over PCIe (NCCL). The freed chipset slot de-congested the chipset uplink that used to be shared with the model SSD. The former dual-3060 llama.cpp unit (35B + on-demand 27B-Uncensored) was dismantled with the cards — its consumer fleet moved to the secondary/backup boxes. A full dual-3090 benchmark campaign (and the 35B placement decision) follows.
 
+## Reliability notes (2026-09)
+
+- **Two unexplained hard crashes in two days** (2026-09-08 and 2026-09-10). The 09-08 one killed an 8-hour benchmark window and a 92 GB model load. The 09-10 one hit mid-campaign while the box was *measurably healthy* (10-second telemetry heartbeat: both GPUs idle at 49/64 °C, no memory pressure, load 7 — ten seconds before the journal ended mid-sentence). No kernel panic captured (kdump not installed), no MCE/EDAC/GPU-Xid/hung-task/IO errors, SMART passed, no power event on the rest of the network. **Prime suspect: the power path (PSU/cable) or an unlogged motherboard fault.** Both crashes sat adjacent to the heaviest mixed VRAM + host-RAM workloads this box has run — correlation, not proof.
+- **Mitigations in place:** a 10-second telemetry sampler (nvidia-smi + dmesg-tail + meminfo, ~4 h ring buffer) so any future death leaves a last heartbeat; campaign recovery designed to survive a host death (manifest on the USB model SSD, systemd auto-start of the production unit, deadline watchdog). **Pending:** a physical PSU inspection and enabling kdump before the next unattended run.
+
 - **Qwen3.8-27B (dual 3090, vLLM TP2):** [model card](../../models/qwen3.8-27b-rtx3090.md)
 - **Qwen3.6-35B-A3B (interim: secondary box):** [model card](../../models/qwen3.6-35b-a3b.md)
 

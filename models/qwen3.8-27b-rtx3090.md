@@ -97,12 +97,17 @@ The upstream `f8f0a47a` "quantized-KV flash-attention scratch blowup" does **not
 
 ## Changelog
 
+### 2026-09-10: Profile attribution campaign — 8192 batched tokens promoted
+- Overnight campaign (cloud-model-orchestrated; see [the report](../reports/2026-09-10-dual3090-overnight-campaign.md)): MTP k=3 ≈ **2.1×** decode vs none (151 vs 71.5 t/s @2K), `--enforce-eager` ≈ **3.4×** penalty, scheduler budget 2048→**8192** wins at 16K (150 vs 135–142). **Production unit switched to the 8192 profile** (script backed up; serving the fleet since). MTP acceptance 1.41–1.45 (rises with context).
+- 262K context re-confirmed safe (776K-token pool; 30-min 640K staged soak: 7 preemptions) but **TTFT-bound**: 43K-token prompts prefill in 883–921 s (~2.4K tok/s); ladders 87K/175K decode 134/108 t/s. The 256K ladder cell was a false-complete (exit-code-only acceptance) — no 256K data exists yet.
+- The host hard-crashed once during the window (03:17 UTC, mid-restore; healthy 10 s heartbeat, no kernel/PCIe/IO/GPU trace, no power event on the rest of the network) — second unexplained reboot of this box in two days; see the hardware doc. The recovery stack (manifest on USB SSD + systemd auto-start + deadline watchdog) restored everything with zero manual touch.
+
 ### 2026-09-08: Dual-3090 TP2 goes production (3060 pair removed)
 - The 3060 pair was removed from the box; a second RTX 3090 took the freed CPU x8 slot (the previous chipset-attached slot is now free for storage — de-congesting the chipset uplink that shared it with the model SSD).
 - vLLM **0.28.0** (same `syv-ai` patch stack), **tensor-parallel 2**, `--max-model-len 262144`, fp8 KV, MTP k=3 (drafter capped at 163,840, same override as before), prefix caching, `qwen3` reasoning + `qwen3_xml` tool parsers, vision **enabled** (weight-sharded vision tower, +0.44 GiB per rank). Both cards capped at 250 W (220 W was the single-3090 setting; +6.2–6.5% prefill at equal stability). Memory per rank: 8.34 GiB consumed, 1.04 GiB peak activation, 0.59 GiB CUDA graphs (PIECEWISE, forced by spec-decode+FlashInfer as before) → **13.24 GiB KV per rank = 776,928-token pool**, 34.9 KiB/logical token — the 2×160K + 10×32K target (640K) fits with ~21% spare.
 - Smoke suite all green: text, reasoning split, tool call, first-ever vision request on TP2, 16K prompt (~17K tok/s warm), 2/4 concurrency, 24.1% prefix-cache hit rate on identical prompts, MTP acceptance 73–87% (mean accepted length ~3.2–3.6). No NCCL/scheduler/preemption errors.
 - The previous single-3090 vLLM (0.27.1, 163,840, text-only) and the llama.cpp 27B unit were disabled, not deleted — rollback path intact.
-- **Full benchmark campaign (ctx ladder, MTP depth, batched-tokens, power, wall draw) pending — a dated report will follow.**
+- **Campaign complete 2026-09-10** — profile attribution, production battery, and the 125B negative result are in [2026-09-10-dual3090-overnight-campaign](../reports/2026-09-10-dual3090-overnight-campaign.md); the pending campaign line below is closed.
 
 ### 2026-08-30: Dual-3060 node evaluated as a candidate second inference unit
 - The two 3060s (normally serving 35B) ran this model under vLLM **TP2 + MTP k=4, fp8 KV, FlashInfer, 64K max len**: decode 87 / 77 / 67 / 57 / 57 t/s at 2K / 16K / 24K / 48K / 64K (3090 does 105 / 93 / — / — / 73 in the same cells), prefill 560–700 tok/s vs the 3090's ~1,000. Wall power ~340–370 W (the pair at ~220 W) — i.e. ~80% of 3090 speed at ~the same wall draw; the box idles at ~93 W.
