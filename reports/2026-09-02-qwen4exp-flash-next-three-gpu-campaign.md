@@ -6,6 +6,8 @@
 **GGUF:** Unsloth `Qwen3.8-Flash-Next-UD-Q2_K_XL` (3 shards, 78.9 GB) + `mtp-…-shared-Q8_0` draft (2.8 GB)  
 **Status of result:** tested, **not** in production (see Conclusion)
 
+> **Update (2026-09-10):** the 30.2 t/s configuration is **not reproducible on the new 2×3090 topology** — the fitter's 25.75 GB per-layer buffer exceeds a 24.37 GB 3090 and the arch has no working row/tensor split in either build tested. The mixed 3060/3060/3090 box was doing something the homogeneous pair structurally cannot. See [2026-09-10-dual3090-overnight-campaign](2026-09-10-dual3090-overnight-campaign.md) (wall section).
+
 ---
 
 ## Goal
