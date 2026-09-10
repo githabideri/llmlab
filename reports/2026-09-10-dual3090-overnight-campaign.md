@@ -3,6 +3,8 @@
 **Models:** Qwen3.8-27B (W4A16-AutoRound, vLLM 0.28.0 TP2) · Qwen3.8-Flash-Next 125B MoE (UD-Q2_K_XL, llama.cpp)
 **Hardware:** 2× RTX 3090 24 GB, both PCIe 4.0 x8, no NVLink, 250 W/card power limit (GPU server, Ryzen 5 5600X)
 **Date:** 2026-09-10 (overnight window, ~5 h)
+
+> **Correction (2026-09-10, same day):** the soak and ladder sections conflated *end-to-end TTFT* with *engine prefill throughput* — the 883–921 s figure is a 43K-token request's admission-to-first-token latency **under a deliberately saturated 640K workload** (queueing + scheduler contention + preemption + prefill combined, ≈ 47–49 tokens/s end-to-end), not a prefill rate; the ladder rows imply 1.21K / 0.86K tokens/s from request-TTFT, which likewise is not engine prefill throughput (no engine-side pp/s was captured this run). The matrix's **8-conc column is invalid** (a concurrency-client bug made per-stream values ≈ the single-stream rate — physically implausible; the repaired harness now proves overlap and forbids reusing those numbers). The MTP-acceptance and Flash-wall wording were tightened. No benchmark data was changed; interpretation was.
 **How it ran:** a *cloud* model in an isolated container (DeepSeek via OpenRouter, no local-model dependency) babysat a single `nohup` runner script that owned every phase; an independent watchdog process held a hard deadline; a JSONL manifest made the whole run resumable. The orchestration brain was deliberately decoupled from the fleet under test — the campaign stops and restarts the very endpoint a local-model brain would be served by.
 
 ## Goals
@@ -21,13 +23,13 @@ All cells canary-validated (deterministic fixed-seed outputs compared across con
 | P1-A | k=3 | piecewise | 2048 | 138.6 | 142.5 | 139.3 | 1.41 |
 | P1-B | off | piecewise | 2048 | **71.5** | 68.3 | 71.2 | — |
 | P1-C | k=3 | **eager** | 2048 | **44.6** | 46.2 | 45.6 | 1.41 |
-| **P1-D** | k=3 | piecewise | **8192** | 147.5 | **150.0** | 133.9 | 1.41–1.45 |
+| **P1-D** | k=3 | piecewise | **8192** | 147.5 | **150.0** | 133.9† | 1.41–1.45 |
 
-*(t/s per stream. P0 and P1-A are the same configuration; the 151 vs 139 spread at 2K is run-to-run variance, which is why the 16K column — less noisy — is the better discriminator.)*
+*(t/s per stream. P0 and P1-A are the same configuration; the 151 vs 139 spread at 2K is run-to-run variance, which is why the 16K column — less noisy — is the better discriminator. †The 8-conc column is **invalid** — a client bug made per-stream values track the single-stream rate, which a true 8-way batch cannot produce; the trustworthy concurrent picture is the production battery below. Do not reuse those numbers.)*
 
 **Attribution:**
 
-- **MTP (speculative decoding) is the lever: ≈ 2.1×** (151 vs 71.5 t/s @2K). Acceptance 1.41 at short context, 1.45 at 16K — the draft gets *better* as context grows, which is unusual and worth a note for hybrid-SSM models.
+- **MTP (speculative decoding) is the lever: ≈ 2.1×** (151 vs 71.5 t/s @2K). MTP acceptance did not degrade between the tested short and 16K cells (1.41 → 1.45 accepted tokens/verify — a small change, not a demonstrated trend).
 - **`--enforce-eager` costs ≈ 3.4×** (44.6 vs 138–151). Piecewise CUDA graphs are non-negotiable on this model — eager mode is a different animal entirely (no graph reuse across the SSM/attention mix).
 - **Scheduler token budget 2048 vs 8192:** neutral at 2K (151 vs 147), **8192 wins at 16K** (150 vs 135–142). The 2048 budget was a latency bias left over from tuning; at agent-realistic context depths the bigger batched budget feeds the GPU better.
 - **The production mystery is solved:** it was context-dependent degradation all along, not a defect — 151 t/s at 2K, ~135–150 at 16K, and the 09-08-era "52 t/s at 16K" was the *pre-cutover* config family. Like-for-like at 16K, the new TP2 box beats the old dual-3060 numbers.
@@ -47,7 +49,7 @@ All cells canary-validated (deterministic fixed-seed outputs compared across con
 | 8 × 16K | 8.0 | 126.8 s | prefill serialization dominates |
 | 4 × 32K | 3.5 | 144.1 s | extreme corner, expected |
 
-**640K staged-admission soak (30 min).** Two parent streams at 43K-token prompts with child streams admitted mid-way and late, plus a single image request, then parents resumed. Result: both parents completed; **TTFT 883–921 s** on the 43K prompts (~2.4K tok/s prefill, as expected); **7 preemptions** total in the 640K-token pool. The soak did exactly what it was designed to show: at 262K-max contexts, *time-to-first-token is the user-visible cost*, not throughput — a 43K-token agent prompt takes 14–15 minutes to prefill on this configuration. That number, more than any decode rate, is what decides whether 262K is the right production context for agent traffic.
+**640K staged-admission soak (30 min).** Two parent streams at 43K-token prompts with child streams admitted mid-way and late, plus a single image request, then parents resumed. Result: both parents completed; **7 preemptions** total in the 640K-token pool. Under this deliberately saturated workload, a 43K-token parent request observed **883–921 s end-to-end TTFT** — ≈ 47–49 tokens/s admission-to-first-token, i.e. queueing + scheduler contention + preemption + prefill combined, **not** raw prefill throughput (engine-side pp/s was not captured this run; the three quantities are kept separate from here on). What the soak did establish: at 262K-max contexts, *time-to-first-token is the user-visible cost*, not throughput — that number, more than any decode rate, is what decides whether 262K is the right production context for agent traffic.
 
 **Deep-context ladders** (single stream, 256 decode tokens):
 
@@ -57,7 +59,7 @@ All cells canary-validated (deterministic fixed-seed outputs compared across con
 | 128K | 174,916 | 204.5 s | 108.4 t/s |
 | 256K | — | **no data** | **no data** |
 
-Prefill scales ~2.1K tok/s across the range; decode degrades 134→108 t/s from 87K to 175K tokens (the KV-residency cliff starting to show). **The 256K cell is a genuine miss, documented as such:** the campaign's completion check accepted the cell on exit code alone, and the request died instantly (1 s "complete"). A false-complete — the run did not happen, and this report does not pretend it did. The hardened package now rejects any "complete" whose recorded token counts don't match the target depth.
+From request-TTFT the implied end-to-end rates are **1.21K** (87K) and **0.86K** (175K) tokens/s — request-level figures that include admission delay, **not** engine prefill throughput (which was not captured this run). Decode degrades 134→108 t/s from 87K to 175K tokens (the KV-residency cliff starting to show). **The 256K cell is a genuine miss, documented as such:** the campaign's completion check accepted the cell on exit code alone, and the request died instantly (1 s "complete"). A false-complete — the run did not happen, and this report does not pretend it did. The hardened package now rejects any "complete" whose recorded token counts don't match the target depth.
 
 ## 125B Flash-Next on 2×3090: a wall
 
@@ -82,6 +84,7 @@ So the 30.2 t/s result is not reproducible on this box with the current build fa
 6. The SSE benchmark client didn't request `stream_options.include_usage` (null decode rates) and crashed on the trailing usage-only chunk.
 7. **The canary had a false positive:** a 2 KB swap-in threshold sat below the machine's noise floor and invalidated the *winning* cell (P1-D) on a zero-swap sample. Fixed to 32 MB/sample. Strictness in the wrong place is worse than none.
 8. **A false complete:** the 256K ladder above — exit-code-only acceptance.
+8. **The 8-conc matrix cell was not actually concurrent** — per-stream decode ≈ the single-stream rate, which a true 8-way batch cannot produce; the client neither proved overlap nor recorded per-request wall windows (invalid column, repaired client now requires timestamp-proven overlap).
 9. No exactly-one-runner lock (a stale-lease relaunch produced three concurrent runners); non-idempotent preflight (3–10 min per relaunch × nine relaunches); a missing test-image fixture for the vision cell.
 
 The pattern: **dry-runs test control flow, not data-plane assumptions** (body shapes, quoting depths, path ownership, threshold noise floors). Everything is fixed and re-verified in the hardened package; the next run should start clean.
@@ -94,8 +97,8 @@ The evidence after: the journal ends mid-sentence with no shutdown sequence and 
 
 ## Conclusions
 
-- **Production 27B profile: piecewise CUDA graphs + MTP k=3 + 8192 batched tokens** — 151 t/s @2K, 150 @16K, 134 at 87K, 108 at 175K single-stream; ~70 aggregate t/s at 4–16 concurrent 2K streams; canary-validated. The 262K context is safe (776K-token KV pool, 7 preemptions in a 30-min 640K soak) but expensive in TTFT (14–15 min per 43K-token prompt) — the right context size for *your* agent traffic is a usage question now, not a capacity one.
-- **Flash-Next 125B: wall on this topology** with the current llama.cpp build family. No campaign can fix that; a build with real tensor/row splitting for the arch can.
+- **Production 27B profile: piecewise CUDA graphs + MTP k=3 + 8192 batched tokens** — 151 t/s @2K, 150 @16K, 134 at 87K, 108 at 175K single-stream; ~70 aggregate t/s at 4–16 concurrent 2K streams; canary-validated. The 262K context is safe (776K-token KV pool, 7 preemptions in a 30-min 640K soak) but under *saturated* staged load a 43K-token request observed 14–15 min end-to-end TTFT (queueing + preemption + prefill — not prefill speed). The open question is what context limit / compaction policy each *agent class* should use — a client-side design question, not a server-capacity one; the server keeps 262K as its ceiling.
+- **Flash-Next 125B: wall on this topology** with the current llama.cpp build family. No flag-level tuning campaign can change that within the tested build family; a materially different implementation with working tensor/row splitting could.
 - **The host needs physical attention before the next unattended run** (PSU first; kdump second so the next death leaves a corpse to examine).
 - **The orchestration architecture passed its first live test**, including the one scenario it was built for — the box dying under it.
 
