@@ -118,5 +118,36 @@ in the private dataset.
 5. The **reliability stack earned its keep by doing nothing**: first unattended overnight
    campaign after two unexplained host crashes, zero intervention needed.
 
+## Post-hoc review (external, 2026-09-11) — superseding softenings
+
+An outside read of this report flagged that three Conclusion items were stated stronger than
+the data proves. The raw numbers stand; the interpretations below **supersede Conclusion
+items 2, 3 and 4** and refine 1 (the model card was updated to match):
+
+1. **MTP — a knee, not an optimum.** What is proven is that **k=3 is the knee**, not that it
+   is the optimum. k=4 measured **+11%** (167.6 vs 151.1 t/s) and shows the *narrower* IQR
+   (1.1 vs 8.6 t/s), so "k=3 is the stable optimum" is not supported by this data. k=3 stays
+   the selected production depth (conservative: less VRAM/power/spec-decode risk per step);
+   k=4 is the measured maximum-tgen profile and would need power/memory/correctness evidence
+   before promoting. Nothing was changed.
+2. **Prefill interference = one side of an A/B, not the decision.** The 64K-prefill result
+   (decode ITL 25.8→39.2 ms, ~−52% token rate, full recovery) is a valid and useful
+   **baseline for the 8192 side** of the 8192-vs-2048 batch-budget question. It does not by
+   itself answer whether 8192 is worse than 2048 — that still needs the 2048-side measurement.
+3. **TP1 text-decode parity — not "a card is freeable."** The measured result is **TP1 ≈ TP2
+   for single-user 16K→1024 *text* decode** (149.8 vs 147.8 t/s). That does **not** establish
+   that one 3090 can be released: the production service exists partly for the 262K KV pool,
+   concurrency, and multimodal headroom, and a rank can contribute ~nothing to text tgen yet
+   be load-bearing for the memory envelope. The 2026-09-11 multi-image OOM is a near-perfect
+   counterexample (each 3090 holds half the KV pool and half the encoder headroom). Whether a
+   card is operationally freeable is a KV/concurrency/multimodal question, not a tgen one.
+4. **Prefix-cache — keep the measurement, don't generalize the mechanism.** The spaced re-send
+   hitting in 1.22 s while the near-immediate re-send missed (36–37 s) is a real, reproducible
+   *observation*. "Timing-sensitive" describes it but is not yet an *explanation*: the likely
+   causes (asynchronous KV-block commit vs request-shape/hash interaction) are not
+   distinguished by this run. It is a lead for the multimodal/prefix-cache work, not a
+   conclusion.
+
 Related: [2026-09-10 attribution campaign](2026-09-10-dual3090-overnight-campaign.md) ·
-[model card](../models/qwen3.8-27b-rtx3090.md) · [hardware profile](../docs/hardware/gpu-server.md)
+[model card](../models/qwen3.8-27b-rtx3090.md) · [hardware profile](../docs/hardware/gpu-server.md) ·
+[multi-image vision ceiling (same day)](2026-09-11-multi-image-vision-ceiling.md)
