@@ -68,7 +68,7 @@ Reworked after external review. Not a 72-cell factorial, but **seven staged, ~15
 |---|---|---|---|---|
 | **A — memory surface** | sparse count×pixel cells centered on **equal-total-pixel pairs**, across gpu-util {0.90, 0.93}; + one `--skip-mm-profiling` calibration cell | throwaway | min **sampled** free VRAM per phase vs (actual visual tokens, image count) | — |
 | **B — safe candidate** | the cell with *real margin* (not the largest that survived) | candidate | N=3 cold: 0 deaths, 0 restarts, 0 fatal alloc, sanity pass | fail → drop an envelope |
-| **C — concurrency** | two **simultaneous** legal requests; incl. one **asymmetric** case (near-ceiling + one ordinary) | throwaway | engine death? recovery? subsequent text+vision? | **if two individually-legal requests kill the engine → reject candidate, drop an envelope, rerun B→C** |
+| **C — concurrency** | two **simultaneous** legal requests (start-barrier released); incl. one **asymmetric** case (near-ceiling + one ordinary) | throwaway | engine death? recovery? **request-active vs MM-execution overlap** | **if two individually-legal requests kill the engine → reject candidate, drop an envelope, rerun B→C** |
 | **D — chunked-MM A/B** | `--disable-chunked-mm-input` on/off at the candidate envelope (the #41485 deepstack+chunk+prefix bug) | throwaway | correctness, OOM, TTFT, peak VRAM, ITL on concurrent decode | correctness corruption / death = **categorical**, not averaged |
 | **E — encoder TP** | one safe `weights` vs `data` cell (below the boundary) | throwaway | startup VRAM/KV, peak during encode, vision TTFT, PCIe/NCCL | — |
 | **F — cache policy + multi-turn** | LRU vs SHM; a 4-turn agent loop reusing 16 images (one changed, prefix changed) | throwaway | `vllm:mm_cache_hits_total`, encoder-cache, prefix-cache, per-stage time via `vllm bench mm-processor` | — |
@@ -88,6 +88,8 @@ peak sampled VRAM ≈ base + A · actual_visual_tokens + B · image_count + resi
 - **External:** NVML `memory.free` per physical GPU at ~100 Hz — reported as **minimum *sampled* free VRAM** (a sub-10 ms allocator spike can fall between polls; a fresh process’s CUDA context alone eats ~300 MiB, so this must be read on the *running engine*, not a synthetic process).
 - **Internal:** vLLM’s own peak if exposed (0.28 has no `/stats`/`/server_info` peak endpoint, so the throwaway build can add a `torch.cuda.max_memory_allocated` hook); plus the `/metrics` counters `vllm:mm_cache_hits_total` and `vllm:prefix_cache_hits_total` for the cache tests.
 - Phase markers (request start → processor → encoder → LLM prefill → first token → end) are aligned to the same monotonic clock; even imperfect markers beat inferring phases after the fact.
+
+**Two-tier concurrency evidence (Stage C).** *"Two requests submitted together" ≠ "two vision activation lifetimes overlapped."* The driver records **`request_active_overlap_ms`** (intersection of `[request_start, first_token]` — proves the requests were *in flight* together) and, where the server exposes encoder-phase markers *and* both requests were **engine-active** (not merely queued in HTTP/scheduler), **`mm_execution_overlap_ms`** (intersection of the encoder/MM-prefill windows). The conclusion must state which it is: `CONCURRENT-SAFE` (MM transients demonstrably coexisted), `IN-FLIGHT (UNVERIFIED)` (overlapped but MM overlap unknown — partial), or `invalid-conc` (didn't materially overlap — discarded, not averaged). A hard start barrier releases both at once; overlap is proven from monotonic timestamps so HTTP/scheduler jitter can't fake a near-sequential test into looking concurrent.
 
 ### The final A→G cell matrix
 
@@ -113,6 +115,8 @@ peak sampled VRAM ≈ base + A · actual_visual_tokens + B · image_count + resi
 
 **Not run tonight** (per review): the **16.8 Mpx (≈4096×4096 — *not* “4K”)** single-image native max, deferred to a later single-image capability probe; the **GPU power sweep** (the box just went one clean night after two unexplained crashes — don’t confound memory attribution); **MTP-depth / CUDA-graph** re-tests (separate, already characterized).
 
+**Replication of the discriminator cells.** Rows 2–5 (the equal-total-pixel pairs) are **replicated at N=2 (N=3 if the window allows)** before any regression fit. A one-shot `base + A·visual_tokens + B·image_count` fit could be reading allocator/fragmentation fluctuation (150–300 MiB) rather than a real per-image effect; the spread across reps is what tells them apart.
+
 ## v1 → v2 changes (external review)
 
 - **Profiling hints separated from actual processor limits** (v1 conflated them).
@@ -120,6 +124,9 @@ peak sampled VRAM ≈ base + A · actual_visual_tokens + B · image_count + resi
 - **“3-axis / 72-cell sweep” → sparse staged design** (7 stages, ~15 cells); the old C7 4 Mpx cell was the out-of-envelope probe, now dropped.
 - **“4K” → 16.8 Mpx ≈ 4096×4096**; 16 Mpx moved out of the prod matrix to a later probe.
 - **Crash moved from goal #3 (a rank) to a hard gate** (N=3, 0 deaths, 0 restarts, sanity + two-simultaneous).
+- **Stage C split into two overlap tiers** — `request_active_overlap_ms` (in-flight) vs `mm_execution_overlap_ms` (encoder/MM-prefill actually coexisted); the safety claim depends on the distinction.
+- **Equal-pixel discriminator cells replicated (N=2/3)** so the `B·image_count` term isn't an artifact of one noisy read.
+- **`boundary_distance` defined mechanically** (gap in actual visual tokens to the nearest tested *failing* envelope under the same config tuple; **censored/unknown, never ∞, when no failure was observed above**); recovery probes no longer put a vision request between healthy cold reps (cache contamination).
 - **Added:** Stage C asymmetric legal-load case; `--skip-mm-profiling` diagnostic cell; Stage D chunked-MM A/B; Stage F cache-policy + multi-turn reuse; two-layer (NVML + internal) sampling on a monotonic timebase; equal-pixel regression on **actual** visual tokens.
 - **`vllm bench mm-processor` is comparability-gated:** usable for stage decomposition, but a headline serving number only if its processor/resize/hash/cache/request contract exactly matches the serving run.
 
