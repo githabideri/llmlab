@@ -318,6 +318,25 @@ systemctl enable --now gpu-sidecar
 
 The hub is unprivileged; put TLS in front (reverse proxy) if you expose it.
 
+### LXC hosts (systemd images)
+
+Debian/Ubuntu LXC images ship rsyslog **in addition to** systemd-journald, and the
+`rsyslogd` AppArmor profile predates systemd's socket layout: it permits `/dev/log`
+but not `/run/systemd/journal/dev-log` (where `/dev/log` now points). Every journal
+message rsyslog forwards is DENIED and lands in the **host's** kernel log as an
+AppArmor audit record — a flood of tens/minute that keeps flushing the host's dmesg
+ring, masking real events. Stopping rsyslog is not enough: AppArmor profiles are
+inherited across fork/exec, so a child (observed: `systemd-journald`) can keep the
+`rsyslogd` profile — only a full stop/start clears it.
+
+Run [provision-lxc.sh](provision-lxc.sh) once in each LXC host —
+`pct exec <vmid> -- /path/to/provision-lxc.sh` — then stop+start the container.
+Journald stays as the single logger (`/dev/log` already points at the journal
+socket, so all syslog(3) callers keep working); the script also sets
+`Storage=persistent` with a 100 M cap. Verify afterwards: `aa-status` inside the
+CT lists no `rsyslogd` profile and the host journal shows no new
+`apparmor="DENIED"` records.
+
 ## Prometheus export
 
 `/metrics` emits `hub_*` gauges: server online state, per-GPU
