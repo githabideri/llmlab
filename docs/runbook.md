@@ -57,6 +57,7 @@ journalctl -u beellama-qwen3.6-27b | grep -i 'draft\|dflash'
 | Draft acceptance 0% | `--spec-draft-model` path | Verify draft GGUF exists and is correct model |
 | "failed to parse grammar" with tool schemas | build's repetition threshold | Raise `MAX_REPETITION_THRESHOLD` — [grammar workaround](llama-cpp-grammar-workaround.md) |
 | "Flash Attention was auto, set to disabled" | build flags | Rebuild llama.cpp with FA all-quants support |
+| Host journal flooded with `apparmor="DENIED" ... profile="rsyslogd"`; host dmesg ring keeps flushing | `aa-status` inside the LXC lists `rsyslogd` in enforce | The LXC's rsyslog profile predates systemd's socket layout. Purge rsyslog + persist journald via [hub/provision-lxc.sh](../hub/provision-lxc.sh), then **stop+start** the container (profiles are inherited across fork/exec — disabling alone isn't enough). See [hub/README.md → LXC hosts](../hub/README.md#lxc-hosts-systemd-images) |
 
 Unit-level failures (won't start, metrics missing, OOM patterns) are in [systemd.md → Troubleshooting](systemd.md#troubleshooting).
 
