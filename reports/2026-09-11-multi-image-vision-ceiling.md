@@ -1,6 +1,6 @@
 # Multi-Image Vision Ceiling — Qwen3.8-27B on 2× RTX 3090
 
-**Status:** research + campaign design, written for **external review** (the tail of this doc is an open question to the reader, not a settled result). The campaign itself is not run yet.
+**Status (v2, 2026-09-11):** research + **staged** campaign design, reworked after external review (see the v1→v2 change log at the end). The campaign is **not run yet** — the build is approved; execution is gated to a scheduled window with the controller on an independent endpoint.
 
 ## Goal
 
@@ -43,68 +43,84 @@ We inspected the shipped `config.json` / `processor_config.json` rather than tru
 
 The takeaway that the references *do* let us take: **the binding constraint for multi-image is encoder-activation memory, a function of (image count × per-image pixels) and of the profiling reservation — not the KV cache.** The references give us the mechanism and the knobs; only our own measurement gives the numbers for this specific tower.
 
-## The memory knobs (the full set)
+## The memory knobs (v2 — profiling vs processor separated)
 
-| Knob | What it controls | Default |
+The single structural fix from review: vLLM 0.28 has **two distinct mechanisms** that v1 conflated under “size hints.”
+
+| Knob | Role | Here |
 |---|---|---|
-| `--gpu-memory-utilization` | total headroom the engine may use → sets KV pool size | 0.90 here |
-| `--limit-mm-per-prompt {"image":{"count":N}}` | hard cap on images per prompt (rejects beyond N) | 16 here |
-| `--mm-processor-kwargs {"size":{"shortest_edge":S,"longest_edge":L}}` | real max image pixels **and** the profiling reservation | 65536 / 2097152 here |
-| `mm_processor_cache_gb` | size of the shared-memory image cache | 4 GiB |
-| `--mm-encoder-tp-mode` | `weights` (TP-shard ViT) vs `data` (replicate + batch-parallel) | `weights` here |
+| `--gpu-memory-utilization` | total headroom the engine may use → sets the KV pool | 0.93 |
+| **Profiling hints** `--limit-mm-per-prompt {"image":{"count":N,"width":W,"height":H}}` | dummy input used **only** to estimate reserved activation memory (does not change inference); `count` *also* is the hard per-prompt image cap | count 16; w/h matched to each test image |
+| **Actual processor limits** `--mm-processor-kwargs {"size":{"shortest_edge":S,"longest_edge":L}}` | the **real** resize/tokenization envelope given to `Qwen3VLProcessor` (sets the actual max image size + token count) | 65536 / 2,097,152 |
+| `--mm-processor-cache-gb` | host-side processed-input cache, replicated across engine processes — **not** a chunk of GPU KV (corrects v1 open question #4) | 4 GiB |
+| `--mm-processor-cache-type` | `lru` (default) vs `shm` (TP workers share processed tensors) | shm |
+| `--mm-encoder-tp-mode` | `weights` (TP-shard ViT) vs `data` (replicate + batch-parallel) | weights |
+| `--disable-chunked-mm-input` | don’t split one MM item across chunked-prefill chunks | off (chunked on) |
+| `--skip-mm-profiling` | skip the MM activation reservation, shifting memory responsibility to the operator — **diagnostic calibration only, never a prod config** | off |
 
-## The campaign design (3 axes, not 1)
+For ordinary ceiling cells we **deliberately synchronize** the profiling hints (w/h) to each test image’s size, so the profiler isn’t reserving against the 16 Mpx default.
 
-The old plan was a 1-D count ladder. The research shows that's wrong — the ceiling is a **2-D surface** (count × pixel size) modulated by a **headroom** axis:
+## The campaign design (v2 — sparse, staged, smart-stop)
 
-| Axis | Values | Rationale |
-|---|---|---|
-| **A — image envelope** | count {8,16,32,64} × per-image px {0.79 M, 1 M, 2 M} → 6 M–128 Mpx total | this is what OOMs the encoder |
-| **B — headroom** | `--gpu-memory-utilization` {0.90, 0.93, 0.95} | multiplier on how far the encoder may spike before OOM |
-| **C — encoder parallelism** (throwaway only) | `--mm-encoder-tp-mode` {weights, data} | measure its memory cost at TP2 |
+Reworked after external review. Not a 72-cell factorial, but **seven staged, ~15 cells**, each gating the next. If the window runs short the cut order is **MUST A·B·C·D·G → SHOULD F → COULD E** (encoder `weights|data` is the first to go, *before* the agent-loop cache test).
 
-**Method changes vs a naive sweep** (these are the things that made the first attempt misleading):
-- **Set the size hints to match each test image.** Otherwise vLLM profiles against the 16 Mpx default (16,384 tok/image) and OOMs *during profiling*, before it ever reaches the real encoder ceiling — exactly the #20123 trap.
-- **Record *how* it fails.** A clean per-request OOM/reject (recoverable) is a fundamentally different production outcome than an EngineCore crash (whole endpoint down for the ~3 min systemd restart). The prod decision depends on this distinction.
-- **The controller runs on an independent endpoint**, never the one under test — a crash under test must not take the orchestrator down with it.
-- **Capture a clean idle baseline per gpu-util level** (KV pool tokens + nvidia-smi free) *before* any request hits the endpoint, so the numbers are comparable (in-flight requests populate KV + the image cache and inflate the reading).
+| Stage | Tests | Class | Primary readout | Smart-stop |
+|---|---|---|---|---|
+| **A — memory surface** | sparse count×pixel cells centered on **equal-total-pixel pairs**, across gpu-util {0.90, 0.93}; + one `--skip-mm-profiling` calibration cell | throwaway | min **sampled** free VRAM per phase vs (actual visual tokens, image count) | — |
+| **B — safe candidate** | the cell with *real margin* (not the largest that survived) | candidate | N=3 cold: 0 deaths, 0 restarts, 0 fatal alloc, sanity pass | fail → drop an envelope |
+| **C — concurrency** | two **simultaneous** legal requests; incl. one **asymmetric** case (near-ceiling + one ordinary) | throwaway | engine death? recovery? subsequent text+vision? | **if two individually-legal requests kill the engine → reject candidate, drop an envelope, rerun B→C** |
+| **D — chunked-MM A/B** | `--disable-chunked-mm-input` on/off at the candidate envelope (the #41485 deepstack+chunk+prefix bug) | throwaway | correctness, OOM, TTFT, peak VRAM, ITL on concurrent decode | correctness corruption / death = **categorical**, not averaged |
+| **E — encoder TP** | one safe `weights` vs `data` cell (below the boundary) | throwaway | startup VRAM/KV, peak during encode, vision TTFT, PCIe/NCCL | — |
+| **F — cache policy + multi-turn** | LRU vs SHM; a 4-turn agent loop reusing 16 images (one changed, prefix changed) | throwaway | `vllm:mm_cache_hits_total`, encoder-cache, prefix-cache, per-stage time via `vllm bench mm-processor` | — |
+| **G — mixed QoS** | one steady text decode + one N-image request | candidate-only | phase-resolved ITL (before / during-encode / during-prefill / after) + recovery | — |
 
-### Candidate production configs (the campaign measures each)
+**The architectural discriminator (Stage A).** Run **equal-total-pixel pairs**: `32×2M` vs `64×1M` (64 Mpx) and `16×2M` vs `32×1M` (32 Mpx). Same aggregate pixels; if peak memory differs, **per-image overhead / batching geometry** matters beyond total tokens. Regression uses **post-processor** visual tokens (not nominal Mpx — the processor resizes around patch geometry):
 
-| ID | gpu-util | count | px/img | KV pool | enc-tp | what it probes |
-|---|---|---|---|---|---|---|
-| **C1** | 0.93 | 16 | 2 M | ~710 K | weights | **current prod** — the baseline |
-| **C2** | 0.93 | 32 | 2 M | ~710 K | weights | double the count at current headroom? |
-| **C3** | 0.90 | 32 | 2 M | ~678 K | weights | +headroom → does 32 hold? |
-| **C4** | 0.90 | 64 | 1 M | ~678 K | weights | many mid-size images |
-| **C5** | 0.95 | 16 | 2 M | ~747 K | weights | max KV; is 16 still safe at tight headroom? |
-| **C6** | 0.90 | 32 | 2 M | ~678 K | **data** | does batch-DP help or cost at TP2? |
-| **C7** | 0.90 | 32 | 4 M | ~678 K | weights | push resolution instead of count |
+```
+peak sampled VRAM ≈ base + A · actual_visual_tokens + B · image_count + residual
+```
 
-*(KV pool at a given gpu-util also depends on the mm config; the 0.95/0.93/0.90 clean-idle pools measured this session were 747,625 / 710,402 / 677,931 tokens at the count-16/2 M config, vs the 776,928-token pool documented for the pre-tuning config in the model card.)*
+**The profiling-calibration cell (Stage A, `diagnostic_only: true`).** Run the same envelope with and without `--skip-mm-profiling`. The delta in reported KV pool estimates how conservative the reservation is; the real peak tells us how much of the cliff is phantom. **It can never win production selection** — it deliberately removes the reservation’s protection, so a surviving request is not evidence of a viable profile.
 
-## The decision matrix (how we'll pick the prod config)
+**The decision gate (replaces the v1 7-goal rank).** A cell is a production candidate **iff** at its worst supported envelope — N=3 cold, **0 EngineCore deaths + 0 systemd restarts + 0 fatal CUDA alloc + all token/image sanity pass**, **and** two simultaneous legal requests survive, **and** any rejection leaves `/health` + a live text completion + a subsequent vision completion working immediately. Survivors are then ranked on: **max KV · reliable >16 images · TTFT@N · QoS cost (phase-resolved) · agent-loop cache reuse**. If Stage C shows two individually-legal requests can kill the engine, **per-request capping is insufficient** — the fix becomes a **global MM admission-control budget**, not another `--gpu-memory-utilization`.
 
-Rank the surviving cells on these goals — the first two are the user's, the rest are reliability criteria the research surfaced:
+**Two-layer measurement (both on a monotonic timebase).**
+- **External:** NVML `memory.free` per physical GPU at ~100 Hz — reported as **minimum *sampled* free VRAM** (a sub-10 ms allocator spike can fall between polls; a fresh process’s CUDA context alone eats ~300 MiB, so this must be read on the *running engine*, not a synthetic process).
+- **Internal:** vLLM’s own peak if exposed (0.28 has no `/stats`/`/server_info` peak endpoint, so the throwaway build can add a `torch.cuda.max_memory_allocated` hook); plus the `/metrics` counters `vllm:mm_cache_hits_total` and `vllm:prefix_cache_hits_total` for the cache tests.
+- Phase markers (request start → processor → encoder → LLM prefill → first token → end) are aligned to the same monotonic clock; even imperfect markers beat inferring phases after the fact.
 
-1. **Max KV context**
-2. **Reliable vision at >16 images**
-3. **Worst case = a rejected request, NOT an engine crash** (a crash is a ~3-min total outage for every consumer of the endpoint)
-4. **TTFT at N images** (the encoder is the interactive bottleneck)
-5. **Stable under a concurrent text+image mix** (the Mamba/SSM-state contention case)
-6. **Recovery time if it does OOM**
-7. **MM/prefix-cache hit under agent-loop reuse** (the real workload is agentic)
+### The final A→G cell matrix
 
-**Current expectation** (to be confirmed, not asserted): **C3** (0.90 + 32 images + 2 Mpx) — it trades ~4.5% of the KV pool for double the image count and buys a crash-vs-reject safety margin. C5 (max KV) is attractive on goal 1 but is the one most likely to fail goal 3. The data from the campaign decides.
+*(px = per-image processor envelope; **T** = throwaway, **C** = candidate; KV pools at the count-16/2 M config: 0.90→677,931 · 0.93→710,402 · 0.95→747,625.)*
 
-## Open questions — feedback wanted
+| # | Stage | gpu-util | envelope | flags | class |
+|---|---|---|---|---|---|
+| 1 | A | 0.93 | 16 × 2M | base (current prod) | C (baseline) |
+| 2 | A | 0.90 | 32 × 2M (64 Mpx) | base | T |
+| 3 | A | 0.90 | 64 × 1M (64 Mpx) | base | T ← pair with #2 |
+| 4 | A | 0.90 | 16 × 2M (32 Mpx) | base | T |
+| 5 | A | 0.90 | 32 × 1M (32 Mpx) | base | T ← pair with #4 |
+| 6 | A | 0.93 | 16 × 2M | `--skip-mm-profiling` | T (`diagnostic_only`) |
+| 7 | A | 0.90 | 32 × 2M | `--skip-mm-profiling` | T (`diagnostic_only`) |
+| 8 | B | (from A) | best-margin cell | base | C ×3 cold |
+| 9 | C | (from B) | 2 × 16 × 1M (concurrent) | base | T |
+| 10 | C | (from B) | 2 × 32 × 1M (concurrent) | base | T (if inside margin) |
+| 11 | C | (from B) | 32 × 2M **∥** 2 × 1M (asymmetric) | base | T |
+| 12 | D | (from B) | 32 × 1M: chunked-on vs `--disable-chunked-mm-input` | A/B | T |
+| 13 | E | 0.90 | 32 × 1M: `weights` vs `--mm-encoder-tp-mode data` | A/B | T |
+| 14 | F | (from B) | LRU vs SHM + 4-turn 16-image reuse | A/B | T |
+| 15 | G | (from B) | steady text decode **∥** 1 N-image request | — | C (survivor only) |
 
-This is the part we're posting for outside eyes. Specifically we'd value a second opinion on:
+**Not run tonight** (per review): the **16.8 Mpx (≈4096×4096 — *not* “4K”)** single-image native max, deferred to a later single-image capability probe; the **GPU power sweep** (the box just went one clean night after two unexplained crashes — don’t confound memory attribution); **MTP-depth / CUDA-graph** re-tests (separate, already characterized).
 
-1. **Is a crash-vs-reject distinction measurable and stable enough to drive a prod decision**, or is it too noisy at the boundary? (We plan to detect it via the health endpoint going dark + the systemd restart log, not from the request response alone.)
-2. **Is `--mm-encoder-tp-mode data` worth the throwaway at TP2**, or is the "higher memory" penalty so certain at 2-way TP that we should skip C6?
-3. **For goal 5 (concurrent text+image mix), what's the right minimal test** — we're leaning toward "N images in flight while M text requests decode," but we want to make sure we're measuring the actual Mamba-state contention and not just KV pressure.
-4. **Are we missing a knob** — e.g., is there value in tuning `mm_processor_cache_gb` down (from 4 GiB) to claw back more KV, or does that just hurt the agent-loop cache-hit rate (goal 7)?
-5. **Is 2 Mpx/image the right "real photo" upper bound** for the target use, or should the matrix include a 4 K (16 Mpx, the model's native max) cell to know the absolute ceiling even if we never serve it?
+## v1 → v2 changes (external review)
 
-If you can push back on any of the framing above — especially #1 and #3 — that's the most useful thing you can do.
+- **Profiling hints separated from actual processor limits** (v1 conflated them).
+- **`mm_processor_cache_gb` removed from the GPU-KV hypothesis** — it’s host-side processor cache, not KV (v1 open question #4 answered: no).
+- **“3-axis / 72-cell sweep” → sparse staged design** (7 stages, ~15 cells); the old C7 4 Mpx cell was the out-of-envelope probe, now dropped.
+- **“4K” → 16.8 Mpx ≈ 4096×4096**; 16 Mpx moved out of the prod matrix to a later probe.
+- **Crash moved from goal #3 (a rank) to a hard gate** (N=3, 0 deaths, 0 restarts, sanity + two-simultaneous).
+- **Added:** Stage C asymmetric legal-load case; `--skip-mm-profiling` diagnostic cell; Stage D chunked-MM A/B; Stage F cache-policy + multi-turn reuse; two-layer (NVML + internal) sampling on a monotonic timebase; equal-pixel regression on **actual** visual tokens.
+- **`vllm bench mm-processor` is comparability-gated:** usable for stage decomposition, but a headline serving number only if its processor/resize/hash/cache/request contract exactly matches the serving run.
+
+*The v1 open questions are now folded in: #1 (crash-vs-reject) → the hard gate + two-simultaneous test; #2 (encoder-tp `data`) → Stage E, first to cut; #3 (concurrent-mix shape) → Stage G’s one-steady-decode + one-image-request; #4 (mm cache GB) → not a KV lever; #5 (4K/16 Mpx) → deferred single-image probe.*
