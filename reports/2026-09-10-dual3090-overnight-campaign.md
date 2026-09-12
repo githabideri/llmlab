@@ -72,6 +72,8 @@ The 09-02 campaign's 30.2 t/s came from a *mixed* 3090+3060+3060 topology where 
 
 So the 30.2 t/s result is not reproducible on this box with the current build family — it is a genuine hardware/build constraint, not a tuning failure. The 35B interim model stays on the secondary box until a build lands that can split this architecture. (A Q2_K_XL 125B model needs ~46 GB of non-PLE weights: two 24 GB cards can hold it *if* the tensors split; this build simply doesn't.)
 
+> **Update (2026-09-12):** a re-test using the experimental `qwen4exp-sm-tensor` build (attempting to *add* tensor split, since mainline reports it unimplemented) produced **no clean confirmation** — that build dies at load on a meta-backend `GGML_ASSERT` and dumps an un-split ~25.4 GB buffer on a single device (a build bug, **not** the per-layer 25.75 GB wall above — different mechanism, different number). The mainline control re-confirms `tensor`/`row` as unsupported and `layer` OOM. The 2×3090 wall therefore stands on **this** report's own basis (three split modes × two builds); the 09-12 run adds no new clean data. The model also independently exceeds the pair's ~48.8 GB capacity (78.9 GB Q2_K_XL), so the conclusion is robust even without the buggy tensor path.
+
 ## What broke (the honest part)
 
 **The script layer.** The campaign package shipped with a dozen latent one-line-class bugs, most of which the cloud orchestrator diagnosed and patched *live, in the dark*, with every change logged and backed up:
