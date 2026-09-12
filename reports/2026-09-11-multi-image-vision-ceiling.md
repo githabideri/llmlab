@@ -1,6 +1,6 @@
 # Multi-Image Vision Ceiling — Qwen3.8-27B on 2× RTX 3090
 
-**Status (v2, 2026-09-11):** research + **staged** campaign design, reworked after external review (see the v1→v2 change log at the end). The campaign is **not run yet** — the build is approved; execution is gated to a scheduled window with the controller on an independent endpoint.
+**Status (v3, 2026-09-12):** the staged campaign **ran on 2026-09-12** — the **Stage-A memory/prefill axis is now measured** (see **Measured results** at the end of this doc). Stages C/D/E/F/G (concurrency, chunked-MM, encoder-tp, cache, QoS) and the hard-ceiling probe **remain open** for a follow-up run. The v1→v2 change log below records the pre-run design review; the measured section records what the run actually covered and did not.
 
 ## Goal
 
@@ -131,3 +131,60 @@ peak sampled VRAM ≈ base + A · actual_visual_tokens + B · image_count + resi
 - **`vllm bench mm-processor` is comparability-gated:** usable for stage decomposition, but a headline serving number only if its processor/resize/hash/cache/request contract exactly matches the serving run.
 
 *The v1 open questions are now folded in: #1 (crash-vs-reject) → the hard gate + two-simultaneous test; #2 (encoder-tp `data`) → Stage E, first to cut; #3 (concurrent-mix shape) → Stage G’s one-steady-decode + one-image-request; #4 (mm cache GB) → not a KV lever; #5 (4K/16 Mpx) → deferred single-image probe.*
+
+## Measured results — night run 2026-09-12 (v3)
+
+Executed on 2026-09-12 against a **throwaway instance** (the production endpoint was stopped for the window and restored + independently re-proven live — text *and* a 2-image vision completion — at the end; the controller ran on an independent endpoint; the before/after host baseline matched). **What actually ran:** the **Stage-A memory + prefill axis** — the equal-total-pixel pairs and the production baselines, ~0.90 gpu-util, single-shot, replicated — **18 cells launched, 17 to completion** (one of those without an NVML sample), **1 that failed at engine-core init** before the first request (a same-envelope sibling booted clean, so it is treated as a transient/edge boot failure, not a config impossibility; documented, not averaged). The designed **Stages C (two-simultaneous concurrency), D (chunked-MM A/B), E (encoder-tp), F (cache/multi-turn), G (mixed QoS) were not executed** in this run and remain open.
+
+### Prefill (prompt-processing) throughput
+
+Measured as **TTFT** (admission→first-token on a fresh, unsaturated engine ≈ prefill) and **PP = actual post-processor visual tokens / TTFT**:
+
+| total visual tokens | envelope(s) | TTFT | PP (vtok/s) |
+|---|---|---|---|
+| 16,384 | 16 × 1M | 12.1 s | 1,357 |
+| ~32,700 | 16 × 2M  /  32 × 1M | ~25 s | 1,265–1,312 |
+| ~65,000 | 32 × 2M  /  64 × 1M | ~55 s | 1,164–1,185 |
+
+- **PP ≈ 1.16–1.36K visual-tokens/s**, and **TTFT scales ~linearly with total visual tokens** (doubling the prompt ≈ doubles TTFT).
+- **The Stage-A architectural discriminator is answered:** the two equal-total-pixel pairs give near-identical TTFT/PP (`16×2M ≈ 32×1M` at ~32K vtok; `32×2M ≈ 64×1M` at ~64K vtok). So **prefill cost is set by total visual tokens, not per-image count or pixel geometry** — the `B·image_count` term in the Stage-A regression is negligible. This matches the verified 32×32 px/token tokenization: same token count ⇒ same work.
+
+### VRAM (minimum *sampled* free, external NVML)
+
+**No OOM, no engine restart, no CUDA-alloc failure in any completed cell.** Minimum *sampled* free VRAM per cell:
+
+| envelope | min free (MiB) |
+|---|---|
+| 16 × 1M (16K vtok) | no sample (sampler gap) |
+| 16 × 2M  /  32 × 1M (~32K vtok, ~0.90) | 962–1,038 |
+| 32 × 2M  /  64 × 1M (~64K vtok, ~0.90) | 836–1,036 |
+| 16 × 2M at 0.93 (prod-util baseline) | 216–316 |
+
+- **Free VRAM is dominated by the gpu-util KV reservation, not the image load**: the 0.93 baseline leaves the least (216–316 MiB) because its KV pool is larger; the 0.90 cells leave ~0.8–1.0 GB even at 64K vtok. The multi-image prompt adds a **modest, roughly constant delta** on top.
+- The equal-pixel pairs again show **no material per-image overhead** (same vtok ⇒ same min-free), consistent with the prefill result.
+
+### What this establishes — and what it does not
+
+**Established.** (1) A **floor of the operating envelope**: at ~0.90, every tested config up to **64 Mpx / ~65K visual tokens** completes healthily with **0.8–1.0 GB** minimum free VRAM; the current production cap (**16 × 2M**) carries ~1 GB headroom at 0.90 and ~0.2–0.3 GB at 0.93 — i.e. **the current cap is conservative, not at the edge**. (2) **Prefill ≈ 1.2–1.36K visual-tokens/s**, scaling ~linearly with total visual tokens. (3) **Cost is set by total visual tokens, not image count** (the equal-pixel pairs agree) — so image-count capping alone is not the binding lever; total pixel/token volume is.
+
+**Not established (still open).** (1) **The hard ceiling** — nothing OOM’d, so the boundary lies *above* the tested maximum; the untested tight corner is **64K vtok at 0.93** (all 64K cells ran at 0.90). (2) **Decode (tgen)** — not captured this run (see caveats). (3) **gpu-util sensitivity** (0.93→0.88→0.80) — the run’s cells all launched at ~0.90, so the reduced-util axis is unmeasured. (4) **Stages C/D/E/F/G** — not executed.
+
+### Honest run caveats
+
+- **tgen missing:** the driver did not request `stream_options.include_usage`, so `completion_tokens`/`usage` were empty in every cell; only TTFT/PP and a ~0.3 s generation wall-time are available. The fix is one flag; a tgen follow-up needs that plus `max_tokens` 128–256.
+- **gpu-util ladder collapsed to ~0.90** (a manifest-assembly bug): the intended 0.93→0.90→0.88→0.80 sweep did not take effect, so the results are effectively a **single-utilization (0.90)** dataset plus two 0.93 baseline reps; the reduced-util cells did not run reduced.
+- **Two data gaps:** one 16×1M cell recorded no NVML samples (sampler race); one 32×1M cell failed at **engine-core init** (transient/edge — a same-envelope sibling booted clean).
+
+### Follow-up run (proposed)
+
+1. **Pin the ceiling:** 64K vtok at 0.93, then push to ~96K / 128K vtok, plus the 0.88 / 0.80 reduced-util ladder once the manifest bug is fixed (or reduce `max-model-len`/KV to buy headroom and push higher vtok).
+2. **Capture tgen:** `stream_options.include_usage:true` + `max_tokens` 128–256.
+3. **Run the unexecuted stages:** C (two-simultaneous concurrency, incl. the asymmetric near-ceiling + ordinary case), D (chunked-MM on/off A/B), E (encoder `weights` vs `data`), F (LRU/SHM + 4-turn 16-image reuse), G (steady decode ∥ N-image QoS).
+
+### Open questions for external review (v3)
+
+- Is **total visual tokens** (not per-image pixels/count) the correct primary prefill-cost axis for a 32×32 px/token ViT? Our equal-pixel pairs say yes — does the literature?
+- **PP ≈ 1.2–1.36K vtok/s** (fresh engine, 27B W4A16, TP2, dual 3090) — how does that compare to published Qwen3-VL / 27B-class prefill throughput? (a sanity check on the measurement)
+- We could not reach the ceiling (all healthy at ~0.90). Is **64K vtok at 0.93** the right next cell, or should we shrink `max-model-len`/KV to buy headroom and push to higher vtok?
+- Given Stage-A shows the image load is a modest delta on a large KV reservation, is the **Stage C concurrency** risk more likely to live in **KV/admission** than in **encoder-activation** overlap? (i.e., is the real multi-image failure mode admission-control, not simultaneous encoder transients?)
+- Is the `--skip-mm-profiling` calibration cell (design rows 6–7, not run) worth doing, or is the measured envelope sufficient?
