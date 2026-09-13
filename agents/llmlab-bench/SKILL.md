@@ -13,6 +13,8 @@ description: >-
 # llmlab-bench — Benchmarking Inference on Consumer GPUs
 
 The operational companion to [docs/benchmarks.md](../../docs/benchmarks.md) (durable measurement
+Multi-night GPU campaigns run on the [campaign platform](../../benchmarks/README.md): frozen bundle, qualification gate, documented-negative success path. This skill remains the measurement-method reference it builds on.
+
 method). This skill is the campaign view: what to verify before boot, what to record while
 running, and what disqualifies a number. The learnings here cost real incidents and real GPU
 hours — follow them.
