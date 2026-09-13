@@ -58,9 +58,11 @@ class FixtureServer:
         self._thread = None
 
     def start(self, log_path):
+        import time as _t
         self.log_path = log_path
-        mode, toks, itl, ttft, usage, fault = (self.fault, self.tokens, self.itl_ms,
-                                               self.ttft_ms, self.usage, self.fault)
+        mode, toks, itl, ttft, usage, fault, start_t = (self.fault, self.tokens,
+                                                        self.itl_ms, self.ttft_ms,
+                                                        self.usage, self.fault, _t.time())
 
         class H(http.server.BaseHTTPRequestHandler):
             def log_message(self, *a):
@@ -68,6 +70,12 @@ class FixtureServer:
 
             def do_GET(self):
                 if self.path == "/health":
+                    if fault == "slow-start" and _t.time() - start_t < 1.0:
+                        # still loading: the readiness loop must survive failed
+                        # early polls (a real model load takes minutes)
+                        self.send_response(503)
+                        self.end_headers()
+                        return
                     self.send_response(200)
                     self.end_headers()
                     # empty body on purpose: vLLM >=0.2 /health is an empty 200
@@ -178,6 +186,13 @@ class FixtureBackend:
         self._port = 18100
         self.rebooted = False
 
+    # -- path mapping (the fixture's "target" is its own tmp tree) ----------------
+    def target_path(self, local_path):
+        return local_path
+
+    def bundle_path(self):
+        return self.bundle_dir
+
     # -- target fs ---------------------------------------------------------------
     def sh(self, cmd, timeout=120, stdin=None, where="target"):
         self.op_log.append(f"sh[{where}]: {cmd[:140]}")
@@ -286,7 +301,7 @@ class FixtureBackend:
                                     2 if self.fault == "tiny-fast" else 64),
                             itl_ms=(5.0 if self.fault == "tiny-fast" else 10.0),
                             ttft_ms=(10.0 if self.fault == "tiny-fast" else 150.0))
-        if self.fault in ("ok", "sse-malformed", "sse-no-usage", "tiny-fast"):
+        if self.fault in ("ok", "sse-malformed", "sse-no-usage", "tiny-fast", "slow-start"):
             if self.fault == "tiny-fast":
                 srv.tokens, srv.itl_ms, srv.ttft_ms = 2, 5.0, 10.0
             srv.start(log_path)

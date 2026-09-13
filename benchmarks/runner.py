@@ -197,14 +197,22 @@ class Runner:
     def _run_attempt(self, cell, idx, attempt):
         a_dir = os.path.join(self.run_dir, "attempts", f"{cell['cell']}-{attempt:02d}")
         os.makedirs(a_dir, exist_ok=True)
+        # The attempt lives in TWO places: on the target (where the workload runs)
+        # and locally (the evidence of record). The backend maps between them
+        # (identity for the fixture, deploy-dir mirror for real).
+        t_dir = self.backend.target_path(a_dir)
         port = self._port_base + idx
-        cell_paths = {"cell": a_dir, "port": str(port), "bundle": self.bundle_dir}
+        cell_paths = {"cell": t_dir, "port": str(port),
+                      "bundle": self.backend.bundle_path()}
         server_log = os.path.join(a_dir, "server.log")
+        t_server_log = self.backend.target_path(server_log)
 
-        # (1) prompt (nonced — the cache trap)
+        # (1) prompt (nonced — the cache trap), both places
         ptok = int(cell.get("requests", [{}])[0].get("prompt_tokens", 64))
         with open(os.path.join(a_dir, "prompt.txt"), "w") as f:
             f.write(make_prompt(ptok, f"{cell['cell']}{attempt}-"))
+        self.backend.put_file(os.path.join(a_dir, "prompt.txt"),
+                              self.backend.target_path(os.path.join(a_dir, "prompt.txt")))
 
         # (2) immutable launch spec as a SCRIPT FILE (byte-exact; no inline bash -c)
         launch = cell["launch"]
@@ -213,10 +221,12 @@ class Runner:
         script = launch["binary"].format(model=model_path)
         launch_sh = (f"#!/bin/sh\n# IMMUTABLE per-cell launch spec (generated; do not hand-edit)\n"
                      f"# cell={cell['cell']} attempt={attempt}\n"
-                     + " ".join(_q(a) for a in [script] + args) + "\n")
-        self.backend.write_script(os.path.join(a_dir, "launch.sh"), launch_sh)
+                     + " ".join(_q(a) for a in [script] + args)
+                     + f" > {t_server_log} 2>&1" + "\n")
+        self.backend.write_script(self.backend.target_path(os.path.join(a_dir, "launch.sh")),
+                                  launch_sh)
         with open(os.path.join(a_dir, "launch.sh"), "w") as f:
-            f.write(launch_sh)          # the fixture fs mirrors the target
+            f.write(launch_sh)          # local copy = evidence of what was sent
         with open(os.path.join(a_dir, "meta.json"), "w") as f:
             json.dump({"cell": cell["cell"], "attempt": attempt, "port": port,
                        "launch": [script] + args,
@@ -229,7 +239,8 @@ class Runner:
         t0 = time.time()
         handle = None
         try:
-            handle = self.backend.launch(os.path.join(a_dir, "launch.sh"), server_log)
+            handle = self.backend.launch(self.backend.target_path(os.path.join(a_dir, "launch.sh")),
+                                         t_server_log)
         except Exception as e:
             fail_log = "launch failed: " + repr(e)
         if handle is not None:
@@ -237,25 +248,31 @@ class Runner:
                 f"http://127.0.0.1:{port}/health",
                 attempts=int(self.profile.get("readiness", {}).get("attempts", 6)),
                 sleep=float(self.profile.get("readiness", {}).get("sleep", 0.3)))
-            if all(ready) and any(ready):
+            # 'became ready at some point' is the contract (all() would demand
+            # every poll — including pre-load ones — to be 200)
+            if any(ready):
                 # (4) telemetry, then the real client over real sockets
-                telem = self.backend.start_telemetry(a_dir,
+                telem = self.backend.start_telemetry(t_dir,
                                                      self.spec.get("stop_policy", {}).get("cell_max_s", 600))
                 try:
-                    client_data = self._run_client(cell, a_dir, port)
+                    client_data = self._run_client(cell, t_dir, port)
                 except Exception as ce:
                     _write(os.path.join(a_dir, "client-error.json"), {"error": repr(ce)})
-                    fail_log = fail_log or _read(server_log)
+                    fail_log = fail_log or self._pull(server_log)
                 finally:
                     self.backend.stop_telemetry(telem)
                     self.backend.kill(handle)
             else:
                 self.backend.kill(handle)
-                fail_log = _read(server_log)
+                fail_log = self._pull(server_log)
                 if not fail_log:
                     fail_log = "server never became ready (no load log)"
         elif fail_log:
             pass
+        self._pull(server_log)          # the server log is evidence either way
+        for f in ("nvml.csv", "client.json"):
+            if not os.path.exists(os.path.join(a_dir, f)):
+                self._pull(os.path.join(a_dir, f))
         wall = time.time() - t0
         _write(os.path.join(a_dir, "attempt.json"),
                {"wall_s": round(wall, 3), "client": _slim(client_data)})
@@ -275,14 +292,21 @@ class Runner:
         _write(os.path.join(a_dir, "verdict.json"), v)
         return {"verdict": v}
 
-    def _run_client(self, cell, a_dir, port):
-        c = self.spec.get("client") or cell.get("client")
-        argv = [a.format(cell=a_dir, port=port, bundle=self.bundle_dir) for a in c["args"]]
+    def _pull(self, local_path):
+        # fetch a target file to the local evidence dir; returns its text
         try:
-            return self.backend.run_client(argv)
-        except Exception as e:
-            _write(os.path.join(a_dir, "client-error.json"), {"error": repr(e)})
-            raise
+            t = self.backend.target_path(local_path)
+            if t != local_path:
+                self.backend.get_file(t, local_path)
+        except OSError:
+            pass
+        return _read(local_path)
+
+    def _run_client(self, cell, a_dir_target, port):
+        c = self.spec.get("client") or cell.get("client")
+        argv = [a.format(cell=a_dir_target, port=port,
+                         bundle=self.backend.bundle_path()) for a in c["args"]]
+        return self.backend.run_client(argv)
 
     def _gates(self, cell, client_data, wall):
         """Plausibility gates, SIZED per cell (unsized gates are how false-completes

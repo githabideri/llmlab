@@ -11,6 +11,12 @@ You never need to know what any command does; you follow this.
    `python3 /<bundle>/benchmarks/campaign.py prepare /<bundle>/campaigns/<SPEC> /<profile>`
    The brief is regenerated; if qualification (Q1–Q10) is not green, STOP and
    say so. Do not proceed.
+3. Before the `run`, clear the campaign package's bytecode cache
+   (`find /<bundle>/benchmarks -name __pycache__ -exec rm -rf {} +`) and re-run
+   the prepare. A fresh bundle extraction is always safe; a *redeployed* one
+   (new commit over an old extracted copy) can leave stale `.pyc` files that
+   Python may load instead of the new source (bit us in the 2026-09-13
+   dogfood). The clear makes the deployed copy unambiguously current.
 3. If the owner is not available and the window deadline is inside 30 minutes,
    do not start. Ask.
 

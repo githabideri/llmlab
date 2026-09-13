@@ -131,6 +131,14 @@ class Backend:
     def notify(self, level, message, campaign_id):
         raise NotImplementedError
 
+    def target_path(self, local_path):
+        # map an executor-local path to its mirror on the target (identity by default)
+        return local_path
+
+    def bundle_path(self):
+        # where the deployed bundle root lives (executor-local for the fixture)
+        return self.bundle_dir
+
     def events(self):
         """Ordered op log (fixture records it; real returns [])."""
         return []

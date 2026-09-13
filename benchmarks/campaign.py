@@ -46,8 +46,9 @@ def cmd_prepare(args):
         model_sha = args[args.index("--model-sha") + 1]
     if "--model-sha-file" in args:
         model_sha = open(args[args.index("--model-sha-file") + 1]).read().strip()
-    spec_obj = spec_mod.load(spec_path)
-    ok, problems = spec_mod.validate(spec_obj)
+    spec_obj = spec_mod.load_spec(spec_path)
+    problems = spec_mod.validate(spec_obj)
+    ok = not problems
     if not ok:
         print("SPEC INVALID:")
         for p in problems:
@@ -74,7 +75,7 @@ def cmd_prepare(args):
             '"sha256": "UNSET"', f'"sha256": "{model_sha}"')
         with open(ship_spec, "w") as f:
             f.write(ship_text)
-    fz = freeze_mod.bake(spec_obj.get("id"), ship_spec, spec_mod.load(ship_spec),
+    fz = freeze_mod.bake(spec_obj.get("id"), ship_spec, spec_mod.load_spec(ship_spec),
                          _llmlab_dir(), profile.get("host", {}).get("ssh", "local"),
                          {"p0": "pending"})
     print("== QUALIFICATION (must be green before this freeze is usable) ==")
@@ -131,7 +132,7 @@ def cmd_deploy(args):
         t.extractall(ext)
     # the freeze with file hashes ships inside the bundle tree; build it now
     from benchmarks import spec as spec_mod
-    spec_obj = spec_mod.load(spec_path)
+    spec_obj = spec_mod.load_spec(spec_path)
     fz = freeze_mod.bake(spec_obj.get("id"), spec_path, spec_obj, llmlab_dir,
                          profile.get("host", {}).get("ssh", "local"),
                          {"p0": "pending", "note": "finalize at prepare"})
@@ -151,24 +152,72 @@ def cmd_run(args):
         return 2
     spec_path = args[0]
     profile = _load_profile(args[1])
+    approve = None
+    if "--approve-window" in args:
+        approve = args[args.index("--approve-window") + 1]
+    campaign_dir = os.path.dirname(os.path.abspath(spec_path))
+    if "--model-sha" in args:
+        sha = args[args.index("--model-sha") + 1]
+        t = open(spec_path).read()
+        if '"sha256": "UNSET"' in t:
+            t = t.replace('"sha256": "UNSET"', f'"sha256": "{sha}"')
+            ship = os.path.join(campaign_dir, "runs", "_run_shipped_spec.jsonc")
+            os.makedirs(os.path.dirname(ship), exist_ok=True)
+            with open(ship, "w") as f:
+                f.write(t)
+            spec_path = ship
     if backend == "real":
-        print("refused: --backend real requires the dogfood gate (qualify green +\n"
-              "owner-approved window + watchdog script deployed on this host).\n"
-              "The dogfood spec (campaigns/dogfood-3060.yaml) is the gate exercise.")
-        return 2
+        if not approve:
+            print("refused: --backend real requires an explicit owner approval:\n"
+                  "  --approve-window <window-id>\n"
+                  "The approval is recorded in the run's events.jsonl; without it the\n"
+                  "platform never touches production (the 09-08 rule, mechanized).")
+            return 2
+        from benchmarks.backends.real import RealBackend
+        rb_probe = RealBackend(profile, "", run_dir_probe := os.path.join(
+            os.path.dirname(os.path.abspath(spec_path)), "runs", "_gate"))
+        wd = (profile.get("window") or {}).get("script", "")
+        rc, out, err = rb_probe.sh(f"test -x {wd} && echo WATCHDOG_DEPLOYED", where="target")
+        if "WATCHDOG_DEPLOYED" not in out:
+            print(f"refused: the watchdog script is not deployed/executable on the target\n"
+                  f"  expected: {wd}\n  (deploy it first: homelab scripts/gpu-bench/campaign-watchdog.sh)")
+            return 2
     from benchmarks.backends.fixture import FixtureBackend
-    import importlib
-    importlib.import_module("benchmarks.spec")
-    spec_obj = importlib.import_module("benchmarks.spec").load(spec_path)
+    from benchmarks import spec as spec_mod
+    spec_obj = spec_mod.load_spec(spec_path)
     llmlab_dir = _llmlab_dir()
-    run_dir = os.path.join(os.path.dirname(os.path.abspath(spec_path)),
-                           "runs", "fixture-" + time.strftime("%Y%m%d-%H%M%S", time.gmtime()))
-    fz = freeze_mod.bake(spec_obj.get("id"), spec_path, spec_obj, llmlab_dir,
-                         profile.get("host", {}).get("ssh", "fixture"), {"p0": "pending"})
-    fz["file_hashes"] = {}
-    freeze_mod.write(run_dir, fz)
-    b = FixtureBackend(profile, llmlab_dir, run_dir)
+    # prefer the PREPARED freeze (qualification + sha + file hashes) if present
+    run_dir = None
+    prepared = None
+    if os.path.isdir(os.path.join(campaign_dir, "runs")):
+        for d in sorted(os.listdir(os.path.join(campaign_dir, "runs")), reverse=True):
+            p = os.path.join(campaign_dir, "runs", d)
+            if d.startswith(spec_obj.get("id", "")) and os.path.exists(os.path.join(p, "freeze.json")):
+                prepared = p
+                break
+    if prepared:
+        run_dir = prepared
+        fz = json.load(open(os.path.join(run_dir, "freeze.json")))
+        print(f"using prepared freeze: {run_dir} "
+              f"(sci {fz.get('scientific_hash', '?')[:12]}..., qual {fz.get('qualification', {}).get('p0')})")
+    else:
+        run_dir = os.path.join(campaign_dir, "runs",
+                               (backend if backend == "real" else "fixture") +
+                               "-" + time.strftime("%Y%m%d-%H%M%S", time.gmtime()))
+        fz = freeze_mod.bake(spec_obj.get("id"), spec_path, spec_obj, llmlab_dir,
+                             profile.get("host", {}).get("ssh", "fixture"), {"p0": "pending"})
+        fz["file_hashes"] = {}
+        freeze_mod.write(run_dir, fz)
+        print("WARNING: no prepared freeze found — running unqualified (fixture use only)")
+    if backend == "real":
+        from benchmarks.backends.real import RealBackend
+        b = RealBackend(profile, llmlab_dir, run_dir)
+    else:
+        b = FixtureBackend(profile, llmlab_dir, run_dir)
     r = runner_mod.Runner(spec_obj, profile, fz, run_dir, b, llmlab_dir)
+    if approve:
+        r.events.emit("OWNER_APPROVAL", window=approve,
+                      note="recorded by campaign.py run --approve-window")
     fin = r.run()
     print(f"\nfinal: {fin['final']}  cells: {fin['cells']}  "
           f"restored: {fin['restore'].get('restored')}")
@@ -187,8 +236,9 @@ def cmd_ingest(args):
     final = json.load(open(final_path))
     from benchmarks.backends.fixture import FixtureBackend
     from benchmarks.backends.real import RealBackend
-    if profile.get("ssh", {}).get("host") or profile.get("host", {}).get("ssh") == "local":
-        b = RealBackend(profile)
+    if (profile.get("host") or {}).get("ssh"):
+        b = RealBackend(profile, profile.get("deploy", {}).get("target_dir", "/root/campaigns/active"),
+                        run_dir)
     else:
         b = FixtureBackend(profile, ".", run_dir)
     rep = ingest.run(b, profile, final, run_dir, out_dir)
