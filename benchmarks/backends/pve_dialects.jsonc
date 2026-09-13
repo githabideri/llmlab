@@ -1,0 +1,21 @@
+{
+  // Verified Proxmox command syntax per major version. THIS IS THE SURFACE THE
+  // 2026-09-12 maint-fn bug hit: hand-rolled `pct set <id> memory:NNN` and
+  // `pct restart` are not real commands. The qualification matrix replays every
+  // template here against a stub, so a syntax regression fails before the window.
+  // {id}, {mi}, {args} are substituted at use time.
+  "pve8": {
+    "memory_set": "pct set {id} --memory {mi}",
+    "reboot": "pct reboot {id}",
+    "start": "pct start {id}",
+    "stop": "pct stop {id}",
+    "status": "pct status {id}"
+  },
+  "pve9": {
+    "memory_set": "pct set {id} --memory {mi}",
+    "reboot": "pct reboot {id}",
+    "start": "pct start {id}",
+    "stop": "pct stop {id}",
+    "status": "pct status {id}"
+  }
+}
