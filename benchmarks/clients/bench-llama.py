@@ -119,11 +119,20 @@ def main():
     ap.add_argument("--server-log", default=None,
                     help="llama-server log file; exact decode numbers parsed from its per-request summary line")
     ap.add_argument("--save-text", default=None, help="write full generated text to this path")
+    ap.add_argument("--warmup", type=int, default=0,
+                    help="run N throwaway reps before the measured reps (page-cache/"
+                         "graph warmup); discarded, but recorded as the 'warmup' count")
     a = ap.parse_args()
     prompt = open(a.prompt_file).read()
     rows = []
     full = []
     texts = []
+
+    for _w in range(a.warmup):  # discarded; the measured reps are the data
+        try:
+            run_one(a.url, prompt, a.decode, -1, a.seed)
+        except Exception as e:
+            print(f"warmup rep failed: {type(e).__name__}: {e}", flush=True)
 
     def log_count():
         if not a.server_log:
@@ -159,6 +168,7 @@ def main():
         det = "SINGLE"
     res = {"tag": a.tag, "url": a.url, "prompt_file": a.prompt_file,
            "prompt_chars": len(prompt), "decode": a.decode, "reps": a.reps,
+           "warmup": a.warmup,
            "rows": rows, "determinism": det, "sha_set": sorted(set(full)),
            "valid": det in ("OK", "SINGLE") or det == "?"}
     print(f"determinism: {det} ({uniq} unique of {len(full)})", flush=True)
