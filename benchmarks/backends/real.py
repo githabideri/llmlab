@@ -150,7 +150,12 @@ class RealBackend:
 
     def host_probe(self, since_epoch=None):
         from .. import host_failure
-        return self._ssh("target", host_failure.probe_cmd(since_epoch))
+        # the 2026-09-13 gap assessment (4a): the probe SOURCE is
+        # profile-overridable so the live detection->stop->restore path can
+        # be drilled against a controlled journal fixture without creating a
+        # real hardware fault. Default (no key) is the platform probe.
+        override = (self.p.get("window") or {}).get("host_probe_override")
+        return self._ssh("target", override or host_failure.probe_cmd(since_epoch))
 
     def host_btime(self):
         rc, out, _ = self._ssh("target", "awk '/btime/{print $2}' /proc/stat")
@@ -311,18 +316,22 @@ class RealBackend:
         self._run_changes(changes, where, use_key="cmd")
 
     def undo_temp_changes(self, changes, where="host"):
-        # UNDO runs each entry's "undo" command (not "cmd" again — the
-        # 2026-09-13 VM dogfood caught the old form re-applying the change
-        # at exit: the host was left memory:9216 after every window).
+        # UNDO runs each entry's "undo" command — never "cmd" again (the
+        # 2026-09-13 VM dogfood caught that form re-applying the change at
+        # exit: the host was left memory:9216 after every window). The
+        # invariant is structural: prepare refuses cmd-without-undo entries
+        # (dialects.check_temp_changes), so a missing undo here is
+        # unrepresentable; if one ever appears anyway (hand-edited profile),
+        # it is a true no-op skip, logged — substitution is not an option.
         self._run_changes(list(reversed(changes)), where, use_key="undo")
 
     def _run_changes(self, changes, where, use_key="cmd"):
         for c in changes:
             cmd = c.get(use_key)
             if not cmd:
-                cmd = c.get("cmd")     # an entry without an undo is a no-op undo
-                if not cmd:
-                    continue
+                if use_key == "undo":
+                    self._events.append(f"temp-change[undo] skipped (no undo declared): {c.get('cmd','?')[:80]}")
+                continue
             rc, out, err = self._ssh(where, cmd)
             if rc != 0 and not c.get("ignore_rc"):
                 self._events.append(

@@ -74,3 +74,46 @@ def validate(dialect, raw_cmd, guest):
 
 def ops(dialect, guest):
     return sorted((_guest_table(dialect, guest) or {}).keys())
+
+
+def check_temp_changes(profile):
+    """The prepare-time gate for a profile's temp_changes (called by
+    campaign.py prepare — this IS the live path, not a replay).
+
+    Invariants:
+      1. an entry with a "cmd" MUST have a non-empty "undo" — one-way
+         mutations do not belong in temp_changes (the undo manifest exists
+         to return the host to its pre-window state; an entry that cannot
+         do that must be owner-managed, not declared here). A 2026-09-13
+         dogfood showed the failure mode of the opposite default: an
+         "undo" that falls back to the forward command silently re-applies
+         the mutation after every window.
+      2. when the profile declares a PVE dialect, every cmd/undo must be an
+         exact rendering of the verified (version, guest) table — free text
+         does not reach the host.
+
+    Returns a list of problem strings (empty = clean).
+    """
+    problems = []
+    pve = profile.get("host") or {}
+    dialect = pve.get("pve_dialect")
+    guest = pve.get("pve_guest", "lxc")
+    for i, c in enumerate(profile.get("temp_changes") or []):
+        cmd = c.get("cmd")
+        undo = c.get("undo")
+        if not cmd:
+            problems.append(f"temp_changes[{i}]: missing cmd")
+            continue
+        if not undo:
+            problems.append(
+                f"temp_changes[{i}]: cmd without undo — one-way mutations "
+                f"are not expressible as temp_changes (declare them as "
+                f"owner-managed steps instead): {cmd}")
+        if dialect:
+            for key in ("cmd", "undo"):
+                raw = c.get(key)
+                if raw and not validate(dialect, raw, guest):
+                    problems.append(
+                        f"temp_changes[{i}].{key} not in dialect table "
+                        f"({dialect}/{guest}): {raw}")
+    return problems
