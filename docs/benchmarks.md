@@ -1,6 +1,6 @@
 # Benchmarks
 
-How we benchmark. This page keeps the **durable method** — flags and comparison discipline. Specific numbers are point-in-time snapshots and live in [reports/](../reports/README.md). The operational companion for agent-run campaigns (what to verify before boot, version/flag drift, data discipline) is [agents/llmlab-bench](../agents/llmlab-bench/SKILL.md). Multi-night GPU campaigns now run on the [campaign platform](../benchmarks/README.md): one frozen bundle, a qualification matrix built from the 2026-09 failure history, and a documented-negative gate that turns a predicted negative result into a success path instead of a 2 a.m. review.
+How we benchmark. This page keeps the **durable method** — flags and comparison discipline. Specific numbers are point-in-time snapshots and live in [reports/](../reports/README.md). The design companion for agent-run campaigns (what to prove, in what order, which gates mean what, and the unattended-execution rules) is [agents/campaign-designer](../agents/campaign-designer/SKILL.md). Multi-night GPU campaigns now run on the [campaign platform](../benchmarks/README.md): one frozen bundle, a qualification matrix built from the 2026-09 failure history, and a documented-negative gate that turns a predicted negative result into a success path instead of a 2 a.m. review.
 
 ## Context sweep (`llama-bench`)
 
