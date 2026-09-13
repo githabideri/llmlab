@@ -532,6 +532,51 @@ def q19_temp_change_undone_not_reapplied(tmp):
     return ok, f"applied={applied[:1]} undo={undo_events[:1]} final={fin['final']}"
 p1("Q19 temp changes are undone (not re-applied) at exit (2026-09-13 VM dogfood)", q19_temp_change_undone_not_reapplied)
 
+def q20_temp_change_reQUIRES_undo(tmp):
+    # external review blocker on 5b78803: the old undo path fell back to the
+    # forward cmd when "undo" was missing — the exact bug it was fixing.
+    # Invariant: every temp_change must have an explicit undo; prepare
+    # (via check_temp_changes — the function prepare calls) rejects
+    # cmd-without-undo, so the unsafe state is prepare-invalid and the host
+    # is untouched (prepare never opens a window).
+    from benchmarks import dialects
+    prof_ok = {"host": {"pve_dialect": "pve9", "pve_guest": "vm"},
+               "temp_changes": [{"cmd": "qm set 135 --memory 9216",
+                                 "undo": "qm set 135 --memory 8192"}]}
+    prof_bad = {"host": {"pve_dialect": "pve9", "pve_guest": "vm"},
+                "temp_changes": [{"cmd": "qm set 135 --memory 9216"}]}
+    ok = (dialects.check_temp_changes(prof_ok) == []
+          and any("without undo" in p for p in dialects.check_temp_changes(prof_bad))
+          and dialects.check_temp_changes({"temp_changes": []}) == [])
+    return ok, "cmd+undo accepted; cmd-without-undo rejected; empty list clean"
+
+def q21_effect_gate_depends_on_evidence(tmp):
+    # 2026-09-13 flashnext review (3c): the ONE small declarative dependency.
+    # A dependent cell (MTP) must not run unless a declared comparison of
+    # PERSISTED evidence from earlier cells clears a declared floor; below
+    # the floor (or unverifiable) the campaign stops expected-negative and
+    # the dependent cell is NOT_RUN.
+    from benchmarks import runner as runner_mod
+    from benchmarks.backends.fixture import FixtureBackend
+    import json as _json, os as _os, statistics
+    spec = _spec([_cell("dep")])
+    r = runner_mod.Runner(spec, _profile(tmp), {}, tmp, FixtureBackend(_profile(tmp), ".", tmp), ".")
+    # (1) the arithmetic, on real persisted files
+    ad = _os.path.join(tmp, "attempts", "base-01"); _os.makedirs(ad, exist_ok=True)
+    td = _os.path.join(tmp, "attempts", "treat-01"); _os.makedirs(td, exist_ok=True)
+    _json.dump({"rows": [{"decode_tps": 100.0}, {"decode_tps": 102.0}]}, open(ad + "/client.json", "w"))
+    _json.dump({"rows": [{"decode_tps": 150.0}, {"decode_tps": 148.0}]}, open(td + "/client.json", "w"))
+    eg = {"base": "base", "treat": "treat", "metric": "decode_tps", "min_relative_gain_pct": 30}
+    ok_above, d1 = r._effect_gate(eg)
+    eg2 = dict(eg, min_relative_gain_pct=60)
+    ok_below, d2 = r._effect_gate(eg2)
+    ok_missing, d3 = r._effect_gate({"base": "ghost", "treat": "treat",
+                                     "metric": "decode_tps", "min_relative_gain_pct": 1})
+    ok = ok_above and not ok_below and not ok_missing
+    return ok, f"above={ok_above} ({d1}) below={ok_below} ({d2}) missing={ok_missing} ({d3})"
+p0("Q20 every temp_change requires an explicit undo; prepare rejects the rest (external-review blocker)", q20_temp_change_reQUIRES_undo)
+p1("Q21 effect gate: dependent cell runs only on a declared floor over persisted evidence (flashnext review 3c)", q21_effect_gate_depends_on_evidence)
+
 
 def run_all(out=None):
     results = {"P0": [], "P1": []}

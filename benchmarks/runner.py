@@ -149,6 +149,25 @@ class Runner:
                     self._finish("safety-abort", "results disk below floor")
                     return self._final()
 
+                # effect gate (2026-09-13 flashnext review): the ONE small
+                # declarative dependency. The verdict engine is per-attempt
+                # and cannot see across cells, so a cross-cell comparison
+                # ("MTP is scientifically meaningless unless S1 shows a
+                # useful effect") is evaluated HERE, before the dependent
+                # cell runs, from the PERSISTED evidence of the compared
+                # cells. Single kind, no branching: below the declared
+                # floor the campaign stops (expected-negative) and the
+                # dependent cell is recorded NOT_RUN — a reviewer reconstructs
+                # why it never ran from this event + the two client.jsons.
+                eg = cell.get("effect_gate") or {}
+                if eg:
+                    ok, detail = self._effect_gate(eg)
+                    if not ok:
+                        self.events.emit("EFFECT_GATE", cell=cell["cell"], detail=detail)
+                        self.cells_done[cell["cell"]] = "NOT_RUN"
+                        self._finish("expected-negative",
+                                     f"effect gate on {cell['cell']}: {detail}")
+                        return self._final()
                 verdict = self._run_cell(cell, idx)
                 self.cells_done[cell["cell"]] = verdict
                 if verdict == verdict_mod.EXPECTED_NEGATIVE and \
@@ -352,6 +371,42 @@ class Runner:
 
     def _temp_changes(self):
         return self.profile.get("temp_changes") or []
+
+    def _effect_gate(self, eg):
+        """Evaluate a declared cross-cell comparison from persisted evidence.
+        eg: {base: <cell>, treat: <cell>, metric: <client json key>,
+            min_relative_gain_pct: <float>} — the treat cell's metric (median
+        across reps, per the llmlab median-of-N discipline) must exceed the
+        base cell's by at least the declared floor. Returns (ok, detail).
+        A missing/unreadable comparison is NOT ok: a dependent cell must not
+        run on an unverified premise."""
+        import json as _json
+        import statistics
+        def cell_metric(name, metric):
+            import glob
+            files = sorted(glob.glob(
+                os.path.join(self.run_dir, "attempts", f"{name}-*", "client.json")))
+            vals = []
+            for f in files:
+                try:
+                    c = _json.load(open(f))
+                except (OSError, ValueError):
+                    continue
+                rows = c.get("rows") or []
+                mv = [r[metric] for r in rows if metric in r]
+                if mv:
+                    vals.append(statistics.median(mv))
+            return statistics.median(vals) if vals else None
+        base_v = cell_metric(eg["base"], eg["metric"])
+        treat_v = cell_metric(eg["treat"], eg["metric"])
+        if base_v in (None, 0) or treat_v is None:
+            return False, (f"premise unverifiable: base={base_v} treat={treat_v} "
+                           f"(need both {eg['metric']} from persisted client data)")
+        gain_pct = 100.0 * (treat_v - base_v) / base_v
+        floor = float(eg["min_relative_gain_pct"])
+        ok = gain_pct >= floor
+        return ok, (f"{eg['metric']}: base={base_v:.4g} treat={treat_v:.4g} "
+                    f"gain={gain_pct:+.1f}% (floor {floor:g}%)")
 
     # -------------------------------------------------------------- finish
     def _finish(self, final, reason):
