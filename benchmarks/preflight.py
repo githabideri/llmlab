@@ -49,8 +49,15 @@ def run(backend, profile, freeze, run_dir):
         add(f"gpu[{i}].model", w.get("model"), g and g.get("model"),
             why="identity")
         if w.get("bdf"):
-            want_bdf = w["bdf"].lower().replace("0000:", "").strip()
-            have_bdf = (g or {}).get("bdf", "").lower().replace("0000:", "").strip()
+            # canonical form: last two components (nvidia-smi says 000001:00.0,
+            # lspci says 0000:01:00.0 — same card)
+            def canon(x):
+                # drop the PCI domain (0000 / 00000000 — always zero in this
+                # fleet) and keep bus:function; NEVER substring-replace '0000:'
+                # (it matches inside the 8-digit domain and mangles it)
+                return (x or "").lower().split(":", 1)[1] if ":" in (x or "") else x
+            want_bdf = canon(w["bdf"])
+            have_bdf = canon((g or {}).get("bdf", ""))
             add(f"gpu[{i}].bdf", want_bdf, have_bdf,
                 why="identity: CUDA enumeration order has bitten us before")
 

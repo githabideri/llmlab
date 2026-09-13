@@ -458,6 +458,26 @@ p1("Q12 unsupported-arch control cell -> EXPECTED_NEGATIVE (09-12 B0)", q12_arch
 p1("Q13 no-usage stream shape -> SSE_NO_USAGE (09-10 usage lesson)", q13_no_usage)
 p1("Q14 historical failure corpus replay", q14_corpus_replay)
 
+def q15_slow_start(tmp):
+    r, b, run_dir, fz, spec, prof = _ctx(tmp, "slow-start")
+    prof["readiness"] = {"attempts": 20, "sleep": 0.2}
+    fin = r.run()
+    ok = fin["cells"].get("c1") == "PASS"
+    return ok, f"cell={fin['cells'].get('c1')} final={fin['final']} (early 503 polls must not fail readiness)"
+p1("Q15 slow-start health (2026-09-13 dogfood: all() readiness bug)", q15_slow_start)
+
+def q16_cmd_with_json_braces(tmp):
+    # the 2026-09-13 dogfood: str.format() ate the JSON braces of a
+    # live-check command (KeyError: 'model') and aborted the restore loop.
+    from benchmarks.backends.real import RealBackend
+    prof = {"host": {"ssh": "x"}, "target": {"ssh": "x"},
+            "prod": {"live_check_cmd": "curl -d '{\"model\":\"x\"}' && echo LIVE_OK"}}
+    b = RealBackend(prof, "", "/tmp")
+    got = b._prod("live_check_cmd")
+    ok = got == prof["prod"]["live_check_cmd"]
+    return ok, f"_prod passthrough: {got[:60]!r} (braces must survive unformatted)"
+p1("Q16 profile commands with JSON braces survive _prod (2026-09-13 dogfood)", q16_cmd_with_json_braces)
+
 
 def run_all(out=None):
     results = {"P0": [], "P1": []}

@@ -65,7 +65,7 @@ def tree_hashes(llmlab_dir, bench_rel="benchmarks"):
     for dirpath, _, files in os.walk(root):
         for f in files:
             p = os.path.join(dirpath, f)
-            if f == "freeze.json" or f.endswith((".pyc, ".split(",")[1:])) or "__pycache__" in p:
+            if f == "freeze.json" or f.endswith(".pyc") or "__pycache__" in p:
                 continue
             out[os.path.relpath(p, root)] = sha256_file(p)
     return out

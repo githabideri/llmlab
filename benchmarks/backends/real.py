@@ -83,7 +83,10 @@ class RealBackend:
 
     # -- production lifecycle ----------------------------------------------------
     def _prod(self, key, *a):
-        return (self.p["prod"].get(key) or "").format(*a)
+        # format ONLY when arguments are given: commands may legally contain
+        # JSON braces ({"model":...}) which str.format would eat
+        cmd = self.p["prod"].get(key) or ""
+        return cmd.format(*a) if a else cmd
 
     def prod_stop(self):
         rc, out, err = self.sh(self._prod("stop"), where="target")
@@ -109,9 +112,26 @@ class RealBackend:
 
     def prod_live_check(self):
         script = self._prod("live_check_cmd")
-        rc, out, err = self.sh(script, where="target", timeout=120)
+        try:
+            rc, out, err = self.sh(script, where="target", timeout=240)
+        except Exception as e:
+            return False, f"live check timed out/failed: {type(e).__name__}"
         ok = rc == 0 and "LIVE_OK" in out
-        return ok, out.strip()[-200:]
+        return ok, (out or err).strip()[-200:]
+
+    # -- path mapping (executor <-> target) -----------------------------------------
+    def _target_run_dir(self):
+        return os.path.join(self._bundle_target(), "runs", os.path.basename(self.run_dir))
+
+    def target_path(self, local_path):
+        if local_path.startswith(self.run_dir):
+            return self._target_run_dir() + local_path[len(self.run_dir):]
+        if self.bundle_dir and local_path.startswith(self.bundle_dir):
+            return self._bundle_target() + local_path[len(self.bundle_dir):]
+        return local_path
+
+    def bundle_path(self):
+        return self._bundle_target()
 
     # -- machine state -------------------------------------------------------------
     def gpu_state(self):
@@ -130,18 +150,22 @@ class RealBackend:
 
     def host_probe(self):
         from .. import host_failure
-        return self._ssh("host", host_failure.PROBE)
+        return self._ssh("target", host_failure.PROBE)
 
     def host_btime(self):
-        rc, out, _ = self._ssh("host", "awk '/btime/{print $2}' /proc/stat")
+        rc, out, _ = self._ssh("target", "awk '/btime/{print $2}' /proc/stat")
         try:
             return int(out.strip())
         except ValueError:
             return None
 
     def disk_free(self, path):
-        rc, out, _ = self.sh(f"df -B1 {shlex.quote(path)} 2>/dev/null | tail -1 | awk '{{print $4}}'",
-                             where="target")
+        # fall back to the nearest existing ancestor (the results dir may not
+        # exist before the first run)
+        script = ("p=" + shlex.quote(path) +
+                  "; while [ ! -d \"$p\" ] && [ \"$p\" != / ]; do p=$(dirname \"$p\"); done;"
+                  " df -B1 \"$p\" 2>/dev/null | tail -1 | awk '{print $4}'")
+        rc, out, _ = self.sh(script, where="target")
         try:
             return int(out.strip())
         except ValueError:
@@ -149,16 +173,23 @@ class RealBackend:
 
     # -- workload lifecycle ---------------------------------------------------------
     def launch(self, script_path, log_path, where="target"):
-        rc, out, err = self.sh(
-            f"cd $(dirname {shlex.quote(script_path)}) && chmod +x {shlex.quote(script_path)} && "
-            f"nohup setsid bash {shlex.quote(script_path)} > {shlex.quote(log_path)} 2>&1 "
-            f"< /dev/null & echo PF_pid=$!", where=where)
+        import os as _os
+        q = shlex.quote
+        pidfile = script_path + ".pid"
+        inner = (f"nohup setsid bash {q(script_path)} > {q(log_path)} 2>&1 < /dev/null & "
+                 f"echo $! > {q(pidfile)}")
+        cmd = (f"cd {q(_os.path.dirname(script_path))} && chmod +x {q(script_path)} && "
+               f"sh -c {q(inner)} && echo PF_pid=$(cat {q(pidfile)})")
+        rc, out, err = self.sh(cmd, where=where)
         pid = None
         for line in out.splitlines():
             if "PF_pid=" in line:
-                pid = int(line.split("PF_pid=")[1].strip())
+                try:
+                    pid = int(line.split("PF_pid=")[1].strip())
+                except ValueError:
+                    pid = None
         if not pid:
-            raise StartupFailure(f"launch returned no pid: {err[:300]}")
+            raise StartupFailure(f"launch returned no pid: rc={rc} {err[:300]}")
         return {"pid": pid, "script": script_path}
 
     def kill(self, handle, where="target"):
@@ -225,19 +256,39 @@ class RealBackend:
             self.sh(f"kill {handle['pid']} 2>/dev/null || true", where="target")
 
     def _bundle_target(self):
-        return self.p.get("deploy", {}).get("target_dir", "/root/campaigns/active")
+        # the bundle tarball extracts as <deploy_dir>/benchmarks/ — the bundle
+        # ROOT is that subdirectory (clients/, telemetry.py live there)
+        return os.path.join(self.p.get("deploy", {}).get("target_dir", "/root/campaigns/active"),
+                            "benchmarks")
 
     # -- window mechanics --------------------------------------------------------------
     def arm_watchdog(self, deadline_epoch, lease_path, heartbeat_path, undo_manifest,
                      prod_desc):
+        # the watchdog runs ON THE TARGET (it must restore what the target hosts)
         wd = self.p["window"]
-        params = {"deadline": deadline_epoch, "lease": lease_path, "heartbeat": heartbeat_path,
-                  "undo_manifest": undo_manifest, "prod_unit": prod_desc.get("unit"),
+        undo_target = wd["dir"] + "/undo.sh"
+        params = {"deadline_epoch": deadline_epoch, "lease": lease_path,
+                  "heartbeat": heartbeat_path, "undo_manifest": undo_target,
+                  "prod_unit": prod_desc.get("unit"),
                   "health_url": prod_desc.get("health_url"),
                   "live_check_cmd": prod_desc.get("live_check_cmd"),
-                  "results_dir": prod_desc.get("results_dir")}
+                  "restore_result": wd.get("restore_result"),
+                  "health_wait_s": int(wd.get("health_wait_s", 1200))}
         b64 = base64.b64encode(json.dumps(params).encode()).decode()
-        rc, out, err = self._ssh("host",
+        # undo manifest (local JSON) -> shell script on the target
+        try:
+            manifest = json.load(open(undo_manifest))
+        except OSError:
+            manifest = {"temp_changes": []}
+        lines = ["#!/bin/sh", "# undo manifest (generated by the campaign window)"]
+        for c in manifest.get("temp_changes") or []:
+            lines.append(str(c.get("cmd", "")))
+        lines.append("true")
+        undo_local = os.path.join(self.run_dir, "undo.sh")
+        with open(undo_local, "w") as f:
+            f.write("\n".join(lines) + "\n")
+        self.put_file(undo_local, undo_target, where="target")
+        rc, out, err = self._ssh("target",
                                  f"mkdir -p {wd['dir']} && echo '{b64}' | base64 -d > "
                                  f"{wd['dir']}/params.json && "
                                  f"setsid nohup bash {wd['script']} {wd['dir']} > "
@@ -250,11 +301,11 @@ class RealBackend:
 
     def disarm_watchdog(self, lease_path):
         wd = self.p["window"]
-        self._ssh("host", f"touch {wd['dir']}/.disarmed; pkill -f {shlex.quote(wd['script'])} 2>/dev/null; "
-                          f"rm -f {lease_path}; true")
+        self._ssh("target", f"touch {wd['dir']}/.disarmed; pkill -f {shlex.quote(wd['script'])} 2>/dev/null; "
+                            f"rm -f {lease_path}; true")
 
     def heartbeat(self, heartbeat_path):
-        self._ssh("host", f"touch {heartbeat_path} 2>/dev/null || true")
+        self._ssh("target", f"touch {heartbeat_path} 2>/dev/null || true")
 
     def apply_temp_changes(self, changes, where="host"):
         self._run_changes(changes, where)

@@ -24,6 +24,12 @@ class Window:
         self.run_dir = run_dir
         self.deadline_h = deadline_h
         self.temp_changes = temp_changes or []
+        # restore patience is PROFILE-DRIVEN: a 35B cold start is minutes, not
+        # seconds — a 60 s wait turns a healthy restore into a false ATTENTION
+        # (and the watchdog is already disarmed, so it can't clean up after).
+        prod = profile.get("prod") or {}
+        self.restore_wait_s = int(prod.get("restore_wait_s", 600))
+        self.restore_poll_s = float(prod.get("restore_poll_s", 10))
         self.lease = profile.get("window", {}).get("lease", "/run/campaign.lock")
         self.heartbeat = profile.get("window", {}).get("heartbeat", "/run/campaign-heartbeat")
         self.entered = False
@@ -42,10 +48,10 @@ class Window:
             "results_dir": self.run_dir,
         }
         # (1) watchdog armed before ANYTHING destructive — always a restore path
-        self.b.arm_watchdog(deadline, self.lease, self.heartbeat,
-                            os.path.join(self.run_dir, "undo-manifest.json"), prod_desc)
-        with open(os.path.join(self.run_dir, "undo-manifest.json"), "w") as f:
+        manifest = os.path.join(self.run_dir, "undo-manifest.json")
+        with open(manifest, "w") as f:
             json.dump({"temp_changes": self.temp_changes}, f, indent=2)
+        self.b.arm_watchdog(deadline, self.lease, self.heartbeat, manifest, prod_desc)
         # (2) temp resource changes (memory bump, ...) — profile-declared, undone on exit
         if self.temp_changes:
             self.b.apply_temp_changes(self.temp_changes)
@@ -77,15 +83,16 @@ class Window:
                 pass
         health = None
         live = False
+        deadline = time.time() + self.restore_wait_s
         try:
             self.b.prod_start()
-            for _ in range(30):            # non-fatal health wait (cold starts take minutes)
+            while time.time() < deadline:            # non-fatal health wait
                 health = self.b.prod_health()
                 if health == 200:
                     live, _ = self.b.prod_live_check()
                     if live:
                         break
-                time.sleep(2)
+                time.sleep(self.restore_poll_s)
         except Exception:
             health, live = None, False
         # disarm + release ALWAYS happen, whatever the restore outcome

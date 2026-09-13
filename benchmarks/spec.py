@@ -76,9 +76,6 @@ def validate(spec, strict=True):
     for field in ("id", "question", "model", "matrix", "verdict_policy"):
         if field not in spec:
             problems.append(f"missing required field: {field}")
-    if not problems:
-        return problems
-
     art = spec.get("model", {}).get("artifact", {})
     if strict:
         if not art.get("sha256") or art["sha256"] in ("", "FILL"):
