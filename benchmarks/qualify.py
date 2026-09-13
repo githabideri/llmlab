@@ -316,6 +316,7 @@ def q7_restore_idempotent(tmp):
     freeze_mod.write(run_dir, fz)
     b = FixtureBackend(_profile(tmp), bundle_dir, run_dir)
     w = Window(b, _profile(tmp), run_dir, deadline_h=1)
+    w.enter()          # the 09-10 state: prod was down when exit ran twice
     r1 = w.exit("first")
     r2 = w.exit("second")
     starts = sum(1 for e in b.events() if e == "prod_start")
@@ -477,6 +478,20 @@ def q16_cmd_with_json_braces(tmp):
     ok = got == prof["prod"]["live_check_cmd"]
     return ok, f"_prod passthrough: {got[:60]!r} (braces must survive unformatted)"
 p1("Q16 profile commands with JSON braces survive _prod (2026-09-13 dogfood)", q16_cmd_with_json_braces)
+
+def q17_arm_time_live_check_refusal(tmp):
+    # the 2026-09-13 dogfood drill: a subtly-broken live_check_cmd made the
+    # watchdog spin silently for 30 min at fire time (false ATTENTION).
+    # The window must verify its sensor at arm time — with prod still healthy
+    # — and refuse to open, disarming the watchdog.
+    r, b, run_dir, fz, spec, prof = _ctx(tmp, "live-check-broken")
+    b.prod_live = False          # the sensor is broken
+    fin = r.run()
+    ok = ("prod_stop" not in b.op_log and
+          "disarm_watchdog" in b.op_log and
+          fin["final"] == "aborted-failure")
+    return ok, f"final={fin['final']} prod_stopped={'prod_stop' in b.op_log} disarmed={'disarm_watchdog' in b.op_log} (refuse with prod still up)"
+p1("Q17 arm-time live-check verification refuses a broken sensor (2026-09-13 dogfood drill)", q17_arm_time_live_check_refusal)
 
 
 def run_all(out=None):

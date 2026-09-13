@@ -166,6 +166,15 @@ class Runner:
         except Exception as e:
             self.events.emit("ABORTED", reason=repr(e))
             final = "aborted-failure"
+            # if prod is still up (window never entered) the watchdog is a stray
+            # timer — disarm it; if prod is down, exit() owns the restore
+            try:
+                if self.window and not self.window.entered:
+                    self.window.b.disarm_watchdog(self.window.lease)
+                elif self.window and self.window.entered:
+                    self.window.exit("aborted: " + repr(e)[:120])
+            except Exception:
+                pass
             self._finish(final, repr(e))
             return self._final()
         final = verdict_mod.campaign_final(self.cells_done)
