@@ -148,9 +148,9 @@ class RealBackend:
                              "mem_total_mib": int(float(parts[3]))})
         return gpus
 
-    def host_probe(self):
+    def host_probe(self, since_epoch=None):
         from .. import host_failure
-        return self._ssh("target", host_failure.PROBE)
+        return self._ssh("target", host_failure.probe_cmd(since_epoch))
 
     def host_btime(self):
         rc, out, _ = self._ssh("target", "awk '/btime/{print $2}' /proc/stat")

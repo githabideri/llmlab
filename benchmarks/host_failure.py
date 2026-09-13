@@ -23,17 +23,33 @@ PATTERNS = {
     "panic": r"Kernel panic|kernel BUG|kernel BUG at|\bOops:|segmentation fault in kernel",
 }
 
-PROBE = (
-    "echo '===KERN==='; "
-    "journalctl -k --no-pager 2>/dev/null | tail -4000; "
-    "dmesg 2>/dev/null | tail -4000; "
-    "echo '===VMCORE==='; "
-    "ls -1 /var/crash 2>/dev/null; "
-    "echo '===BTIME==='; "
-    "awk '/btime/{print $2}' /proc/stat; "
-    "echo '===UP==='; "
-    "uptime -s 2>/dev/null"
-)
+def probe_cmd(since_epoch=None):
+    """The kernel-log probe. WITH a since epoch (the normal case: the window
+    has a t0) the scan is scoped to the window — journalctl -k is the
+    persistent, timestamped kernel stream, and only NEW lines can indict the
+    host. The 2026-09-13 VM dogfood: an unscoped scan matched an
+    8-week-old 'pcieport: AER: enabled' boot line and killed a healthy window
+    (the raw dmesg tail in the old probe was the real culprit — no timestamps,
+    full ring buffer). Without a since epoch (pre-t0 tooling, fixtures) the
+    historical form is kept."""
+    if since_epoch:
+        kern = f"journalctl -k --no-pager --since @{int(since_epoch)} 2>/dev/null | tail -4000"
+    else:
+        kern = ("journalctl -k --no-pager 2>/dev/null | tail -4000; "
+                "dmesg 2>/dev/null | tail -4000")
+    return (
+        "echo '===KERN==='; " + kern + "; "
+        "echo '===VMCORE==='; "
+        "ls -1 /var/crash 2>/dev/null; "
+        "echo '===BTIME==='; "
+        "awk '/btime/{print $2}' /proc/stat; "
+        "echo '===UP==='; "
+        "uptime -s 2>/dev/null"
+    )
+
+
+# historical form (no window scoping) — kept for callers without a t0
+PROBE = probe_cmd()
 
 
 def _search(pattern, body):
@@ -51,8 +67,12 @@ class HostFailureDetector:
         self.t0_btime = t0_btime
 
     def record_t0(self):
-        """Capture the boot time once at window start (a mid-campaign change means
-        the host rebooted — the 09-10 crash era)."""
+        """Capture the boot time AND the epoch once at window start. The btime
+        is the reboot detector (a mid-campaign change means the host rebooted —
+        the 09-10 crash era); the epoch scopes the kernel-log scan to the
+        window (only NEW lines can indict the host)."""
+        import time
+        self.t0_epoch = time.time()
         try:
             self.t0_btime = self.backend.host_btime()
         except Exception:
@@ -63,7 +83,8 @@ class HostFailureDetector:
         """Read-only probe. Returns {detected, reasons[], evidence{}}. Never mutates."""
         res = {"detected": False, "reasons": [], "evidence": {}}
         try:
-            rc, out, err = self.backend.host_probe()
+            rc, out, err = self.backend.host_probe(
+                since_epoch=getattr(self, "t0_epoch", None))
         except Exception as e:
             res["detected"] = True
             res["reasons"].append("host-unreachable")
@@ -83,7 +104,9 @@ class HostFailureDetector:
         return res
 
     def forensic_collect(self, cell_dir):
-        """Gather the evidence a human needs. Best-effort; never takes the campaign down."""
+        """Gather the evidence a human needs. Best-effort; never takes the campaign down.
+        Forensics deliberately use the UNSCOPED probe — the human reviewing a
+        host failure also wants the history, not just the window."""
         import os
         os.makedirs(cell_dir, exist_ok=True)
         try:

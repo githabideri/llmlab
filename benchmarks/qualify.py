@@ -501,6 +501,22 @@ def q17_arm_time_live_check_refusal(tmp):
     return ok, f"final={fin['final']} prod_stopped={'prod_stop' in b.op_log} disarmed={'disarm_watchdog' in b.op_log} (refuse with prod still up)"
 p1("Q17 arm-time live-check verification refuses a broken sensor (2026-09-13 dogfood drill)", q17_arm_time_live_check_refusal)
 
+def q18_kernel_scan_scoped_to_window(tmp):
+    # the 2026-09-13 VM dogfood: an UNSCOPED kernel scan matched an
+    # 8-week-old 'pcieport: AER: enabled' boot line and killed a healthy
+    # window (the raw dmesg tail: no timestamps, full ring buffer). With a
+    # t0 the probe must be journalctl-scoped to the window; the historical
+    # form is only for pre-t0 callers. (The semantic proof — old AER lines
+    # not firing live — is the VM window itself.)
+    from benchmarks import host_failure
+    scoped = host_failure.probe_cmd(since_epoch=1700000000)
+    hist = host_failure.probe_cmd()
+    ok = ("--since @1700000000" in scoped and "dmesg" not in scoped
+          and "dmesg" in hist and host_failure.PROBE == hist)
+    return ok, ("scoped since=%s dmesg-in-scoped=%s hist-dmesg=%s"
+                % ("--since" in scoped, "dmesg" in scoped, "dmesg" in hist))
+p0("Q18 kernel-log scan is window-scoped when a t0 exists (2026-09-13 VM dogfood)", q18_kernel_scan_scoped_to_window)
+
 
 def run_all(out=None):
     results = {"P0": [], "P1": []}
