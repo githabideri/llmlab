@@ -59,16 +59,16 @@ def cmd_prepare(args):
     # profile's own temp_changes against it). Free text does not get to
     # touch the host: every temp-change cmd/undo must be an exact rendering
     # of the verified (pve version, guest type) table.
-    pve = profile.get("pve") or {}
-    if pve.get("dialect"):
+    pve = profile.get("host") or {}
+    if pve.get("pve_dialect"):
         from benchmarks import dialects as dialects_mod
-        guest = pve.get("guest", "lxc")
+        guest = pve.get("pve_guest", "lxc")
         for c in profile.get("temp_changes") or []:
             for key in ("cmd", "undo"):
                 raw = c.get(key)
-                if raw and not dialects_mod.validate(pve["dialect"], raw, guest):
+                if raw and not dialects_mod.validate(pve["pve_dialect"], raw, guest):
                     print(f"TEMP-CHANGE NOT IN DIALECT TABLE "
-                          f"({pve['dialect']}/{guest}): {raw}")
+                          f"({pve['pve_dialect']}/{guest}): {raw}")
                     ok = False
     if not ok:
         return 1
