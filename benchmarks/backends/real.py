@@ -308,18 +308,25 @@ class RealBackend:
         self._ssh("target", f"touch {heartbeat_path} 2>/dev/null || true")
 
     def apply_temp_changes(self, changes, where="host"):
-        self._run_changes(changes, where)
+        self._run_changes(changes, where, use_key="cmd")
 
     def undo_temp_changes(self, changes, where="host"):
-        self._run_changes(list(reversed(changes)), where)
+        # UNDO runs each entry's "undo" command (not "cmd" again — the
+        # 2026-09-13 VM dogfood caught the old form re-applying the change
+        # at exit: the host was left memory:9216 after every window).
+        self._run_changes(list(reversed(changes)), where, use_key="undo")
 
-    def _run_changes(self, changes, where):
+    def _run_changes(self, changes, where, use_key="cmd"):
         for c in changes:
-            rc, out, err = self._ssh(where, c["cmd"])
+            cmd = c.get(use_key)
+            if not cmd:
+                cmd = c.get("cmd")     # an entry without an undo is a no-op undo
+                if not cmd:
+                    continue
+            rc, out, err = self._ssh(where, cmd)
             if rc != 0 and not c.get("ignore_rc"):
-                # a failed temp change is not fatal before the first cell (pre-apply),
-                # but must be reported; the undo list still records the intended state
-                self._events.append(f"temp-change rc={rc}: {c['cmd'][:100]} {err[:100]}")
+                self._events.append(
+                    f"temp-change[{use_key}] rc={rc}: {cmd[:100]} {err[:100]}")
 
     def notify(self, level, message, campaign_id):
         from .. import notify

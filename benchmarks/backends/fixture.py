@@ -389,7 +389,10 @@ class FixtureBackend:
         self.temp_changes.extend(changes)
 
     def undo_temp_changes(self, changes, where="host"):
-        self.op_log.append(f"undo_temp_changes: {[c.get('cmd') for c in changes]}")
+        # log the UNDO commands (the regression target: the old real backend
+        # re-ran "cmd" here and re-applied the change)
+        self.op_log.append(
+            f"undo_temp_changes: {[c.get('undo') or c.get('cmd') for c in reversed(changes)]}")
         self.temp_changes = []
 
     def notify(self, level, message, campaign_id):

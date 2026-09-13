@@ -517,6 +517,21 @@ def q18_kernel_scan_scoped_to_window(tmp):
                 % ("--since" in scoped, "dmesg" in scoped, "dmesg" in hist))
 p0("Q18 kernel-log scan is window-scoped when a t0 exists (2026-09-13 VM dogfood)", q18_kernel_scan_scoped_to_window)
 
+def q19_temp_change_undone_not_reapplied(tmp):
+    # the 2026-09-13 VM dogfood: exit "undid" a temp change by re-running its
+    # CMD — the host was left modified after every window. The undo must run
+    # the entry's UNDO command, in reverse order.
+    r, b, run_dir, fz, spec, prof = _ctx(tmp, "ok")
+    prof["temp_changes"] = [{"cmd": "bump-to-9216", "undo": "restore-to-8192"}]
+    fin = r.run()
+    undo_events = [e for e in b.op_log if e.startswith("undo_temp_changes")]
+    applied = [e for e in b.op_log if e.startswith("apply_temp_changes")]
+    ok = (fin["final"] == "completed"
+          and (fin.get("restore") or {}).get("restored") is True) and undo_events and \
+         "restore-to-8192" in undo_events[0] and "bump-to-9216" not in undo_events[0]
+    return ok, f"applied={applied[:1]} undo={undo_events[:1]} final={fin['final']}"
+p1("Q19 temp changes are undone (not re-applied) at exit (2026-09-13 VM dogfood)", q19_temp_change_undone_not_reapplied)
+
 
 def run_all(out=None):
     results = {"P0": [], "P1": []}
