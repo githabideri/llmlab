@@ -1,21 +1,49 @@
 {
-  // Verified Proxmox command syntax per major version. THIS IS THE SURFACE THE
-  // 2026-09-12 maint-fn bug hit: hand-rolled `pct set <id> memory:NNN` and
-  // `pct restart` are not real commands. The qualification matrix replays every
-  // template here against a stub, so a syntax regression fails before the window.
-  // {id}, {mi}, {args} are substituted at use time.
+  // Verified Proxmox command syntax per (major version, guest type).
+  //
+  // History:
+  //  2026-09-12 — hand-rolled `pct set <id> memory:NNN` / `pct restart` are not
+  //               real commands; the window lost its memory bump. The LXC (pct)
+  //               rows below are the fix for that.
+  //  2026-09-13 — dogfood #2 (a VM target) found the table keyed on version
+  //               only: LXC and VM use different verbs (pct vs qm), and the
+  //               live path never gated a profile's temp_changes against the
+  //               table (Q9 replayed it, prepare didn't enforce it). Both fixed:
+  //               guest dimension here, enforcement in campaign.py prepare.
+  //
+  // {id}, {mi} are substituted at use time. A template that is not in the
+  // table renders None; a raw command that is not a table rendering fails
+  // prepare. Nothing here is free text.
   "pve8": {
-    "memory_set": "pct set {id} --memory {mi}",
-    "reboot": "pct reboot {id}",
-    "start": "pct start {id}",
-    "stop": "pct stop {id}",
-    "status": "pct status {id}"
+    "lxc": {
+      "memory_set": "pct set {id} --memory {mi}",
+      "reboot": "pct reboot {id}",
+      "start": "pct start {id}",
+      "stop": "pct stop {id}",
+      "status": "pct status {id}"
+    },
+    "vm": {
+      "memory_set": "qm set {id} --memory {mi}",
+      "reboot": "qm reboot {id}",
+      "start": "qm start {id}",
+      "stop": "qm stop {id}",
+      "status": "qm status {id}"
+    }
   },
   "pve9": {
-    "memory_set": "pct set {id} --memory {mi}",
-    "reboot": "pct reboot {id}",
-    "start": "pct start {id}",
-    "stop": "pct stop {id}",
-    "status": "pct status {id}"
+    "lxc": {
+      "memory_set": "pct set {id} --memory {mi}",
+      "reboot": "pct reboot {id}",
+      "start": "pct start {id}",
+      "stop": "pct stop {id}",
+      "status": "pct status {id}"
+    },
+    "vm": {
+      "memory_set": "qm set {id} --memory {mi}",
+      "reboot": "qm reboot {id}",
+      "start": "qm start {id}",
+      "stop": "qm stop {id}",
+      "status": "qm status {id}"
+    }
   }
 }

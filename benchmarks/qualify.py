@@ -355,12 +355,20 @@ def q8_host_reboot(tmp):
 
 def q9_pve_dialect(tmp):
     from benchmarks import dialects
-    good = dialects.render("pve9", "memory_set", id=382, mi=61440)
+    good = dialects.render("pve9", "memory_set", "lxc", id=382, mi=61440)
     ok = (good == "pct set 382 --memory 61440")
     # the 09-12 hand-rolled forms must be unrenderable (not in the table)
-    bad1 = dialects.render("pve9", "memory_kv", id=382, mi=61440)   # 'memory:NNN' style
-    bad2 = dialects.render("pve9", "restart")                       # 'pct restart'
+    bad1 = dialects.render("pve9", "memory_kv", "lxc", id=382, mi=61440)   # 'memory:NNN' style
+    bad2 = dialects.render("pve9", "restart", "lxc")                      # 'pct restart'
     ok = ok and bad1 is None and bad2 is None
+    # dogfood #2 (2026-09-13): the guest axis. VMs use qm, and a pct command
+    # must NOT validate for a vm profile (and vice versa).
+    vm_good = dialects.render("pve9", "memory_set", "vm", id=135, mi=9216)
+    ok = (ok and vm_good == "qm set 135 --memory 9216"
+          and dialects.validate("pve9", vm_good, "vm")
+          and not dialects.validate("pve9", vm_good, "lxc")
+          and not dialects.validate("pve9", "pct set 135 --memory 9216", "vm")
+          and not dialects.validate("pve9", "qm set 135 memory:9216", "vm"))
     # and the rendered form must flow through apply_temp_changes
     from benchmarks.backends.fixture import FixtureBackend
     from benchmarks import freeze as freeze_mod
