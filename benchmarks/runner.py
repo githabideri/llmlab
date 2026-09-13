@@ -161,12 +161,20 @@ class Runner:
                 # why it never ran from this event + the two client.jsons.
                 eg = cell.get("effect_gate") or {}
                 if eg:
-                    ok, detail = self._effect_gate(eg)
-                    if not ok:
-                        self.events.emit("EFFECT_GATE", cell=cell["cell"], detail=detail)
+                    status, detail, used = self._effect_gate(eg)
+                    if status != "PASS":
+                        self.events.emit("EFFECT_GATE", cell=cell["cell"],
+                                         status=status, detail=detail,
+                                         attempts=used)
                         self.cells_done[cell["cell"]] = "NOT_RUN"
-                        self._finish("expected-negative",
-                                     f"effect gate on {cell['cell']}: {detail}")
+                        # BELOW_FLOOR is a RESULT (the declared effect is
+                        # absent) -> expected-negative. UNVERIFIABLE is the
+                        # ABSENCE of a result (we could not measure) ->
+                        # review-required. "cache bought only +2%" != "we
+                        # could not measure the cache gain".
+                        final = ("expected-negative" if status == "BELOW_FLOOR"
+                                 else "review-required")
+                        self._finish(final, f"effect gate on {cell['cell']}: {detail}")
                         return self._final()
                 verdict = self._run_cell(cell, idx)
                 self.cells_done[cell["cell"]] = verdict
@@ -375,38 +383,74 @@ class Runner:
     def _effect_gate(self, eg):
         """Evaluate a declared cross-cell comparison from persisted evidence.
         eg: {base: <cell>, treat: <cell>, metric: <client json key>,
-            min_relative_gain_pct: <float>} — the treat cell's metric (median
-        across reps, per the llmlab median-of-N discipline) must exceed the
-        base cell's by at least the declared floor. Returns (ok, detail).
-        A missing/unreadable comparison is NOT ok: a dependent cell must not
-        run on an unverified premise."""
+            min_relative_gain_pct: <float>}.
+
+        Returns (status, detail, used) with status in:
+          PASS         treat >= base*(1+floor) — the dependent cell runs
+          BELOW_FLOOR  measured gain below the declared floor — a scientific /
+                       engineering RESULT (expected-negative; the campaign
+                       answers its own question)
+          UNVERIFIABLE the premise could not be measured (no PASS evidence,
+                       missing/malformed metric, base == 0) — NOT a result:
+                       the campaign goes to review-required
+
+        Estimator discipline (2026-09-13 external review): only attempts
+        whose verdict.json says class == PASS feed the estimator. A failed /
+        invalid attempt (a 1 t/s HARNESS_FAILURE) is preserved as evidence
+        but must not drag a median. The detail records which attempt IDs
+        were used, so a reviewer can recompute the comparison verbatim.
+        """
+        import glob
         import json as _json
         import statistics
         def cell_metric(name, metric):
-            import glob
             files = sorted(glob.glob(
                 os.path.join(self.run_dir, "attempts", f"{name}-*", "client.json")))
-            vals = []
+            vals, used = [], []
             for f in files:
+                a_dir = os.path.dirname(f)
+                a_id = os.path.basename(a_dir)
+                # verdict gate: only PASS attempts are scientific evidence
+                try:
+                    vd = _json.load(open(os.path.join(a_dir, "verdict.json")))
+                except (OSError, ValueError):
+                    continue
+                if vd.get("class") != "PASS":
+                    continue
                 try:
                     c = _json.load(open(f))
                 except (OSError, ValueError):
-                    continue
+                    continue  # malformed evidence is not evidence
                 rows = c.get("rows") or []
-                mv = [r[metric] for r in rows if metric in r]
-                if mv:
+                mv = [r[metric] for r in rows if isinstance(r, dict)
+                      and r.get(metric) is not None]
+                if mv:  # median of the reps, then median across attempts
                     vals.append(statistics.median(mv))
-            return statistics.median(vals) if vals else None
-        base_v = cell_metric(eg["base"], eg["metric"])
-        treat_v = cell_metric(eg["treat"], eg["metric"])
-        if base_v in (None, 0) or treat_v is None:
-            return False, (f"premise unverifiable: base={base_v} treat={treat_v} "
-                           f"(need both {eg['metric']} from persisted client data)")
+                    used.append(a_id)
+            if not vals:
+                return None, []
+            return statistics.median(vals), used
+        base_v, base_used = cell_metric(eg["base"], eg["metric"])
+        treat_v, treat_used = cell_metric(eg["treat"], eg["metric"])
+        detail = (f"{eg['metric']}: base={base_v if base_v is not None else 'unverifiable'}"
+                  f" ({len(base_used)} PASS attempt(s): {base_used}) "
+                  f"treat={treat_v if treat_v is not None else 'unverifiable'}"
+                  f" ({len(treat_used)} PASS attempt(s): {treat_used})")
+        if base_v is None or treat_v is None or base_v == 0:
+            return ("UNVERIFIABLE", detail +
+                    " — no valid comparison exists; the dependent cell was NOT_RUN "
+                    "and the campaign is review-required",
+                    {eg["base"]: base_used, eg["treat"]: treat_used})
         gain_pct = 100.0 * (treat_v - base_v) / base_v
         floor = float(eg["min_relative_gain_pct"])
-        ok = gain_pct >= floor
-        return ok, (f"{eg['metric']}: base={base_v:.4g} treat={treat_v:.4g} "
-                    f"gain={gain_pct:+.1f}% (floor {floor:g}%)")
+        detail = f"{eg['metric']}: base={base_v:.4g} treat={treat_v:.4g} " \
+                 f"gain={gain_pct:+.1f}% (floor {floor:g}%) | " + detail
+        used = {eg["base"]: base_used, eg["treat"]: treat_used}
+        if gain_pct >= floor:
+            return "PASS", detail, used
+        return ("BELOW_FLOOR", detail +
+                " — the declared effect is not there; the dependent cell was NOT_RUN "
+                "(expected-negative)", used)
 
     # -------------------------------------------------------------- finish
     def _finish(self, final, reason):
