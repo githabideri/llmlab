@@ -63,7 +63,7 @@ class Backend:
         """-> list of {bdf, model, mem_used_mib, mem_total_mib}."""
         raise NotImplementedError
 
-    def host_probe(self):
+    def host_probe(self, since_epoch=None):
         """Read-only host probe for the host-failure detector. -> (rc, text, err)."""
         raise NotImplementedError
 

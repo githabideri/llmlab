@@ -257,7 +257,7 @@ class FixtureBackend:
         return [{"bdf": "00:01.0", "model": "RTX 3060 12GB",
                  "mem_used_mib": 1024, "mem_total_mib": 12288}]
 
-    def host_probe(self):
+    def host_probe(self, since_epoch=None):
         kern = ""
         if self.rebooted:
             self.btime += 3600
