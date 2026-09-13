@@ -110,13 +110,21 @@ def decide(cell_cfg, classifier_result, gates, client_result, attempt_wall_s):
 
 
 def campaign_final(cell_verdicts, host_failure=None):
-    """Fold per-cell verdicts into a campaign-level final."""
+    """Fold per-cell verdicts into a campaign-level final.
+
+    Conservative order (2026-09-13 external review): a campaign in which
+    some cell FAILED as a harness/measurement problem must never collapse
+    to an INFO-level 'expected-negative' just because another cell
+    produced a documented negative. 'We got a result' and 'one of our
+    instruments broke' are different outcomes; the latter needs review.
+    """
     if host_failure:
         return "stopped-host-failure"
     vs = list(cell_verdicts.values())
     if any(v == SAFETY_ABORT for v in vs):
         return "safety-abort"
-    if any(v in (RETRYABLE_FAILURE, RETRYABLE_INFRA, UNKNOWN) for v in vs):
+    if any(v in (RETRYABLE_FAILURE, RETRYABLE_INFRA, UNKNOWN,
+                 HARNESS_FAILURE, INVALID) for v in vs):
         return "review-required"
     if all(v in (PASS, EXPECTED_NEGATIVE) for v in vs) and vs:
         if all(v == EXPECTED_NEGATIVE for v in vs):

@@ -550,32 +550,97 @@ def q20_temp_change_reQUIRES_undo(tmp):
           and dialects.check_temp_changes({"temp_changes": []}) == [])
     return ok, "cmd+undo accepted; cmd-without-undo rejected; empty list clean"
 
-def q21_effect_gate_depends_on_evidence(tmp):
-    # 2026-09-13 flashnext review (3c): the ONE small declarative dependency.
-    # A dependent cell (MTP) must not run unless a declared comparison of
-    # PERSISTED evidence from earlier cells clears a declared floor; below
-    # the floor (or unverifiable) the campaign stops expected-negative and
-    # the dependent cell is NOT_RUN.
+def _write_attempt(base, cell, rep, verdict_class, client_rows, malformed=False):
+    d = os.path.join(base, "attempts", f"{cell}-{rep:02d}")
+    os.makedirs(d, exist_ok=True)
+    if malformed:
+        open(os.path.join(d, "client.json"), "w").write("{ not json")
+    else:
+        json.dump({"rows": client_rows}, open(os.path.join(d, "client.json"), "w"))
+    json.dump({"class": verdict_class, "reason": "q-fixture"},
+              open(os.path.join(d, "verdict.json"), "w"))
+    return d
+
+def q21_effect_gate_three_outcomes(tmp):
+    # external review (B): PASS / BELOW_FLOOR / UNVERIFIABLE are DIFFERENT
+    # verdicts. "cache bought only +2%" (a result) != "we could not measure
+    # the cache gain" (absence of a result) — the runner maps them to
+    # expected-negative vs review-required respectively.
     from benchmarks import runner as runner_mod
     from benchmarks.backends.fixture import FixtureBackend
-    import json as _json, os as _os, statistics
     spec = _spec([_cell("dep")])
     r = runner_mod.Runner(spec, _profile(tmp), {}, tmp, FixtureBackend(_profile(tmp), ".", tmp), ".")
-    # (1) the arithmetic, on real persisted files
-    ad = _os.path.join(tmp, "attempts", "base-01"); _os.makedirs(ad, exist_ok=True)
-    td = _os.path.join(tmp, "attempts", "treat-01"); _os.makedirs(td, exist_ok=True)
-    _json.dump({"rows": [{"decode_tps": 100.0}, {"decode_tps": 102.0}]}, open(ad + "/client.json", "w"))
-    _json.dump({"rows": [{"decode_tps": 150.0}, {"decode_tps": 148.0}]}, open(td + "/client.json", "w"))
+    _write_attempt(tmp, "base", 1, "PASS", [{"decode_tps": 100.0}, {"decode_tps": 102.0}])
+    _write_attempt(tmp, "treat", 1, "PASS", [{"decode_tps": 150.0}, {"decode_tps": 148.0}])
     eg = {"base": "base", "treat": "treat", "metric": "decode_tps", "min_relative_gain_pct": 30}
-    ok_above, d1 = r._effect_gate(eg)
-    eg2 = dict(eg, min_relative_gain_pct=60)
-    ok_below, d2 = r._effect_gate(eg2)
-    ok_missing, d3 = r._effect_gate({"base": "ghost", "treat": "treat",
-                                     "metric": "decode_tps", "min_relative_gain_pct": 1})
-    ok = ok_above and not ok_below and not ok_missing
-    return ok, f"above={ok_above} ({d1}) below={ok_below} ({d2}) missing={ok_missing} ({d3})"
+    s_above, d1, u1 = r._effect_gate(eg)
+    s_below, d2, _ = r._effect_gate(dict(eg, min_relative_gain_pct=60))
+    s_unver, d3, u3 = r._effect_gate({"base": "ghost", "treat": "treat",
+                                      "metric": "decode_tps", "min_relative_gain_pct": 1})
+    # metric missing from a PASS attempt, and malformed client evidence
+    _write_attempt(tmp, "m1", 1, "PASS", [{"other": 1}])
+    _write_attempt(tmp, "treat", 2, "PASS", [])
+    s_miss, d4, _ = r._effect_gate({"base": "m1", "treat": "treat",
+                                    "metric": "decode_tps", "min_relative_gain_pct": 1})
+    _write_attempt(tmp, "bad", 1, "PASS", None, malformed=True)
+    s_mal, d5, _ = r._effect_gate({"base": "bad", "treat": "treat",
+                                   "metric": "decode_tps", "min_relative_gain_pct": 1})
+    ok = (s_above == "PASS" and s_below == "BELOW_FLOOR" and s_unver == "UNVERIFIABLE"
+          and s_miss == "UNVERIFIABLE" and s_mal == "UNVERIFIABLE"
+          and u1.get("base") == ["base-01"] and u1.get("treat") == ["treat-01"])
+    return ok, (f"above={s_above} below={s_below} no-evidence={s_unver} "
+                f"metric-missing={s_miss} malformed={s_mal}")
+def q22_effect_gate_pass_only_estimator(tmp):
+    # external review (A), verbatim case: an INVALID 1 t/s attempt must not
+    # pollute the median. base-01 INVALID (1 t/s), base-02 PASS (20 t/s),
+    # treat-01 PASS (22 t/s), 5% floor -> the comparison is 20 vs 22 ->
+    # gate PASSES; the invalid attempt stays persisted but excluded.
+    from benchmarks import runner as runner_mod
+    from benchmarks.backends.fixture import FixtureBackend
+    spec = _spec([_cell("dep")])
+    r = runner_mod.Runner(spec, _profile(tmp), {}, tmp, FixtureBackend(_profile(tmp), ".", tmp), ".")
+    _write_attempt(tmp, "base", 1, "INVALID", [{"decode_tps": 1.0}])
+    _write_attempt(tmp, "base", 2, "PASS", [{"decode_tps": 20.0}])
+    _write_attempt(tmp, "treat", 1, "PASS", [{"decode_tps": 22.0}])
+    status, detail, used = r._effect_gate(
+        {"base": "base", "treat": "treat", "metric": "decode_tps",
+         "min_relative_gain_pct": 5})
+    # sanity: the naive all-attempts estimator would see median(base)=1.0
+    # vs 22 -> +2100%? no — with the 1 t/s included the base median is 1.0
+    # only if it sorts first; the point is the invalid attempt must not be
+    # among the attempts used AT ALL.
+    ok = (status == "PASS"
+          and used == {"base": ["base-02"], "treat": ["treat-01"]}
+          and "base-02" in detail and "base-01" not in detail
+          and "20" in detail and "22" in detail)
+    # the INVALID attempt is still on disk (evidence preserved)
+    preserved = os.path.exists(os.path.join(tmp, "attempts", "base-01", "client.json"))
+    ok = ok and preserved
+    return ok, f"status={status} used={used} preserved={preserved}"
+
+def q23_campaign_final_mixed_sets(tmp):
+    # external review (C): HARNESS_FAILURE and INVALID must not collapse to
+    # an INFO-level expected-negative just because another cell produced a
+    # documented negative.
+    from benchmarks import verdict as v
+    ok = (v.campaign_final({"a": v.EXPECTED_NEGATIVE, "b": v.HARNESS_FAILURE})
+          == "review-required"
+          and v.campaign_final({"a": v.EXPECTED_NEGATIVE, "b": v.INVALID})
+          == "review-required"
+          and v.campaign_final({"a": v.EXPECTED_NEGATIVE, "b": v.UNKNOWN})
+          == "review-required"
+          and v.campaign_final({"a": v.PASS, "b": v.EXPECTED_NEGATIVE})
+          == "completed"
+          and v.campaign_final({"a": v.EXPECTED_NEGATIVE, "b": v.EXPECTED_NEGATIVE})
+          == "expected-negative"
+          and v.campaign_final({"a": v.SAFETY_ABORT, "b": v.HARNESS_FAILURE})
+          == "safety-abort")
+    return ok, "mixed sets resolve conservatively; pure-negative and completed unchanged"
+
 p0("Q20 every temp_change requires an explicit undo; prepare rejects the rest (external-review blocker)", q20_temp_change_reQUIRES_undo)
-p1("Q21 effect gate: dependent cell runs only on a declared floor over persisted evidence (flashnext review 3c)", q21_effect_gate_depends_on_evidence)
+p0("Q21 effect gate: PASS / BELOW_FLOOR / UNVERIFIABLE are distinct outcomes (external review B)", q21_effect_gate_three_outcomes)
+p0("Q22 effect gate: the estimator uses ONLY PASS attempts (external review A)", q22_effect_gate_pass_only_estimator)
+p0("Q23 campaign final: a bad cell can never be masked by another cell's negative (external review C)", q23_campaign_final_mixed_sets)
 
 
 def run_all(out=None):
