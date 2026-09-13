@@ -174,7 +174,9 @@ class FixtureBackend:
         self.run_dir = run_dir
         self.fault = fault
         self.client = client
-        self.prod_live = prod_live
+        # a broken live-check sensor (qualify Q17): the arm-time verification
+        # must refuse the window while prod is still healthy
+        self.prod_live = prod_live and fault != "live-check-broken"
         self.btime = btime if btime is not None else int(time.time()) - 86400
         self.root = tempfile.mkdtemp(prefix="fixture-target-")
         self.op_log = []

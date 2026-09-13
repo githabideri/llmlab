@@ -34,6 +34,7 @@ class Window:
         self.heartbeat = profile.get("window", {}).get("heartbeat", "/run/campaign-heartbeat")
         self.entered = False
         self.closed = False
+        self.prod_down = False   # exit() only restores what was actually stopped
         self._hb_thread = heartbeat_thread
 
     # -- enter: watchdog FIRST ------------------------------------------------
@@ -52,13 +53,30 @@ class Window:
         with open(manifest, "w") as f:
             json.dump({"temp_changes": self.temp_changes}, f, indent=2)
         self.b.arm_watchdog(deadline, self.lease, self.heartbeat, manifest, prod_desc)
+        # (1b) verify the watchdog's sensor BEFORE trusting the watchdog: a live
+        # check that fails while prod is known-healthy means the watchdog will
+        # spin silently at fire time (2026-09-13 dogfood drill: quoting broke the
+        # grep pattern -> 30 min of silent retries, false ATTENTION). Refusing
+        # here, with prod still up, is the cheap state.
+        if prod_desc["live_check_cmd"]:
+            ok, detail = self.b.prod_live_check()
+            if not ok:
+                self.b.disarm_watchdog(self.lease)
+                raise RuntimeError(
+                    f"arm-time live check failed ({detail}) — prod is not serving; "
+                    "refusing to open the window")
         # (2) temp resource changes (memory bump, ...) — profile-declared, undone on exit
         if self.temp_changes:
             self.b.apply_temp_changes(self.temp_changes)
-        # (3) stop production; on ANY post-stop failure, restore immediately
+        # (3) stop production; on ANY post-stop failure, restore immediately.
+        # prod_down is set in BOTH branches: a stop that raised may still have
+        # stopped (ssh timeout after the stop landed), and exit() must not
+        # assume otherwise.
         try:
             self.b.prod_stop()
+            self.prod_down = True
         except Exception:
+            self.prod_down = True
             self._restore_only()
             raise
         self.entered = True
@@ -81,6 +99,23 @@ class Window:
                 self.b.undo_temp_changes(self.temp_changes)
             except Exception:
                 pass
+        if not self.prod_down:
+            # prod was never stopped (arm-time refusal, ...): there is nothing
+            # to restore — a restore loop here would spin on whatever the
+            # live check reports (2026-09-13: 600 s of waiting for a broken
+            # sensor after an arm refusal). Disarm and record N/A.
+            try:
+                self.b.disarm_watchdog(self.lease)
+            except Exception:
+                pass
+            result = {"reason": reason, "restored": None, "health": None,
+                      "live": None, "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+            self._last_result = result
+            out = os.path.join(self.run_dir, "RESTORE-RESULT.md")
+            with open(out, "w") as f:
+                f.write(f"VERDICT: N/A — prod was never stopped (reason: {reason})\n")
+                f.write(f"utc: {result['utc']}\n")
+            return result
         health = None
         live = False
         deadline = time.time() + self.restore_wait_s
