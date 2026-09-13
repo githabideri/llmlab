@@ -54,6 +54,24 @@ def cmd_prepare(args):
         for p in problems:
             print("  -", p)
         return 1
+    # dialect gate (the 2026-09-12 contract, enforced on the live path —
+    # Q9 replays the table, but until 2026-09-13 prepare never checked the
+    # profile's own temp_changes against it). Free text does not get to
+    # touch the host: every temp-change cmd/undo must be an exact rendering
+    # of the verified (pve version, guest type) table.
+    pve = profile.get("pve") or {}
+    if pve.get("dialect"):
+        from benchmarks import dialects as dialects_mod
+        guest = pve.get("guest", "lxc")
+        for c in profile.get("temp_changes") or []:
+            for key in ("cmd", "undo"):
+                raw = c.get(key)
+                if raw and not dialects_mod.validate(pve["dialect"], raw, guest):
+                    print(f"TEMP-CHANGE NOT IN DIALECT TABLE "
+                          f"({pve['dialect']}/{guest}): {raw}")
+                    ok = False
+    if not ok:
+        return 1
     # fill the artifact sha if provided (it is part of the scientific projection)
     if model_sha:
         spec_obj["model"]["artifact"]["sha256"] = model_sha
