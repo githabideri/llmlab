@@ -1,0 +1,66 @@
+// dogfood-3060.jsonc — the dogfood campaign (platform design, decision 2026-09-13).
+// Target: a 12 GB RTX 3060 LXC that keeps a 35 B inference router in production
+// on a low-load host; the owner unloads the router for the window and restores
+// it as the window's restore proof. This is a WINDOW DRILL, not science: one
+// small model, one cell, three reps — proving the platform end-to-end
+// (arm → stop → run → restore → verify → disarm → ingest → notification).
+{
+  "id": "dogfood-3060",
+  "question": "does the campaign platform operate this host correctly (no science claimed)",
+  "owner": "mf",
+  "model": {
+    "name": "dogfood-1b",                      // a small 1-2B gguf; owner picks at window time
+    "quant": "Q4_K_M",
+    "artifact": {
+      "source": "prebuilt",
+      "sha256": "UNSET"                        // filled by prepare --model-sha
+    }
+  },
+  "workload": {
+    "client": "llama.cpp",
+    "notes": "1 nonced prompt (32 tokens), 64 decode tokens, 3 reps, seed fixed. " +
+             "Determinism across reps is the payload: three identical sha256s."
+  },
+  "client": {
+    "script": "clients/bench-llama.py",
+    "args": ["python3", "{bundle}/clients/bench-llama.py",
+             "--url", "http://127.0.0.1:{port}",
+             "--prompt-file", "{cell}/prompt.txt",
+             "--decode", "64", "--reps", "3", "--seed", "1",
+             "--json-out", "{cell}/client.json"]
+  },
+  "matrix": [
+    {
+      "cell": "smoke",
+      "launch": {
+        "binary": "/opt/<build>/bin/llama-server",     // profile-resolved at prepare
+        "args": ["-m", "{model}", "-ngl", "99", "-c", "2048",
+                 "--port", "{port}", "--host", "127.0.0.1"]
+      },
+      "requests": [{"kind": "completion", "prompt_tokens": 32, "decode": 64, "reps": 3}],
+      "gates": {
+        "min_wall_s": 0.3,       // 64 tokens in <300 ms is a false-complete
+        "min_tokens": 64,
+        "min_tps": 1,
+        "require_determinism": true
+      }
+    }
+  ],
+  "verdict_policy": {
+    "retry": {"max": 2, "on": ["RETRYABLE_FAILURE", "RETRYABLE_INFRA"]},
+    "stop_review": ["UNKNOWN"]
+  },
+  "repair_policy": {
+    "allowed": ["runtime_path", "command_syntax", "parser_exception",
+                "log_format_support", "missing_fixture_copy", "quoting"],
+    "requires_owner": ["metric_threshold", "workload", "expected_outcome",
+                       "model", "quant", "benchmark_duration", "build_when_scientific"],
+    "forbidden": ["delete_evidence", "invalid_to_pass", "skip_required_cell",
+                  "rewrite_previous_attempt"]
+  },
+  "stop_policy": {
+    "deadline_h": 1.0,           // hard window: 1 hour, owner-stated budget
+    "cell_max_s": 300,
+    "disk_free_min_gib": 1
+  }
+}
