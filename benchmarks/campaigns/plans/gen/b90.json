@@ -1,0 +1,27 @@
+[
+ {
+  "file": "b90_A.txt",
+  "tokens": 92160,
+  "keys": [
+   [
+    0,
+    "K90A"
+   ]
+  ]
+ },
+ {
+  "file": "b90_B.txt",
+  "tokens": 92160,
+  "keys": [
+   [
+    0,
+    "K90B"
+   ]
+  ]
+ },
+ {
+  "file": "fill240.txt",
+  "tokens": 245760,
+  "keys": []
+ }
+]

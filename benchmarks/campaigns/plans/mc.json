@@ -1,555 +1,552 @@
-{
- "segments": [
-  {
-   "fixtures": {
-    "m": "m2048.txt"
+[
+ {
+  "fixtures": {
+   "mc-00": "mc_00.txt",
+   "mc-01": "mc_01.txt",
+   "mc-02": "mc_02.txt",
+   "mc-03": "mc_03.txt",
+   "mc-04": "mc_04.txt",
+   "mc-05": "mc_05.txt",
+   "mc-06": "mc_06.txt",
+   "mc-07": "mc_07.txt",
+   "mc-08": "mc_08.txt",
+   "mc-09": "mc_09.txt",
+   "mc-10": "mc_10.txt",
+   "mc-11": "mc_11.txt",
+   "mc-12": "mc_12.txt",
+   "mc-13": "mc_13.txt",
+   "mc-14": "mc_14.txt",
+   "mc-15": "mc_15.txt",
+   "mc-16": "mc_16.txt",
+   "mc-17": "mc_17.txt",
+   "mc-18": "mc_18.txt",
+   "mc-19": "mc_19.txt",
+   "mc-20": "mc_20.txt",
+   "mc-21": "mc_21.txt",
+   "mc-22": "mc_22.txt",
+   "mc-23": "mc_23.txt",
+   "mc-24": "mc_24.txt",
+   "mc-25": "mc_25.txt",
+   "mc-26": "mc_26.txt",
+   "mc-27": "mc_27.txt",
+   "mc-28": "mc_28.txt",
+   "mc-29": "mc_29.txt",
+   "mc-30": "mc_30.txt",
+   "mc-31": "mc_31.txt"
+  },
+  "requests": [
+   {
+    "tag": "mc-00-store",
+    "fixture": "mc-00",
+    "decode": 32,
+    "key_decode": 64
    },
-   "requests": [
-    {
-     "tag": "m-00-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-01-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-02-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-03-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-04-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-05-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-06-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-07-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-08-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-09-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-10-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-11-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-12-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-13-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-14-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-15-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-16-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-17-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-18-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-19-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-20-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-21-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-22-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-23-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-24-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-25-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-26-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-27-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-28-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-29-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-30-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-31-store",
-     "fixture": "m",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "m-00-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-00"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-01-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-01"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-02-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-02"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-03-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-03"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-04-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-04"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-05-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-05"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-06-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-06"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-07-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-07"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-08-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-08"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-09-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-09"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-10-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-10"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-11-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-11"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-12-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-12"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-13-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-13"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-14-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-14"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-15-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-15"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-16-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-16"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-17-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-17"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-18-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-18"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-19-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-19"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-20-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-20"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-21-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-21"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-22-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-22"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-23-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-23"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-24-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-24"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-25-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-25"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-26-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-26"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-27-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-27"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-28-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-28"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-29-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-29"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-30-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-30"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "m-31-ret",
-     "fixture": "m",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MVAL-31"
-     },
-     "key_decode": 64
+   {
+    "tag": "mc-01-store",
+    "fixture": "mc-01",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-02-store",
+    "fixture": "mc-02",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-03-store",
+    "fixture": "mc-03",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-04-store",
+    "fixture": "mc-04",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-05-store",
+    "fixture": "mc-05",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-06-store",
+    "fixture": "mc-06",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-07-store",
+    "fixture": "mc-07",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-08-store",
+    "fixture": "mc-08",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-09-store",
+    "fixture": "mc-09",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-10-store",
+    "fixture": "mc-10",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-11-store",
+    "fixture": "mc-11",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-12-store",
+    "fixture": "mc-12",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-13-store",
+    "fixture": "mc-13",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-14-store",
+    "fixture": "mc-14",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-15-store",
+    "fixture": "mc-15",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-16-store",
+    "fixture": "mc-16",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-17-store",
+    "fixture": "mc-17",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-18-store",
+    "fixture": "mc-18",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-19-store",
+    "fixture": "mc-19",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-20-store",
+    "fixture": "mc-20",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-21-store",
+    "fixture": "mc-21",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-22-store",
+    "fixture": "mc-22",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-23-store",
+    "fixture": "mc-23",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-24-store",
+    "fixture": "mc-24",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-25-store",
+    "fixture": "mc-25",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-26-store",
+    "fixture": "mc-26",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-27-store",
+    "fixture": "mc-27",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-28-store",
+    "fixture": "mc-28",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-29-store",
+    "fixture": "mc-29",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-30-store",
+    "fixture": "mc-30",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-31-store",
+    "fixture": "mc-31",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mc-00-ret",
+    "fixture": "mc-00",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-00"
     }
-   ]
-  }
- ]
-}
+   },
+   {
+    "tag": "mc-01-ret",
+    "fixture": "mc-01",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-01"
+    }
+   },
+   {
+    "tag": "mc-02-ret",
+    "fixture": "mc-02",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-02"
+    }
+   },
+   {
+    "tag": "mc-03-ret",
+    "fixture": "mc-03",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-03"
+    }
+   },
+   {
+    "tag": "mc-04-ret",
+    "fixture": "mc-04",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-04"
+    }
+   },
+   {
+    "tag": "mc-05-ret",
+    "fixture": "mc-05",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-05"
+    }
+   },
+   {
+    "tag": "mc-06-ret",
+    "fixture": "mc-06",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-06"
+    }
+   },
+   {
+    "tag": "mc-07-ret",
+    "fixture": "mc-07",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-07"
+    }
+   },
+   {
+    "tag": "mc-08-ret",
+    "fixture": "mc-08",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-08"
+    }
+   },
+   {
+    "tag": "mc-09-ret",
+    "fixture": "mc-09",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-09"
+    }
+   },
+   {
+    "tag": "mc-10-ret",
+    "fixture": "mc-10",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-10"
+    }
+   },
+   {
+    "tag": "mc-11-ret",
+    "fixture": "mc-11",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-11"
+    }
+   },
+   {
+    "tag": "mc-12-ret",
+    "fixture": "mc-12",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-12"
+    }
+   },
+   {
+    "tag": "mc-13-ret",
+    "fixture": "mc-13",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-13"
+    }
+   },
+   {
+    "tag": "mc-14-ret",
+    "fixture": "mc-14",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-14"
+    }
+   },
+   {
+    "tag": "mc-15-ret",
+    "fixture": "mc-15",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-15"
+    }
+   },
+   {
+    "tag": "mc-16-ret",
+    "fixture": "mc-16",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-16"
+    }
+   },
+   {
+    "tag": "mc-17-ret",
+    "fixture": "mc-17",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-17"
+    }
+   },
+   {
+    "tag": "mc-18-ret",
+    "fixture": "mc-18",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-18"
+    }
+   },
+   {
+    "tag": "mc-19-ret",
+    "fixture": "mc-19",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-19"
+    }
+   },
+   {
+    "tag": "mc-20-ret",
+    "fixture": "mc-20",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-20"
+    }
+   },
+   {
+    "tag": "mc-21-ret",
+    "fixture": "mc-21",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-21"
+    }
+   },
+   {
+    "tag": "mc-22-ret",
+    "fixture": "mc-22",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-22"
+    }
+   },
+   {
+    "tag": "mc-23-ret",
+    "fixture": "mc-23",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-23"
+    }
+   },
+   {
+    "tag": "mc-24-ret",
+    "fixture": "mc-24",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-24"
+    }
+   },
+   {
+    "tag": "mc-25-ret",
+    "fixture": "mc-25",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-25"
+    }
+   },
+   {
+    "tag": "mc-26-ret",
+    "fixture": "mc-26",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-26"
+    }
+   },
+   {
+    "tag": "mc-27-ret",
+    "fixture": "mc-27",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-27"
+    }
+   },
+   {
+    "tag": "mc-28-ret",
+    "fixture": "mc-28",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-28"
+    }
+   },
+   {
+    "tag": "mc-29-ret",
+    "fixture": "mc-29",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-29"
+    }
+   },
+   {
+    "tag": "mc-30-ret",
+    "fixture": "mc-30",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-30"
+    }
+   },
+   {
+    "tag": "mc-31-ret",
+    "fixture": "mc-31",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MVAL-31"
+    }
+   }
+  ]
+ }
+]

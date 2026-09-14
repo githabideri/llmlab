@@ -1,29 +1,27 @@
-{
- "segments": [
-  {
-   "fixtures": {
-    "f8": "f8192.txt"
+[
+ {
+  "fixtures": {
+   "f8": "f8192.txt"
+  },
+  "requests": [
+   {
+    "tag": "store-f",
+    "fixture": "f8",
+    "decode": 32,
+    "key_decode": 64,
+    "nonce": true
    },
-   "requests": [
-    {
-     "tag": "store-f",
-     "fixture": "f8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-f",
-     "fixture": "f8",
-     "decode": 32,
-     "must_hit": true,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__F8__"
-     },
-     "key_decode": 64
+   {
+    "tag": "ret-f",
+    "fixture": "f8",
+    "decode": 64,
+    "key_decode": 64,
+    "must_hit": true,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "F8KEY"
     }
-   ]
-  }
- ]
-}
+   }
+  ]
+ }
+]

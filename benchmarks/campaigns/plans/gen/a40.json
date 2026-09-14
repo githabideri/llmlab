@@ -1,0 +1,27 @@
+[
+ {
+  "file": "a40_A.txt",
+  "tokens": 40960,
+  "keys": [
+   [
+    0,
+    "K40A"
+   ]
+  ]
+ },
+ {
+  "file": "a40_B.txt",
+  "tokens": 40960,
+  "keys": [
+   [
+    0,
+    "K40B"
+   ]
+  ]
+ },
+ {
+  "file": "fill60.txt",
+  "tokens": 61440,
+  "keys": []
+ }
+]

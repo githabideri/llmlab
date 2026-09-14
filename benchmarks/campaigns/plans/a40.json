@@ -1,175 +1,173 @@
-{
- "segments": [
-  {
-   "fixtures": {
-    "a40A": "a40_A.txt",
-    "a40B": "a40_B.txt",
-    "fill60": "fill60.txt"
-   },
-   "requests": [
-    {
-     "tag": "store-A",
-     "fixture": "a40A",
-     "decode": 32,
-     "key_decode": 64
-    },
-    {
-     "tag": "store-B",
-     "fixture": "a40B",
-     "decode": 32,
-     "key_decode": 64
-    },
-    {
-     "tag": "fill1",
-     "fixture": "fill60",
-     "decode": 16,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-A",
-     "fixture": "a40A",
-     "decode": 32,
-     "must_hit": true,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__K0__"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "fill2",
-     "fixture": "fill60",
-     "decode": 16,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-B",
-     "fixture": "a40B",
-     "decode": 32,
-     "must_hit": true,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__K1__"
-     },
-     "key_decode": 64
-    }
-   ]
+[
+ {
+  "fixtures": {
+   "a40A": "a40_A.txt",
+   "a40B": "a40_B.txt",
+   "fill60": "fill60.txt"
   },
-  {
-   "fixtures": {
-    "a40A": "a40_A.txt",
-    "a40B": "a40_B.txt",
-    "fill60": "fill60.txt"
+  "requests": [
+   {
+    "tag": "store-A",
+    "fixture": "a40A",
+    "decode": 32,
+    "key_decode": 64
    },
-   "requests": [
-    {
-     "tag": "store-A",
-     "fixture": "a40A",
-     "decode": 32,
-     "key_decode": 64
-    },
-    {
-     "tag": "store-B",
-     "fixture": "a40B",
-     "decode": 32,
-     "key_decode": 64
-    },
-    {
-     "tag": "fill1",
-     "fixture": "fill60",
-     "decode": 16,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-A",
-     "fixture": "a40A",
-     "decode": 32,
-     "must_hit": true,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__K0__"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "fill2",
-     "fixture": "fill60",
-     "decode": 16,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-B",
-     "fixture": "a40B",
-     "decode": 32,
-     "must_hit": true,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__K1__"
-     },
-     "key_decode": 64
+   {
+    "tag": "store-B",
+    "fixture": "a40B",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "fill1",
+    "fixture": "fill60",
+    "decode": 16,
+    "key_decode": 64,
+    "nonce": true
+   },
+   {
+    "tag": "ret-A",
+    "fixture": "a40A",
+    "decode": 64,
+    "key_decode": 64,
+    "must_hit": true,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "K40A"
     }
-   ]
+   },
+   {
+    "tag": "fill2",
+    "fixture": "fill60",
+    "decode": 16,
+    "key_decode": 64,
+    "nonce": true
+   },
+   {
+    "tag": "ret-B",
+    "fixture": "a40B",
+    "decode": 64,
+    "key_decode": 64,
+    "must_hit": true,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "K40B"
+    }
+   }
+  ]
+ },
+ {
+  "fixtures": {
+   "a40A": "a40_A.txt",
+   "a40B": "a40_B.txt",
+   "fill60": "fill60.txt"
   },
-  {
-   "fixtures": {
-    "a40A": "a40_A.txt",
-    "a40B": "a40_B.txt",
-    "fill60": "fill60.txt"
+  "requests": [
+   {
+    "tag": "store-A",
+    "fixture": "a40A",
+    "decode": 32,
+    "key_decode": 64
    },
-   "requests": [
-    {
-     "tag": "store-A",
-     "fixture": "a40A",
-     "decode": 32,
-     "key_decode": 64
-    },
-    {
-     "tag": "store-B",
-     "fixture": "a40B",
-     "decode": 32,
-     "key_decode": 64
-    },
-    {
-     "tag": "fill1",
-     "fixture": "fill60",
-     "decode": 16,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-A",
-     "fixture": "a40A",
-     "decode": 32,
-     "must_hit": true,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__K0__"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "fill2",
-     "fixture": "fill60",
-     "decode": 16,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-B",
-     "fixture": "a40B",
-     "decode": 32,
-     "must_hit": true,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__K1__"
-     },
-     "key_decode": 64
+   {
+    "tag": "store-B",
+    "fixture": "a40B",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "fill1",
+    "fixture": "fill60",
+    "decode": 16,
+    "key_decode": 64,
+    "nonce": true
+   },
+   {
+    "tag": "ret-A",
+    "fixture": "a40A",
+    "decode": 64,
+    "key_decode": 64,
+    "must_hit": true,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "K40A"
     }
-   ]
-  }
- ]
-}
+   },
+   {
+    "tag": "fill2",
+    "fixture": "fill60",
+    "decode": 16,
+    "key_decode": 64,
+    "nonce": true
+   },
+   {
+    "tag": "ret-B",
+    "fixture": "a40B",
+    "decode": 64,
+    "key_decode": 64,
+    "must_hit": true,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "K40B"
+    }
+   }
+  ]
+ },
+ {
+  "fixtures": {
+   "a40A": "a40_A.txt",
+   "a40B": "a40_B.txt",
+   "fill60": "fill60.txt"
+  },
+  "requests": [
+   {
+    "tag": "store-A",
+    "fixture": "a40A",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "store-B",
+    "fixture": "a40B",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "fill1",
+    "fixture": "fill60",
+    "decode": 16,
+    "key_decode": 64,
+    "nonce": true
+   },
+   {
+    "tag": "ret-A",
+    "fixture": "a40A",
+    "decode": 64,
+    "key_decode": 64,
+    "must_hit": true,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "K40A"
+    }
+   },
+   {
+    "tag": "fill2",
+    "fixture": "fill60",
+    "decode": 16,
+    "key_decode": 64,
+    "nonce": true
+   },
+   {
+    "tag": "ret-B",
+    "fixture": "a40B",
+    "decode": 64,
+    "key_decode": 64,
+    "must_hit": true,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "K40B"
+    }
+   }
+  ]
+ }
+]
