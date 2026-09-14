@@ -304,7 +304,8 @@ class Runner:
         t_dir = self.backend.target_path(a_dir)
         port = self._port_base + idx
         cell_paths = {"cell": t_dir, "port": str(port),
-                      "bundle": self.backend.bundle_path()}
+                      "bundle": self.backend.bundle_path(),
+                      "plan": str(cell.get("plan", ""))}
         server_log = os.path.join(a_dir, "server.log")
         t_server_log = self.backend.target_path(server_log)
 
@@ -443,7 +444,8 @@ class Runner:
         # M-battery cells) — a per-cell contract is the finer one
         c = cell.get("client") or self.spec.get("client")
         argv = [a.format(cell=a_dir_target, port=port,
-                         bundle=self.backend.bundle_path()) for a in c["args"]]
+                         bundle=self.backend.bundle_path(),
+                         plan=str(cell.get("plan", ""))) for a in c["args"]]
         # segment args are appended ONLY for multi-segment cells: existing
         # clients (bench-llama and friends) do not accept them and a single-
         # segment cell must see exactly the old argv shape
