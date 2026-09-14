@@ -372,6 +372,12 @@ class FixtureBackend:
         pass
 
     # -- window mechanics -----------------------------------------------------------------
+    def ping(self):
+        seq = getattr(self, "_ping_sequence", None)
+        if seq:
+            return bool(seq.pop(0))
+        return True
+
     def arm_watchdog(self, deadline_epoch, lease_path, heartbeat_path, undo_manifest,
                      prod_desc):
         self.op_log.append("arm_watchdog")
@@ -379,6 +385,12 @@ class FixtureBackend:
                              disarmed=False, lease=lease_path,
                              heartbeat=heartbeat_path,
                              undo=undo_manifest, prod_desc=prod_desc)
+
+    def rearm_watchdog(self, deadline_epoch, lease_path, heartbeat_path,
+                       undo_manifest, prod_desc):
+        self.op_log.append("rearm_watchdog")
+        self.arm_watchdog(deadline_epoch, lease_path, heartbeat_path,
+                          undo_manifest, prod_desc)
 
     def disarm_watchdog(self, lease_path):
         self.op_log.append("disarm_watchdog")
