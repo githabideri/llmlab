@@ -1,283 +1,280 @@
-{
- "segments": [
-  {
-   "fixtures": {
-    "m8": "m8192.txt"
+[
+ {
+  "fixtures": {
+   "mb-00": "mb_00.txt",
+   "mb-01": "mb_01.txt",
+   "mb-02": "mb_02.txt",
+   "mb-03": "mb_03.txt",
+   "mb-04": "mb_04.txt",
+   "mb-05": "mb_05.txt",
+   "mb-06": "mb_06.txt",
+   "mb-07": "mb_07.txt",
+   "mb-08": "mb_08.txt",
+   "mb-09": "mb_09.txt",
+   "mb-10": "mb_10.txt",
+   "mb-11": "mb_11.txt",
+   "mb-12": "mb_12.txt",
+   "mb-13": "mb_13.txt",
+   "mb-14": "mb_14.txt",
+   "mb-15": "mb_15.txt"
+  },
+  "requests": [
+   {
+    "tag": "mb-00-store",
+    "fixture": "mb-00",
+    "decode": 32,
+    "key_decode": 64
    },
-   "requests": [
-    {
-     "tag": "mb-00-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-01-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-02-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-03-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-04-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-05-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-06-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-07-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-08-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-09-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-10-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-11-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-12-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-13-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-14-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-15-store",
-     "fixture": "m8",
-     "decode": 32,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-00-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-00"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-01-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-01"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-02-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-02"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-03-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-03"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-04-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-04"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-05-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-05"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-06-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-06"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-07-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-07"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-08-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-08"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-09-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-09"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-10-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-10"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-11-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-11"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-12-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-12"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-13-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-13"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-14-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-14"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "mb-15-ret",
-     "fixture": "m8",
-     "decode": 32,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "MBVAL-15"
-     },
-     "key_decode": 64
+   {
+    "tag": "mb-01-store",
+    "fixture": "mb-01",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mb-02-store",
+    "fixture": "mb-02",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mb-03-store",
+    "fixture": "mb-03",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mb-04-store",
+    "fixture": "mb-04",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mb-05-store",
+    "fixture": "mb-05",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mb-06-store",
+    "fixture": "mb-06",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mb-07-store",
+    "fixture": "mb-07",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mb-08-store",
+    "fixture": "mb-08",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mb-09-store",
+    "fixture": "mb-09",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mb-10-store",
+    "fixture": "mb-10",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mb-11-store",
+    "fixture": "mb-11",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mb-12-store",
+    "fixture": "mb-12",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mb-13-store",
+    "fixture": "mb-13",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mb-14-store",
+    "fixture": "mb-14",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mb-15-store",
+    "fixture": "mb-15",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "mb-00-ret",
+    "fixture": "mb-00",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-00"
     }
-   ]
-  }
- ]
-}
+   },
+   {
+    "tag": "mb-01-ret",
+    "fixture": "mb-01",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-01"
+    }
+   },
+   {
+    "tag": "mb-02-ret",
+    "fixture": "mb-02",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-02"
+    }
+   },
+   {
+    "tag": "mb-03-ret",
+    "fixture": "mb-03",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-03"
+    }
+   },
+   {
+    "tag": "mb-04-ret",
+    "fixture": "mb-04",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-04"
+    }
+   },
+   {
+    "tag": "mb-05-ret",
+    "fixture": "mb-05",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-05"
+    }
+   },
+   {
+    "tag": "mb-06-ret",
+    "fixture": "mb-06",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-06"
+    }
+   },
+   {
+    "tag": "mb-07-ret",
+    "fixture": "mb-07",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-07"
+    }
+   },
+   {
+    "tag": "mb-08-ret",
+    "fixture": "mb-08",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-08"
+    }
+   },
+   {
+    "tag": "mb-09-ret",
+    "fixture": "mb-09",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-09"
+    }
+   },
+   {
+    "tag": "mb-10-ret",
+    "fixture": "mb-10",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-10"
+    }
+   },
+   {
+    "tag": "mb-11-ret",
+    "fixture": "mb-11",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-11"
+    }
+   },
+   {
+    "tag": "mb-12-ret",
+    "fixture": "mb-12",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-12"
+    }
+   },
+   {
+    "tag": "mb-13-ret",
+    "fixture": "mb-13",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-13"
+    }
+   },
+   {
+    "tag": "mb-14-ret",
+    "fixture": "mb-14",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-14"
+    }
+   },
+   {
+    "tag": "mb-15-ret",
+    "fixture": "mb-15",
+    "decode": 64,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "MBVAL-15"
+    }
+   }
+  ]
+ }
+]

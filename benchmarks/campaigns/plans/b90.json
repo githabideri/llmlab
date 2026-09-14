@@ -1,154 +1,152 @@
-{
- "segments": [
-  {
-   "fixtures": {
-    "b90A": "b90_A.txt",
-    "b90B": "b90_B.txt",
-    "fill240": "fill240.txt"
-   },
-   "requests": [
-    {
-     "tag": "store-A",
-     "fixture": "b90A",
-     "decode": 32,
-     "key_decode": 64
-    },
-    {
-     "tag": "store-B",
-     "fixture": "b90B",
-     "decode": 32,
-     "key_decode": 64
-    },
-    {
-     "tag": "fill1",
-     "fixture": "fill240",
-     "decode": 16,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-A",
-     "fixture": "b90A",
-     "decode": 32,
-     "must_hit": true,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__K0__"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-B",
-     "fixture": "b90B",
-     "decode": 32,
-     "must_hit": true,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__K1__"
-     },
-     "key_decode": 64
-    }
-   ]
+[
+ {
+  "fixtures": {
+   "b90A": "b90_A.txt",
+   "b90B": "b90_B.txt",
+   "fill240": "fill240.txt"
   },
-  {
-   "fixtures": {
-    "b90A": "b90_A.txt",
-    "b90B": "b90_B.txt",
-    "fill240": "fill240.txt"
+  "requests": [
+   {
+    "tag": "store-A",
+    "fixture": "b90A",
+    "decode": 32,
+    "key_decode": 64
    },
-   "requests": [
-    {
-     "tag": "store-A",
-     "fixture": "b90A",
-     "decode": 32,
-     "key_decode": 64
-    },
-    {
-     "tag": "store-B",
-     "fixture": "b90B",
-     "decode": 32,
-     "key_decode": 64
-    },
-    {
-     "tag": "fill1",
-     "fixture": "fill240",
-     "decode": 16,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-A",
-     "fixture": "b90A",
-     "decode": 32,
-     "must_hit": true,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__K0__"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-B",
-     "fixture": "b90B",
-     "decode": 32,
-     "must_hit": true,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__K1__"
-     },
-     "key_decode": 64
+   {
+    "tag": "store-B",
+    "fixture": "b90B",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "fill1",
+    "fixture": "fill240",
+    "decode": 16,
+    "key_decode": 64,
+    "nonce": true
+   },
+   {
+    "tag": "ret-A",
+    "fixture": "b90A",
+    "decode": 64,
+    "key_decode": 64,
+    "must_hit": true,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "K90A"
     }
-   ]
+   },
+   {
+    "tag": "ret-B",
+    "fixture": "b90B",
+    "decode": 64,
+    "key_decode": 64,
+    "must_hit": true,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "K90B"
+    }
+   }
+  ]
+ },
+ {
+  "fixtures": {
+   "b90A": "b90_A.txt",
+   "b90B": "b90_B.txt",
+   "fill240": "fill240.txt"
   },
-  {
-   "fixtures": {
-    "b90A": "b90_A.txt",
-    "b90B": "b90_B.txt",
-    "fill240": "fill240.txt"
+  "requests": [
+   {
+    "tag": "store-A",
+    "fixture": "b90A",
+    "decode": 32,
+    "key_decode": 64
    },
-   "requests": [
-    {
-     "tag": "store-A",
-     "fixture": "b90A",
-     "decode": 32,
-     "key_decode": 64
-    },
-    {
-     "tag": "store-B",
-     "fixture": "b90B",
-     "decode": 32,
-     "key_decode": 64
-    },
-    {
-     "tag": "fill1",
-     "fixture": "fill240",
-     "decode": 16,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-A",
-     "fixture": "b90A",
-     "decode": 32,
-     "must_hit": true,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__K0__"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-B",
-     "fixture": "b90B",
-     "decode": 32,
-     "must_hit": true,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__K1__"
-     },
-     "key_decode": 64
+   {
+    "tag": "store-B",
+    "fixture": "b90B",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "fill1",
+    "fixture": "fill240",
+    "decode": 16,
+    "key_decode": 64,
+    "nonce": true
+   },
+   {
+    "tag": "ret-A",
+    "fixture": "b90A",
+    "decode": 64,
+    "key_decode": 64,
+    "must_hit": true,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "K90A"
     }
-   ]
-  }
- ]
-}
+   },
+   {
+    "tag": "ret-B",
+    "fixture": "b90B",
+    "decode": 64,
+    "key_decode": 64,
+    "must_hit": true,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "K90B"
+    }
+   }
+  ]
+ },
+ {
+  "fixtures": {
+   "b90A": "b90_A.txt",
+   "b90B": "b90_B.txt",
+   "fill240": "fill240.txt"
+  },
+  "requests": [
+   {
+    "tag": "store-A",
+    "fixture": "b90A",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "store-B",
+    "fixture": "b90B",
+    "decode": 32,
+    "key_decode": 64
+   },
+   {
+    "tag": "fill1",
+    "fixture": "fill240",
+    "decode": 16,
+    "key_decode": 64,
+    "nonce": true
+   },
+   {
+    "tag": "ret-A",
+    "fixture": "b90A",
+    "decode": 64,
+    "key_decode": 64,
+    "must_hit": true,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "K90A"
+    }
+   },
+   {
+    "tag": "ret-B",
+    "fixture": "b90B",
+    "decode": 64,
+    "key_decode": 64,
+    "must_hit": true,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "K90B"
+    }
+   }
+  ]
+ }
+]

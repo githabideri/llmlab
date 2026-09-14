@@ -1,94 +1,92 @@
-{
- "segments": [
-  {
-   "fixtures": {
-    "root": "e_root.txt",
-    "a1": "e_a1.txt",
-    "b1": "e_b1.txt",
-    "a2": "e_a2.txt",
-    "press": "fill60.txt"
+[
+ {
+  "fixtures": {
+   "root": "e_root.txt",
+   "a1": "e_a1.txt",
+   "b1": "e_b1.txt",
+   "a2": "e_a2.txt",
+   "press": "fill60.txt"
+  },
+  "requests": [
+   {
+    "tag": "root",
+    "fixture": "root",
+    "decode": 128,
+    "key_decode": 64
    },
-   "requests": [
-    {
-     "tag": "root",
-     "fixture": "root",
-     "decode": 128,
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-root-1",
-     "fixture": "root",
-     "decode": 128,
-     "must_hit": true,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__ROOT__"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "a1",
-     "fixture": "a1",
-     "decode": 128,
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-root-2",
-     "fixture": "root",
-     "decode": 128,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__ROOT__"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "b1",
-     "fixture": "b1",
-     "decode": 128,
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-root-3",
-     "fixture": "root",
-     "decode": 128,
-     "key_decode": 64
-    },
-    {
-     "tag": "a2",
-     "fixture": "a2",
-     "decode": 128,
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-a1-deep",
-     "fixture": "a1",
-     "decode": 128,
-     "must_hit": true,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__AONLY__"
-     },
-     "key_decode": 64
-    },
-    {
-     "tag": "pressure",
-     "fixture": "press",
-     "decode": 16,
-     "nonce": true,
-     "key_decode": 64
-    },
-    {
-     "tag": "ret-final-a2",
-     "fixture": "a2",
-     "decode": 128,
-     "key": {
-      "query": "What is the value of KEY:k0? Answer only the value.",
-      "expected": "__A2ONLY__"
-     },
-     "key_decode": 64
+   {
+    "tag": "ret-root-1",
+    "fixture": "root",
+    "decode": 128,
+    "key_decode": 64,
+    "must_hit": true,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "EROOT"
     }
-   ]
-  }
- ]
-}
+   },
+   {
+    "tag": "a1",
+    "fixture": "a1",
+    "decode": 128,
+    "key_decode": 64
+   },
+   {
+    "tag": "ret-root-2",
+    "fixture": "root",
+    "decode": 128,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k0? Answer only the value, nothing else.",
+     "expected": "EROOT"
+    }
+   },
+   {
+    "tag": "b1",
+    "fixture": "b1",
+    "decode": 128,
+    "key_decode": 64
+   },
+   {
+    "tag": "ret-root-3",
+    "fixture": "root",
+    "decode": 128,
+    "key_decode": 64
+   },
+   {
+    "tag": "a2",
+    "fixture": "a2",
+    "decode": 128,
+    "key_decode": 64
+   },
+   {
+    "tag": "ret-a1-deep",
+    "fixture": "a1",
+    "decode": 128,
+    "key_decode": 64,
+    "must_hit": true,
+    "key": {
+     "query": "What is the value of KEY:k1? Answer only the value, nothing else.",
+     "expected": "EAONLY"
+    }
+   },
+   {
+    "tag": "pressure",
+    "fixture": "press",
+    "decode": 16,
+    "key_decode": 64,
+    "nonce": true
+   },
+   {
+    "tag": "ret-final-a2",
+    "fixture": "a2",
+    "decode": 128,
+    "key_decode": 64,
+    "key": {
+     "query": "What is the value of KEY:k3? Answer only the value, nothing else.",
+     "expected": "EA2"
+    }
+   }
+  ]
+ }
+]

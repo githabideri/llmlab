@@ -1,0 +1,67 @@
+[
+ {
+  "file": "e_root.txt",
+  "tokens": 27648,
+  "keys": [
+   [
+    0,
+    "EROOT"
+   ]
+  ]
+ },
+ {
+  "file": "e_a1_delta.txt",
+  "tokens": 15360,
+  "keys": [
+   [
+    1,
+    "EAONLY"
+   ]
+  ]
+ },
+ {
+  "file": "e_b1_delta.txt",
+  "tokens": 12288,
+  "keys": [
+   [
+    2,
+    "EBONLY"
+   ]
+  ]
+ },
+ {
+  "file": "e_a2_delta.txt",
+  "tokens": 20480,
+  "keys": [
+   [
+    3,
+    "EA2"
+   ]
+  ]
+ },
+ {
+  "file": "e_a1.txt",
+  "parts": [
+   "e_root.txt",
+   "e_a1_delta.txt"
+  ],
+  "keys": []
+ },
+ {
+  "file": "e_b1.txt",
+  "parts": [
+   "e_root.txt",
+   "e_b1_delta.txt"
+  ],
+  "keys": []
+ },
+ {
+  "file": "e_a2.txt",
+  "parts": [
+   "e_root.txt",
+   "e_a1_delta.txt",
+   "e_a2_delta.txt"
+  ],
+  "keys": []
+ }
+]

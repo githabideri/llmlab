@@ -1,15 +1,16 @@
-{
- "segments": [
-  {
-   "requests": [
-    {
-     "tag": "probe",
-     "fixture": "p64",
-     "decode": 64,
-     "nonce": true,
-     "key_decode": 64
-    }
-   ]
-  }
- ]
-}
+[
+ {
+  "fixtures": {
+   "p64": "p64.txt"
+  },
+  "requests": [
+   {
+    "tag": "probe",
+    "fixture": "p64",
+    "decode": 64,
+    "key_decode": 64,
+    "nonce": true
+   }
+  ]
+ }
+]
