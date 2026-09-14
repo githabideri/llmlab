@@ -53,6 +53,14 @@ CLASS_TO_VERDICT = {
     "SSE_MALFORMED": HARNESS_FAILURE,
     "SSE_NO_USAGE": HARNESS_FAILURE,
     "TOKEN_MISMATCH": INVALID,
+    # the LMCache classes are evidence-based (the client declares them from
+    # the store/retrieval logs); None = "documented-negative-oriented": they
+    # resolve against the cell's expects.documented_negative in decide(), and
+    # an undeclared-in-spec occurrence degrades to UNKNOWN (review) below.
+    "LMCACHE_CONNECTOR_FALLBACK": None,
+    "LMCACHE_NO_HIT": None,
+    "LMCACHE_RESTORE_CORRUPTION": None,
+    "LMCACHE_PERSISTENCE_SUBPAGE": None,
 }
 
 
@@ -74,8 +82,14 @@ def decide(cell_cfg, classifier_result, gates, client_result, attempt_wall_s):
         return HARNESS_FAILURE, "no client result and no server failure evidence"
 
     # 2) documented-negative check runs BEFORE the generic mapping: the spec says
-    #    which classes are the expected answer for THIS cell.
-    class_ = (classifier_result or {}).get("class")
+    #    which classes are the expected answer for THIS cell. The class can come
+    #    from the failure-log classifier OR be DECLARED BY THE CLIENT from
+    #    evidence (e.g. a store that wrote but never served a retrieval line,
+    #    or a wrong buried-key answer on a logged hit) — evidence-based
+    #    verdicts the log shape alone cannot express.
+    class_ = (classifier_result or {}).get("class") \
+        or (client_result or {}).get("declared_class")
+    declared = class_ is not None and not (classifier_result or {}).get("class")
     doc_neg = (cell_cfg.get("expects") or {}).get("documented_negative") or []
     if class_ and class_ in doc_neg:
         return EXPECTED_NEGATIVE, f"documented negative {class_} matched: " \
@@ -98,14 +112,22 @@ def decide(cell_cfg, classifier_result, gates, client_result, attempt_wall_s):
             return INVALID, "classifier: " + class_
         if class_ is None:
             return PASS, "measured, gates pass"
+        # a class DECLARED BY THE CLIENT (evidence-based) that the spec did not
+        # document for this cell: never a silent PASS, never a silent negative.
+        # (Classifier-sourced classes keep their table mapping, step 5.)
+        if declared:
+            return UNKNOWN, f"client declared {class_} (not a documented " \
+                            f"negative for this cell)"
 
     # 5) no client data: fall back to what the server log says
     if class_ is not None:
         v = CLASS_TO_VERDICT.get(class_)
         if v is not None:
             return v, f"classifier: {class_}"
-        # unmapped class with no data: unknown shape
-        return UNKNOWN, f"unmapped classifier class {class_} with no client data"
+        # documented-negative-oriented (or declared-without-data): the spec
+        # did not predict this for this cell — review, never assume
+        return UNKNOWN, f"class {class_} is documented-negative-oriented or " \
+            f"client-declared; the spec did not declare it for this cell — review"
     return UNKNOWN, "no client data and no classifier evidence"
 
 
@@ -117,6 +139,8 @@ def campaign_final(cell_verdicts, host_failure=None):
     to an INFO-level 'expected-negative' just because another cell
     produced a documented negative. 'We got a result' and 'one of our
     instruments broke' are different outcomes; the latter needs review.
+    A SKIPPED cell (its pre-gate failed or was unverifiable) is likewise a
+    decision that needs eyes, not an invisible gap.
     """
     if host_failure:
         return "stopped-host-failure"
@@ -124,7 +148,7 @@ def campaign_final(cell_verdicts, host_failure=None):
     if any(v == SAFETY_ABORT for v in vs):
         return "safety-abort"
     if any(v in (RETRYABLE_FAILURE, RETRYABLE_INFRA, UNKNOWN,
-                 HARNESS_FAILURE, INVALID) for v in vs):
+                 HARNESS_FAILURE, INVALID, "SKIPPED") for v in vs):
         return "review-required"
     if all(v in (PASS, EXPECTED_NEGATIVE) for v in vs) and vs:
         if all(v == EXPECTED_NEGATIVE for v in vs):

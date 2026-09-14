@@ -25,6 +25,15 @@ CLASSES = (
     "SSE_MALFORMED",         # unparseable stream frame
     "SSE_NO_USAGE",          # stream without a usage object — token closure unavailable
     "TOKEN_MISMATCH",        # client token count diverges from server-side count
+    "LMCACHE_CONNECTOR_FALLBACK",  # store path works, read path never activates
+                                    # (the 2026-08-30 silent no-op shape, on any connector)
+    "LMCACHE_NO_HIT",        # store written, but the return request never
+                                    # retrieved from the external tier
+    "LMCACHE_RESTORE_CORRUPTION",  # wrong/sticky output on a logged external-tier
+                                    # retrieval — restored bad state, the
+                                    # unforgivable case
+    "LMCACHE_PERSISTENCE_SUBPAGE", # (phase 2) 1-of-N physical pages persisted
+                                    # while reporting full hits (LMCache #4731)
     "UNKNOWN",               # nothing matched — this pages the owner, by design
 )
 
@@ -42,4 +51,8 @@ PROVENANCE = {
     "SSE_MALFORMED": "09-02 stage 1: 'data:' frame parsing bugs in the original client",
     "SSE_NO_USAGE": "09-10: missing stream_options.include_usage left decode rates null",
     "TOKEN_MISMATCH": "09-11: client count vs server-side counter cross-check",
+    "LMCACHE_CONNECTOR_FALLBACK": "2026-08-30: native offload connector stored but never restored (0% hit)",
+    "LMCACHE_NO_HIT": "2026-08-30: write path healthy, read path dead",
+    "LMCACHE_RESTORE_CORRUPTION": "open upstream report: Qwen3.8-27B TP2 multi-session restore corruption",
+    "LMCACHE_PERSISTENCE_SUBPAGE": "LMCache #4731: hybrid subpage geometry persists 1 of N attention pages",
 }
