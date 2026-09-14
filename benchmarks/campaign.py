@@ -89,8 +89,10 @@ def cmd_prepare(args):
         with open(ship_spec, "w") as f:
             f.write(ship_text)
     fz = freeze_mod.bake(spec_obj.get("id"), ship_spec, spec_mod.load_spec(ship_spec),
-                         _llmlab_dir(), profile.get("host", {}).get("ssh", "local"),
-                         {"p0": "pending"})
+                         _llmlab_dir(),
+                         profile.get("id")
+                         or profile.get("host", {}).get("ssh", "local"),
+                         {"p0": "pending"}, model_sha=model_sha)
     print("== QUALIFICATION (must be green before this freeze is usable) ==")
     ok, results = qualify.run_all()
     fz["qualification"] = {
