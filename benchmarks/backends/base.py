@@ -107,6 +107,11 @@ class Backend:
         raise NotImplementedError
 
     # -- window mechanics ---------------------------------------------------------
+    def ping(self):
+        """True iff the target answers ssh right now (window rearm uses it
+        to wait out a target reboot before re-arming the watchdog)."""
+        raise NotImplementedError
+
     def arm_watchdog(self, deadline_epoch, lease_path, heartbeat_path,
                      undo_manifest, prod_desc):
         """Idempotent. The watchdog is OUT-OF-BUNDLE (host-deployed); this only

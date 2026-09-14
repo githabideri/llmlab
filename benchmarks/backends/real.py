@@ -214,6 +214,10 @@ class RealBackend:
     def stop_sidecar(self, handle, where="target"):
         self.kill(handle, where=where)
 
+    def ping(self):
+        rc, _, _ = self._ssh("target", "true", timeout=30)
+        return rc == 0
+
     def rearm_watchdog(self, deadline_epoch, lease_path, heartbeat_path,
                        undo_manifest, prod_desc):
         # an LXC restart (or any target reboot) kills the armed watchdog

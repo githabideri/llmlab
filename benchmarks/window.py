@@ -77,6 +77,22 @@ class Window:
         for st in self.permanent_steps:
             self.b.sh(st["cmd"], where="host", timeout=int(st.get("timeout_s", 600)))
         if any(st.get("rearm_watchdog") for st in self.permanent_steps):
+            # the target just (re)started: wait for ssh before re-arming, or
+            # the rearm raises while the box is still booting (bounded wait —
+            # if it never answers, the rearm raises and the host-level
+            # watchdog / deadline owns the state)
+            w = self.p.get("window") or {}
+            wait_s = int(w.get("rearm_wait_s", 600))
+            poll_s = float(w.get("rearm_poll_s", 15))
+            t0 = time.time()
+            while time.time() - t0 < wait_s:
+                if self.b.ping():
+                    break
+                time.sleep(poll_s)
+            else:
+                raise RuntimeError(
+                    f"target not ssh-reachable {wait_s}s after rearm-triggering "
+                    "permanent step — refusing to proceed without a watchdog")
             self.b.rearm_watchdog(deadline, self.lease, self.heartbeat, manifest, prod_desc)
         # (3) stop production; on ANY post-stop failure, restore immediately.
         # prod_down is set in BOTH branches: a stop that raised may still have

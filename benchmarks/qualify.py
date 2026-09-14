@@ -936,11 +936,98 @@ p0("Q20 every temp_change requires an explicit undo; prepare rejects the rest (e
 p0("Q21 effect gate: PASS / BELOW_FLOOR / UNVERIFIABLE are distinct outcomes (external review B)", q21_effect_gate_three_outcomes)
 p0("Q22 effect gate: the estimator uses ONLY PASS attempts (external review A)", q22_effect_gate_pass_only_estimator)
 p0("Q23 campaign final: a bad cell can never be masked by another cell's negative (external review C)", q23_campaign_final_mixed_sets)
+# Q29 test body (spliced into qualify.py by the maintainers) —
+# window rearm after a target restart: bounded ssh-readiness wait,
+# deadline preservation, and a clean refusal when the target never comes back.
+def q29_rearm_wait(tmp):
+    from benchmarks import runner as runner_mod
+    from benchmarks.backends.fixture import FixtureBackend
+    from benchmarks.window import Window
+    bundle = os.path.join(tmp, "bundle")
+    os.makedirs(os.path.join(bundle, "clients"), exist_ok=True)
+    with open(os.path.join(bundle, "clients", "test-client.py"), "w") as f:
+        f.write(_client_recorder())
+    cell = {"cell": "c1", "launch": {"binary": "/bin/true",
+                                     "args": ["--port", "{port}"]},
+            "requests": [{"kind": "completion", "prompt_tokens": 16,
+                          "decode": 4, "reps": 1}],
+            "gates": {"min_wall_s": 0.1},
+            "client": {"script": "clients/test-client.py",
+                       "args": ["python3", "{bundle}/clients/test-client.py",
+                                "--url", "http://127.0.0.1:{port}",
+                                "--json-out", "{cell}/client.json"]}}
+    spec = {"id": "t", "owner": "t",
+            "model": {"name": "m", "quant": "q",
+                      "artifact": {"source": "gguf", "sha256": "0" * 64}},
+            "workload": {"client": "x"},
+            "client": {"script": "clients/test-client.py",
+                       "args": ["python3", "{bundle}/clients/test-client.py",
+                                "--url", "http://127.0.0.1:{port}",
+                                "--json-out", "{cell}/client.json"]},
+            "matrix": [cell],
+            "verdict_policy": {"retry": {"max": 1, "on": ["RETRYABLE_FAILURE"]},
+                               "stop_review": ["UNKNOWN"]},
+            "stop_policy": {"deadline_h": 0.1, "cell_max_s": 60}}
+
+    def _build(ping_seq):
+        prof = _profile(tmp)
+        prof["readiness"] = {"attempts": 20, "sleep": 0.05}
+        prof["window"].update({"health_wait_s": 5,
+                               "rearm_wait_s": 5, "rearm_poll_s": 0.05,
+                               "permanent_steps": [
+                                   {"cmd": "pct stop 999",
+                                    "reason": "test lxc restart",
+                                    "rearm_watchdog": True}]})
+        run_dir = os.path.join(tmp, "runs", "t")
+        b = FixtureBackend(prof, bundle, run_dir)
+        b._ping_sequence = list(ping_seq)
+        r = runner_mod.Runner(spec, prof, {}, run_dir, b, bundle,
+                              max_attempts=1)
+        return b, r
+
+    # (a) target comes back after two failed pings: rearm with SAME deadline
+    b, r = _build([False, False, True, True, True])
+    d0 = []
+    orig_arm = b.arm_watchdog
+
+    def spy(deadline_epoch, lease_path, heartbeat_path, undo_manifest,
+            prod_desc):
+        d0.append(deadline_epoch)
+        orig_arm(deadline_epoch, lease_path, heartbeat_path, undo_manifest,
+                 prod_desc)
+
+    b.arm_watchdog = spy
+    r.run()
+    arms = [e for e in b.op_log if e in ("arm_watchdog", "rearm_watchdog")]
+    assert arms.count("rearm_watchdog") == 1, f"expected exactly one rearm: {arms}"
+    assert len(d0) >= 2 and len(set(d0)) == 1, \
+        f"deadline not preserved across rearm: {d0}"
+    assert b.watchdog["deadline"] == d0[0]
+    fs = open(os.path.join(tmp, "runs", "t", "final.json")).read()
+    assert "PASS" in fs, fs
+
+    # (b) target never comes back: bounded wait then a clean refusal
+    b2, r2 = _build([False] * 50)
+    r2.profile["window"]["rearm_wait_s"] = 0.3
+    r2.profile["window"]["rearm_poll_s"] = 0.05
+    w = Window(r2.backend, r2.profile, r2.run_dir, deadline_h=0.1)
+    raised = None
+    try:
+        w.enter()
+    except RuntimeError as e:
+        raised = e
+    assert raised and "not ssh-reachable" in str(raised), \
+        f"expected clean refusal, got: {raised!r}"
+    return True, (f"rearm={arms.count('rearm_watchdog')} "
+                  f"deadline-preserved={b.watchdog['deadline'] == d0[0]} "
+                  f"refusal=clean")
+
 p0("Q24 window sidecar: survives per-cell restarts; killed on exit and on watchdog fire (LMCache G1)", q24_sidecar_lifecycle)
 p0("Q25 segments: per-segment server relaunch (fresh state), sidecar persists, client sees its segment (LMCache G1/B)", q25_segments_relaunch)
 p0("Q26 zero-count effect gate: PASS / VIOLATED / UNVERIFIABLE with attempt provenance (LMCache G3)", q26_zero_count_gate)
 p1("Q27 probe substitution + isolation reset + client-declared doc-negative vs review (LMCache G2/G4)", q27_probe_isolation_declared)
 p1("Q28 pre-gate: conditional cell runs on clean evidence, recorded-SKIPPED on a dirty gate, final=review-required (LMCache M-B/M-D)", q28_pre_gate)
+p0("Q29 window rearm after target restart: bounded ssh wait, same-deadline rearm, clean refusal (CT324 permanent-step LXC restart)", q29_rearm_wait)
 
 
 
