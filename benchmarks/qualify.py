@@ -452,6 +452,301 @@ def q14_corpus_replay(tmp):
     return (not failures), (", ".join(failures) if failures else f"{len(os.listdir(corpus)) // 2} fixtures")
 
 
+# Q24-Q27 test bodies (spliced into qualify.py by the maintainers) —
+# LMCache-campaign platform features: sidecar lifecycle, segment relaunch,
+# zero-count effect gate, probe substitution + isolation reset + declared
+# documented-negative.
+def _mk2(tmp, cells):
+    import json as _j
+    from benchmarks import runner as runner_mod
+    from benchmarks.backends.fixture import FixtureBackend
+    bundle = os.path.join(tmp, "bundle")
+    os.makedirs(os.path.join(bundle, "clients"), exist_ok=True)
+    with open(os.path.join(bundle, "clients", "test-client.py"), "w") as f:
+        f.write(_client_recorder())
+    spec = {"id": "t", "owner": "t",
+            "model": {"name": "m", "quant": "q",
+                      "artifact": {"source": "gguf", "sha256": "0" * 64}},
+            "workload": {"client": "x"},
+            "client": {"script": "clients/test-client.py",
+                       "args": ["python3", "{bundle}/clients/test-client.py",
+                                "--url", "http://127.0.0.1:{port}",
+                                "--json-out", "{cell}/client.json"]},
+            "matrix": cells,
+            "sidecar": {"script": "/opt/cam/sidecar.sh"},
+            "verdict_policy": {"retry": {"max": 1, "on": ["RETRYABLE_FAILURE"]},
+                               "stop_review": ["UNKNOWN"]},
+            "stop_policy": {"deadline_h": 0.1, "cell_max_s": 60}}
+    prof = _profile(tmp)
+    prof["readiness"] = {"attempts": 20, "sleep": 0.1}
+    prof["window"].update({"health_wait_s": 5})
+    run_dir = os.path.join(tmp, "runs", "t")
+    b2 = FixtureBackend(prof, bundle, run_dir)
+    r2 = runner_mod.Runner(spec, prof, {}, run_dir, b2, bundle, max_attempts=1)
+    return b2, r2
+
+
+def _lmcache_fixture_campaign(tmp, spec_extra, client_src, fault="ok"):
+    import json as _json
+    from benchmarks import runner as runner_mod
+    from benchmarks.backends.fixture import FixtureBackend
+    bundle = os.path.join(tmp, "bundle")
+    os.makedirs(os.path.join(bundle, "clients"), exist_ok=True)
+    with open(os.path.join(bundle, "clients", "test-client.py"), "w") as f:
+        f.write(client_src)
+    cells = spec_extra.pop("cells")
+    spec = {"id": "t", "owner": "t",
+            "model": {"name": "m", "quant": "q",
+                      "artifact": {"source": "gguf", "sha256": "0" * 64}},
+            "workload": {"client": "x"},
+            "client": {"script": "clients/test-client.py",
+                       "args": ["python3", "{bundle}/clients/test-client.py",
+                                "--url", "http://127.0.0.1:{port}",
+                                "--json-out", "{cell}/client.json"]},
+            "matrix": cells,
+            "verdict_policy": {"retry": {"max": 1, "on": ["RETRYABLE_FAILURE"]},
+                               "stop_review": ["UNKNOWN"]},
+            "stop_policy": {"deadline_h": 0.1, "cell_max_s": 60}}
+    spec.update(spec_extra)
+    prof = _profile(tmp)
+    prof["readiness"] = {"attempts": 20, "sleep": 0.1}
+    prof["window"].update({"health_wait_s": 5})
+    run_dir = os.path.join(tmp, "runs", "t")
+    b = FixtureBackend(prof, bundle, run_dir, fault=fault)
+    r = runner_mod.Runner(spec, prof, {}, run_dir, b, bundle, max_attempts=1)
+    r.run()
+    return b, r
+
+
+def _client_recorder(declared=None, probe=None):
+    import json as _j
+    d = _j.dumps(declared or {})
+    p = _j.dumps(probe or {})
+    src = ('import argparse, json, urllib.request\n'
+           'a = argparse.ArgumentParser()\n'
+           'a.add_argument("--url"); a.add_argument("--json-out")\n'
+           'a.add_argument("--segment", default=None); a.add_argument("--segments", default=None)\n'
+           'a.add_argument("--dirty", action="store_true")\n'
+           'a = a.parse_args()\n'
+           'body = json.dumps({"prompt": "hi", "n_predict": 4}).encode()\n'
+           'req = urllib.request.Request(a.url + "/completion", data=body,\n'
+           '                             headers={"Content-Type": "application/json"})\n'
+           'urllib.request.urlopen(req, timeout=30).read()\n'
+           'res = {"valid": True, "rows": [{"decode_tps": 10.0, "decode_tokens": 4,\n'
+           '        "wall_s": 0.5, "seg": a.segment}], "segment": a.segment}\n'
+           + d + '.update(res)\n'
+           + 'if ' + p + ':\n'
+           + '    json.dump(' + p + ', open(a.json_out.replace("client.json", "probe.json"), "w"))\n'
+           'json.dump(res, open(a.json_out, "w"))\n'
+           'if a.segment is not None:\n'
+           "    json.dump(res, open(a.json_out.replace('client.json', 'seg-' + str(a.segment) + '.json'), 'w'))\n"
+           'print("ok")\n')
+    return src
+
+
+def q24_sidecar_lifecycle(tmp):
+    # G1 (2026-09-13 LMCache): the window-level sidecar outlives per-cell
+    # restarts; it dies exactly once — at the window's exit path — and the
+    # watchdog fire path kills it too.
+    cell = {"cell": "c1", "launch": {"binary": "/bin/true",
+                                     "args": ["--port", "{port}"]},
+            "requests": [{"kind": "completion", "prompt_tokens": 16,
+                          "decode": 4, "reps": 1}],
+            "gates": {"min_wall_s": 0.1}}
+    b, r = _lmcache_fixture_campaign(
+        tmp, {"cells": [cell],
+              "sidecar": {"script": "/opt/cam/sidecar.sh",
+                          "health_url": "http://127.0.0.1:1"}},
+        _client_recorder())
+    def idx(log, prefix):
+        for i, e in enumerate(log):
+            if e.startswith(prefix):
+                return i
+        return -1
+    log = b.events()
+    ok = (idx(log, "arm_watchdog") >= 0
+          and idx(log, "arm_watchdog") < idx(log, "sidecar_start")
+          and idx(log, "sidecar_stop") >= 0
+          and idx(log, "sidecar_stop") < idx(log, "prod_start")
+          and sum(1 for e in log if e.startswith("sidecar_stop")) == 1)
+    # watchdog fire while the sidecar is alive (the 09-10 shape): simulated
+    # after the first cell completes, with the sidecar still up.
+    cell2 = dict(cell, cell="c2")
+    b2 = None
+    def mk():
+        nonlocal b2
+        return _mk2(tmp, [cell, cell2])
+    b2, r2 = mk()
+    orig = r2._run_cell
+    def fire_after_first(c, idx):
+        v = orig(c, idx)
+        r2.cells_done[c["cell"]] = v
+        if c["cell"] == "c1":
+            b2.simulate_watchdog_fire()
+        return v
+    r2._run_cell = fire_after_first
+    r2.run()
+    l2 = b2.events()
+    fired = any(e == "watchdog_fire" for e in l2)
+    stop_after = fired and idx(l2, "sidecar_stop") > idx(l2, "watchdog_fire") \
+        and idx(l2, "sidecar_stop") >= 0
+    ok = ok and fired and stop_after
+    return ok, (f"normal: armed<sidecar<exit-kill(x1) before prod_start; "
+                f"fire-path: fired={fired} sidecar-killed-after-fire={stop_after}")
+
+
+def q25_segments_relaunch(tmp):
+    # the B-cell shape: segments: N => the cell's server is relaunched N
+    # times (fresh state each time) while the sidecar persists; the client
+    # runs once per segment with --segment/--segments.
+    cell = {"cell": "c1", "segments": 3,
+            "launch": {"binary": "/bin/true",
+                       "args": ["--port", "{port}"]},
+            "requests": [{"kind": "completion", "prompt_tokens": 16,
+                          "decode": 4, "reps": 1}],
+            "gates": {"min_wall_s": 0.1}}
+    b, r = _lmcache_fixture_campaign(
+        tmp, {"cells": [cell],
+              "sidecar": {"script": "/opt/cam/sidecar.sh"}},
+        _client_recorder())
+    log = b.events()
+    launches = [e.split(": ", 1)[1] for e in log if e.startswith("launch:")]
+    kills = [e for e in log if e.startswith("kill pid=")]
+    clients = [e for e in log if e.startswith("run_client")]
+    ok = (len(launches) == 3 and len(kills) == 3
+          and sum(1 for e in log if e.startswith("sidecar_start")) == 1
+          and sum(1 for e in log if e.startswith("sidecar_stop")) == 1
+          and len(clients) == 3 and len(set(launches)) == 3)
+    seg_ok = 0
+    for k in (1, 2, 3):
+        sf = os.path.join(tmp, "runs", "t", "attempts", "c1-01",
+                          f"seg-{k}.json")
+        try:
+            if json.load(open(sf)).get("segment") == str(k):
+                seg_ok += 1
+        except (OSError, ValueError):
+            pass
+    ok = ok and seg_ok == 3
+    return ok, f"launches={len(launches)} kills={len(kills)} " \
+               f"sidecar=1/1 distinct-scripts={len(set(launches))} " \
+               f"segment-seen={seg_ok}/3"
+
+
+def q26_zero_count_gate(tmp):
+    # G3: the M phase gates on a ZERO condition over multiple cells.
+    # all zero -> PASS; any non-zero -> VIOLATED (a result); a listed cell
+    # without PASS evidence -> UNVERIFIABLE (absence of a result).
+    from benchmarks import runner as runner_mod
+    from benchmarks.backends.fixture import FixtureBackend
+    spec = _spec([_cell("dep")])
+    r = runner_mod.Runner(spec, _profile(tmp), {}, tmp,
+                          FixtureBackend(_profile(tmp), ".", tmp), ".")
+    _write_attempt(tmp, "b1", 1, "PASS", [])
+    open(os.path.join(tmp, "attempts", "b1-01", "client.json"), "w").write(
+        '{"restore_corruption_count": 0}')
+    _write_attempt(tmp, "c1", 1, "PASS", [])
+    open(os.path.join(tmp, "attempts", "c1-01", "client.json"), "w").write(
+        '{"restore_corruption_count": 0}')
+    eg = {"kind": "zero_count", "over": ["b1", "c1"],
+          "metric": "restore_corruption_count"}
+    s, d, u = r._effect_gate(eg)
+    open(os.path.join(tmp, "attempts", "c1-01", "client.json"), "w").write(
+        '{"restore_corruption_count": 2}')
+    s2, d2, _ = r._effect_gate(eg)
+    open(os.path.join(tmp, "attempts", "c1-01", "verdict.json"), "w").write(
+        '{"class": "HARNESS_FAILURE"}')
+    s3, d3, _ = r._effect_gate(eg)
+    ok = (s == "PASS" and s2 == "VIOLATED" and s3 == "UNVERIFIABLE"
+          and u.get("b1") == ["b1-01"] and "2" in d2)
+    return ok, f"all-zero={s} non-zero={s2} no-evidence={s3} used={u}"
+
+
+def q27_probe_isolation_declared(tmp):
+    # G2/G4: (a) the S0 probe writes probe.json; the next cell's launch
+    # consumes {probe_N}. (b) isolation_reset runs between cells. (c) a
+    # client-declared documented-negative class is a completed negative;
+    # the same class undeclared for the cell is review-required (never a
+    # silent PASS, never a silent negative).
+    s0 = {"cell": "s0", "launch": {"binary": "/bin/true",
+                                   "args": ["--port", "{port}"]},
+          "requests": [{"kind": "completion", "prompt_tokens": 16,
+                        "decode": 4, "reps": 1}],
+          "gates": {"min_wall_s": 0.1},
+          "client": {"script": "clients/test-client.py",
+                     "args": ["python3", "{bundle}/clients/test-client.py",
+                              "--url", "http://127.0.0.1:{port}",
+                              "--json-out", "{cell}/client.json"]}}
+    c1 = {"cell": "c1",
+          "launch": {"binary": "/bin/true",
+                     "args": ["--port", "{port}", "--chunk", "{probe_N}"]},
+          "requests": [{"kind": "completion", "prompt_tokens": 16,
+                        "decode": 4, "reps": 1}],
+          "gates": {"min_wall_s": 0.1}}
+    b, r = _lmcache_fixture_campaign(
+        tmp, {"cells": [s0, c1],
+              "isolation_reset": "echo reset-sentinel"},
+        _client_recorder(probe={"N": 784, "pool_tokens": 776928}))
+    launch2 = open(os.path.join(tmp, "runs", "t", "attempts", "c1-01",
+                                "launch.sh")).read()
+    ok_a = "--chunk" in launch2 and "784" in launch2
+    ok_b = any("reset-sentinel" in e for e in b.events())
+    from benchmarks import verdict as v
+    cls, _ = v.decide({"expects": {"documented_negative": ["LMCACHE_NO_HIT"]}},
+                      None, [(True, "g", "ok")],
+                      {"valid": True, "rows": [],
+                       "declared_class": "LMCACHE_NO_HIT"}, 10)
+    cls2, _ = v.decide({"expects": {}}, None, [(True, "g", "ok")],
+                       {"valid": True, "rows": [],
+                        "declared_class": "LMCACHE_NO_HIT"}, 10)
+    ok_c = (cls == v.EXPECTED_NEGATIVE and cls2 == v.UNKNOWN)
+    # a CLASSIFIER-sourced class with client data still maps through the
+    # table (Q11 behavior must survive the declared-class change)
+    cls3, _ = v.decide({"expects": {}}, {"class": "SSE_MALFORMED"},
+                       [(True, "g", "ok")], {"valid": True, "rows": []}, 10)
+    ok = ok_a and ok_b and ok_c and cls3 == v.HARNESS_FAILURE
+    return ok, (f"probe={ok_a} isolation={ok_b} "
+                f"declared-documented={cls} declared-undeclared={cls2} "
+                f"classifier-sourced={cls3}")
+
+def q28_pre_gate(tmp):
+    # M-C runs and leaves a NON-ZERO corruption count in its PASS client.json;
+    # M-B (pre_gate zero_count over M-C) must be SKIPPED (recorded) and the
+    # campaign final must be review-required — not expected-negative, not a
+    # silent gap.
+    mc = {"cell": "mc", "launch": {"binary": "/bin/true",
+                                   "args": ["--port", "{port}"]},
+          "requests": [{"kind": "completion", "prompt_tokens": 16,
+                        "decode": 4, "reps": 1}],
+          "gates": {"min_wall_s": 0.1},
+          "client": {"script": "clients/test-client.py",
+                     "args": ["python3", "{bundle}/clients/test-client.py",
+                              "--url", "http://127.0.0.1:{port}",
+                              "--json-out", "{cell}/client.json",
+                              "--dirty"]}}
+    mb = {"cell": "mb",
+          "launch": {"binary": "/bin/true", "args": ["--port", "{port}"]},
+          "requests": [{"kind": "completion", "prompt_tokens": 16,
+                        "decode": 4, "reps": 1}],
+          "gates": {"min_wall_s": 0.1},
+          "pre_gate": {"kind": "zero_count", "over": ["mc"],
+                       "metric": "restore_corruption_count"}}
+    src = (_client_recorder()
+           + 'import sys\n'
+           + 'if "--dirty" in sys.argv:\n'
+           + '    d = json.load(open(a.json_out))\n'
+           + "    d['restore_corruption_count'] = 1\n"
+           + "    json.dump(d, open(a.json_out, 'w'))\n")
+    b, r = _lmcache_fixture_campaign(tmp, {"cells": [mc, mb]}, src)
+    st = json.load(open(os.path.join(tmp, "runs", "t", "cell-state.json")))
+    fs = open(os.path.join(tmp, "runs", "t", "final.json")).read()
+    ok = (st.get("mb", {}).get("status") == "SKIPPED"
+          and st["mb"]["gate"]["status"] == "VIOLATED"
+          and '"review-required"' in fs)
+    return ok, (f"skip={st.get('mb', {}).get('status')} "
+                f"gate={st.get('mb', {}).get('gate', {}).get('status')} "
+                f"final={fs.strip()[:80]}")
+
+
 p0("Q1  clean cell, real client over real sockets", q1_clean)
 p0("Q2  documented wall -> EXPECTED_NEGATIVE, stop-done (09-12 gate)", q2_documented_wall)
 p0("Q3  MiB OOM below wall -> RESOURCE_LIMIT (09-12 unit-blind matcher)", q3_mib_oom)
@@ -641,6 +936,12 @@ p0("Q20 every temp_change requires an explicit undo; prepare rejects the rest (e
 p0("Q21 effect gate: PASS / BELOW_FLOOR / UNVERIFIABLE are distinct outcomes (external review B)", q21_effect_gate_three_outcomes)
 p0("Q22 effect gate: the estimator uses ONLY PASS attempts (external review A)", q22_effect_gate_pass_only_estimator)
 p0("Q23 campaign final: a bad cell can never be masked by another cell's negative (external review C)", q23_campaign_final_mixed_sets)
+p0("Q24 window sidecar: survives per-cell restarts; killed on exit and on watchdog fire (LMCache G1)", q24_sidecar_lifecycle)
+p0("Q25 segments: per-segment server relaunch (fresh state), sidecar persists, client sees its segment (LMCache G1/B)", q25_segments_relaunch)
+p0("Q26 zero-count effect gate: PASS / VIOLATED / UNVERIFIABLE with attempt provenance (LMCache G3)", q26_zero_count_gate)
+p1("Q27 probe substitution + isolation reset + client-declared doc-negative vs review (LMCache G2/G4)", q27_probe_isolation_declared)
+p1("Q28 pre-gate: conditional cell runs on clean evidence, recorded-SKIPPED on a dirty gate, final=review-required (LMCache M-B/M-D)", q28_pre_gate)
+
 
 
 def run_all(out=None):

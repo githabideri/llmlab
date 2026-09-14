@@ -197,6 +197,33 @@ class RealBackend:
             raise StartupFailure(f"launch returned no pid: rc={rc} {err[:300]}")
         return {"pid": pid, "script": script_path}
 
+    # -- window-level sidecar (2026-09-13): a target process that must outlive
+    # per-cell server restarts. The script file is staged beforehand (it is
+    # campaign code, not bundle code); we only launch and kill it.
+    def start_sidecar(self, script_path, log_path, health_url=None, where="target"):
+        h = self.launch(script_path, log_path, where=where)
+        if health_url:
+            ready = self.wait_ready(health_url,
+                                    attempts=int(self.p.get("readiness", {}).get("attempts", 60)),
+                                    sleep=float(self.p.get("readiness", {}).get("sleep", 5)))
+            if not any(ready):
+                self.kill(h, where=where)
+                raise StartupFailure(f"sidecar never became ready at {health_url}")
+        return h
+
+    def stop_sidecar(self, handle, where="target"):
+        self.kill(handle, where=where)
+
+    def rearm_watchdog(self, deadline_epoch, lease_path, heartbeat_path,
+                       undo_manifest, prod_desc):
+        # an LXC restart (or any target reboot) kills the armed watchdog
+        # process; the lease/heartbeat files survive on durable storage.
+        # Kill any stale process, then re-arm with the SAME absolute deadline.
+        wd = self.p["window"]
+        self._ssh("target", f"pkill -f {shlex.quote(wd['script'])} 2>/dev/null; true")
+        self.arm_watchdog(deadline_epoch, lease_path, heartbeat_path,
+                          undo_manifest, prod_desc)
+
     def kill(self, handle, where="target"):
         pid = handle.get("pid")
         if not pid:
@@ -278,7 +305,8 @@ class RealBackend:
                   "health_url": prod_desc.get("health_url"),
                   "live_check_cmd": prod_desc.get("live_check_cmd"),
                   "restore_result": wd.get("restore_result"),
-                  "health_wait_s": int(wd.get("health_wait_s", 1200))}
+                  "health_wait_s": int(wd.get("health_wait_s", 1200)),
+                  "ensure_guest": wd.get("ensure_guest_cmd", "")}
         b64 = base64.b64encode(json.dumps(params).encode()).decode()
         # undo manifest (local JSON) -> shell script on the target
         try:

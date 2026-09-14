@@ -68,6 +68,16 @@ class Window:
         # (2) temp resource changes (memory bump, ...) — profile-declared, undone on exit
         if self.temp_changes:
             self.b.apply_temp_changes(self.temp_changes)
+        # (2b) PERMANENT steps (profile window.permanent_steps): host actions
+        # that the campaign needs and that are deliberately NOT reverted on
+        # exit (e.g. an LXC stop/start so a config-level memory bump takes
+        # effect). Each is {cmd, reason}; an optional rearm_watchdog re-arms
+        # the (possibly killed) watchdog with the original absolute deadline.
+        self.permanent_steps = (self.p.get("window") or {}).get("permanent_steps") or []
+        for st in self.permanent_steps:
+            self.b.sh(st["cmd"], where="host", timeout=int(st.get("timeout_s", 600)))
+        if any(st.get("rearm_watchdog") for st in self.permanent_steps):
+            self.b.rearm_watchdog(deadline, self.lease, self.heartbeat, manifest, prod_desc)
         # (3) stop production; on ANY post-stop failure, restore immediately.
         # prod_down is set in BOTH branches: a stop that raised may still have
         # stopped (ssh timeout after the stop landed), and exit() must not
@@ -143,6 +153,10 @@ class Window:
         with open(out, "w") as f:
             f.write(f"VERDICT: {'RESTORED' if restored else 'ATTENTION'}\n")
             f.write(f"reason: {reason}\nhealth: {health}\nlive_completion: {live}\n")
+            if getattr(self, "permanent_steps", None):
+                f.write("permanent (NOT reverted, by design):\n")
+                for st in self.permanent_steps:
+                    f.write(f"  - {st.get('cmd')} ({st.get('reason', 'no reason given')})\n")
             f.write(f"utc: {result['utc']}\n")
         return result
 

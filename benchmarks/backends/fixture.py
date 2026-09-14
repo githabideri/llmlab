@@ -218,8 +218,11 @@ class FixtureBackend:
             fdst.write(fsrc.read())
 
     def get_file(self, remote_path, local_path, where="target"):
-        base = self.root if where == "target" else os.path.join(self.root, "_host")
-        src = os.path.join(base, remote_path.lstrip("/"))
+        if os.path.isabs(remote_path) and os.path.exists(remote_path):
+            src = remote_path          # identity-mapped fixture target
+        else:
+            base = self.root if where == "target" else os.path.join(self.root, "_host")
+            src = os.path.join(base, remote_path.lstrip("/"))
         os.makedirs(os.path.dirname(local_path) or ".", exist_ok=True)
         with open(src, "rb") as fsrc, open(local_path, "wb") as fdst:
             fdst.write(fsrc.read())
@@ -400,6 +403,55 @@ class FixtureBackend:
         self.notified = getattr(self, "notified", [])
         self.notified.append((level, message))
 
+    # -- window-level sidecar (persists across per-cell server restarts) ----------
+    def start_sidecar(self, script_path, log_path, health_url=None, where="target"):
+        import threading as _th
+        self.op_log.append(f"sidecar_start: {script_path}")
+        port = self._next_port()
+        state = {"reset_count": 0}
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+            def do_GET(self):
+                with open(log_path, "a") as f:
+                    f.write(f"sidecar {self.path}\\n")
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b'{"ok": true}\n')
+            def do_POST(self):
+                n = int(self.headers.get("Content-Length", 0))
+                self.rfile.read(n)
+                if self.path == "/reset":
+                    state["reset_count"] += 1
+                    with open(log_path, "a") as f:
+                        f.write(f"sidecar RESET (count={state['reset_count']})\\n")
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b'{"ok": true}\n')
+
+        class Srv(socketserver.ThreadingTCPServer):
+            allow_reuse_address = True
+            daemon_threads = True
+        srv = Srv(("127.0.0.1", port), H)
+        th = _th.Thread(target=srv.serve_forever, daemon=True)
+        th.start()
+        open(log_path, "a").write("sidecar started\\n")
+        self.sidecar = {"pid": 8000, "port": port, "srv": srv, "log": log_path,
+                        "state": state}
+        return self.sidecar
+
+    def stop_sidecar(self, handle, where="target"):
+        if getattr(self, "sidecar", None) is None:
+            return
+        self.op_log.append(f"sidecar_stop pid={handle.get('pid')}")
+        try:
+            self.sidecar["srv"].shutdown()
+            self.sidecar["srv"].server_close()
+        except Exception:
+            pass
+        self.sidecar = None
+
     # -- test hooks (used by qualify only, never by the runner) ----------------------------
     def simulate_reboot(self):
         self.rebooted = True
@@ -415,6 +467,7 @@ class FixtureBackend:
         self.op_log.append("watchdog_fire")
         for s in self.servers:
             s.stop()
+        self.stop_sidecar({"pid": 8000})
         self.undo_temp_changes(self.temp_changes)
         self.prod_start()
         health = self.prod_health()

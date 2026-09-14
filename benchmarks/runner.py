@@ -124,6 +124,26 @@ class Runner:
                                  temp_changes=self._temp_changes())
             self.window.enter()
             self.events.emit("WINDOW_ARMED")
+            self._sidecar = None
+            sc = self.spec.get("sidecar")
+            if sc:
+                # the window-level sidecar (2026-09-13 LMCache campaign): a
+                # target process that outlives per-cell server restarts.
+                # Launched once, after the window is armed; killed at exit;
+                # its pid joins the watchdog's kill manifest.
+                log_t = self.backend.target_path(os.path.join(self.run_dir, "sidecar.log"))
+                self._sidecar = self.backend.start_sidecar(
+                    sc["script"], log_t,
+                    health_url=sc.get("health_url"))
+                try:
+                    with open(os.path.join(self.run_dir, "undo-manifest.json")) as f:
+                        man = json.load(f)
+                    man["sidecar_pid"] = self._sidecar.get("pid")
+                    with open(os.path.join(self.run_dir, "undo-manifest.json"), "w") as f:
+                        json.dump(man, f, indent=2)
+                except OSError:
+                    pass
+                self.events.emit("SIDECAR_STARTED", pid=self._sidecar.get("pid"))
             self._hb = _Heartbeat(self.window)
             self._hb.start()
             # (3) cells
@@ -131,6 +151,14 @@ class Runner:
                 if self.cells_done.get(cell["cell"]):
                     self.events.emit("CELL_SKIPPED", cell=cell["cell"], reason="complete")
                     continue
+                # isolation reset between cells (2026-09-13 LMCache review):
+                # the sidecar's store persists across cells BY DESIGN inside a
+                # cell (that is the property under test), but must not leak
+                # scientific state between cells (B's store must not serve C).
+                if idx > 0 and (self.spec.get("isolation_reset")):
+                    self.events.emit("ISOLATION_RESET")
+                    self.backend.sh(self.spec["isolation_reset"], where="target",
+                                    timeout=300)
                 # host-failure stop gate: before EVERY cell
                 hres = hf.check()
                 if hres.get("detected"):
@@ -172,7 +200,12 @@ class Runner:
                         # ABSENCE of a result (we could not measure) ->
                         # review-required. "cache bought only +2%" != "we
                         # could not measure the cache gain".
-                        final = ("expected-negative" if status == "BELOW_FLOOR"
+                        # BELOW_FLOOR (measured gain under the floor) and
+                        # VIOLATED (a zero-condition gate saw a non-zero
+                        # count) are RESULTS; UNVERIFIABLE is the absence of
+                        # a result.
+                        final = ("expected-negative"
+                                 if status in ("BELOW_FLOOR", "VIOLATED")
                                  else "review-required")
                         self._finish(final, f"effect gate on {cell['cell']}: {detail}")
                         return self._final()
@@ -191,6 +224,9 @@ class Runner:
             self._finish(final, "signal")
             return self._final()
         except Exception as e:
+            if os.environ.get("RUNNER_TB"):
+                import traceback
+                traceback.print_exc()
             self.events.emit("ABORTED", reason=repr(e))
             final = "aborted-failure"
             # if prod is still up (window never entered) the watchdog is a stray
@@ -209,8 +245,37 @@ class Runner:
         return self._final()
 
     # --------------------------------------------------------------- cells
+    def _record_cell_state(self, cell, state):
+        """Persist a cell's final state without an attempt (skips)."""
+        f = os.path.join(self.run_dir, "cell-state.json")
+        st = {}
+        if os.path.exists(f):
+            try:
+                st = json.load(open(f))
+            except ValueError:
+                st = {}
+        st[cell["cell"]] = state
+        json.dump(st, open(f, "w"), indent=2)
+
     def _run_cell(self, cell, idx):
         cid = cell["cell"]
+        # pre_gate: this cell runs only if an earlier cell's PERSISTED
+        # evidence satisfies a condition (2026-09-13 LMCache: M-B/M-D run
+        # only after a clean M-C). VIOLATED / UNVERIFIABLE skips the cell
+        # with a recorded, reviewable decision — never a silent omission,
+        # never a run.
+        pg = cell.get("pre_gate")
+        if pg:
+            gs, gd, gu = self._effect_gate(pg)
+            if gs != "PASS":
+                self._record_cell_state(cell, {
+                    "status": "SKIPPED", "attempts": 0,
+                    "gate": {"kind": pg.get("kind"), "status": gs,
+                             "detail": gd, "used": gu},
+                })
+                self.events.emit("CELL_SKIPPED", cell=cid, gate=gs,
+                                 detail=gd)
+                return "SKIPPED"
         verdict = verdict_mod.UNKNOWN
         for attempt in range(1, self.max_attempts + 1):
             self.events.emit("ATTEMPT_STARTED", cell=cid, attempt=attempt)
@@ -250,62 +315,97 @@ class Runner:
         self.backend.put_file(os.path.join(a_dir, "prompt.txt"),
                               self.backend.target_path(os.path.join(a_dir, "prompt.txt")))
 
-        # (2) immutable launch spec as a SCRIPT FILE (byte-exact; no inline bash -c)
+        # (2) immutable launch spec as a SCRIPT FILE (byte-exact; no inline bash -c).
+        # A cell may declare "segments": N — the platform then boots the cell's
+        # server N times (kill + relaunch between segments) and runs the client
+        # once per segment (--segment k --segments N). Each segment sees a
+        # FRESH server (clean GPU/APC state by construction) while any
+        # window-level sidecar keeps running across the relaunches — the
+        # "vLLM restarts, the RAM store survives" experiment, expressed as a
+        # platform property instead of client-side process fiddling.
         launch = cell["launch"]
         model_path = (self.profile.get("storage") or {}).get("model_path", "{model}")
-        args = [a.format(model=model_path, **cell_paths) for a in launch["args"]]
-        script = launch["binary"].format(model=model_path)
-        launch_sh = (f"#!/bin/sh\n# IMMUTABLE per-cell launch spec (generated; do not hand-edit)\n"
-                     f"# cell={cell['cell']} attempt={attempt}\n"
-                     + " ".join(_q(a) for a in [script] + args)
-                     + f" > {t_server_log} 2>&1" + "\n")
-        self.backend.write_script(self.backend.target_path(os.path.join(a_dir, "launch.sh")),
-                                  launch_sh)
-        with open(os.path.join(a_dir, "launch.sh"), "w") as f:
-            f.write(launch_sh)          # local copy = evidence of what was sent
-        with open(os.path.join(a_dir, "meta.json"), "w") as f:
-            json.dump({"cell": cell["cell"], "attempt": attempt, "port": port,
-                       "launch": [script] + args,
-                       "freeze": {"scientific_hash": self.freeze.get("scientific_hash"),
-                                  "implementation_hash": self.freeze.get("implementation_hash")}},
-                      f, indent=2)
-
-        # (3) launch + readiness (the HTTP CODE is the gate — empty-200 contract)
+        n_seg = int(cell.get("segments", 1))
+        seg_logs = []
         client_data, fail_log = None, ""
         t0 = time.time()
-        handle = None
-        try:
-            handle = self.backend.launch(self.backend.target_path(os.path.join(a_dir, "launch.sh")),
-                                         t_server_log)
-        except Exception as e:
-            fail_log = "launch failed: " + repr(e)
-        if handle is not None:
-            ready = self.backend.wait_ready(
-                f"http://127.0.0.1:{port}/health",
-                attempts=int(self.profile.get("readiness", {}).get("attempts", 6)),
-                sleep=float(self.profile.get("readiness", {}).get("sleep", 0.3)))
-            # 'became ready at some point' is the contract (all() would demand
-            # every poll — including pre-load ones — to be 200)
-            if any(ready):
-                # (4) telemetry, then the real client over real sockets
-                telem = self.backend.start_telemetry(t_dir,
-                                                     self.spec.get("stop_policy", {}).get("cell_max_s", 600))
-                try:
-                    client_data = self._run_client(cell, t_dir, port)
-                except Exception as ce:
-                    _write(os.path.join(a_dir, "client-error.json"), {"error": repr(ce)})
-                    fail_log = fail_log or self._pull(server_log)
-                finally:
-                    self.backend.stop_telemetry(telem)
-                    self.backend.kill(handle)
+        for seg in range(1, n_seg + 1):
+            c_paths = dict(cell_paths, segment=str(seg), segments=str(n_seg),
+                           **self._probe_paths())
+            # probe keys consumed by the launch must EXIST: a launch that
+            # silently drops its {probe_N} would size the cache with an
+            # unverified chunk size. Missing = HARNESS_FAILURE, loudly.
+            need = set()
+            for a in launch["args"]:
+                need |= set(__import__("re").findall(r"\{(\w+)\}", a))
+            missing = [k for k in sorted(need)
+                       if k.startswith("probe_") and k not in c_paths]
+            if missing:
+                fail_log = ("probe key missing: " + ",".join(missing)
+                            + " (the probe cell must have written probe.json)")
+                self._pull(os.path.join(a_dir, "server.log"))
+                break
+            args = [a.format(model=model_path, **c_paths) for a in launch["args"]]
+            script = launch["binary"].format(model=model_path)
+            if n_seg == 1:
+                log_name, launch_name = "server.log", "launch.sh"
             else:
-                self.backend.kill(handle)
-                fail_log = self._pull(server_log)
-                if not fail_log:
-                    fail_log = "server never became ready (no load log)"
-        elif fail_log:
-            pass
-        self._pull(server_log)          # the server log is evidence either way
+                log_name, launch_name = f"vllm-{seg}.log", f"launch-seg{seg}.sh"
+            seg_logs.append(log_name)
+            t_log = self.backend.target_path(os.path.join(a_dir, log_name))
+            launch_sh = (f"#!/bin/sh\n# IMMUTABLE per-segment launch spec (generated; do not hand-edit)\n"
+                         f"# cell={cell['cell']} attempt={attempt} segment={seg}/{n_seg}\n"
+                         + " ".join(_q(a) for a in [script] + args)
+                         + f" > {t_log} 2>&1" + "\n")
+            self.backend.write_script(self.backend.target_path(os.path.join(a_dir, launch_name)),
+                                      launch_sh)
+            with open(os.path.join(a_dir, launch_name), "w") as f:
+                f.write(launch_sh)      # local copy = evidence of what was sent
+            with open(os.path.join(a_dir, "meta.json"), "w") as f:
+                json.dump({"cell": cell["cell"], "attempt": attempt, "port": port,
+                           "segment": seg, "segments": n_seg,
+                           "launch": [script] + args,
+                           "freeze": {"scientific_hash": self.freeze.get("scientific_hash"),
+                                      "implementation_hash": self.freeze.get("implementation_hash")}},
+                          f, indent=2)
+            # (3) launch + readiness (the HTTP CODE is the gate — empty-200 contract)
+            handle = None
+            try:
+                handle = self.backend.launch(self.backend.target_path(os.path.join(a_dir, launch_name)),
+                                             t_log)
+            except Exception as e:
+                fail_log = "launch failed: " + repr(e)
+            if handle is not None:
+                ready = self.backend.wait_ready(
+                    f"http://127.0.0.1:{port}/health",
+                    attempts=int(self.profile.get("readiness", {}).get("attempts", 6)),
+                    sleep=float(self.profile.get("readiness", {}).get("sleep", 0.3)))
+                # 'became ready at some point' is the contract (all() would
+                # demand every poll — including pre-load ones — to be 200)
+                if any(ready):
+                    # (4) telemetry, then the real client over real sockets
+                    telem = self.backend.start_telemetry(t_dir,
+                                                         self.spec.get("stop_policy", {}).get("cell_max_s", 600))
+                    try:
+                        client_data = self._run_client(cell, t_dir, port,
+                                                       seg=seg, n_seg=n_seg)
+                    except Exception as ce:
+                        _write(os.path.join(a_dir, "client-error.json"),
+                               {"error": repr(ce)})
+                        fail_log = fail_log or self._pull(os.path.join(a_dir, log_name))
+                    finally:
+                        self.backend.stop_telemetry(telem)
+                        self.backend.kill(handle)   # the sidecar (if any) survives
+                else:
+                    self.backend.kill(handle)
+                    fail_log = self._pull(os.path.join(a_dir, log_name))
+                    if not fail_log:
+                        fail_log = "server never became ready (no load log)"
+            # the probe file (written by a client, e.g. the S0 N-probe) is
+            # evidence that later cells' launches may consume
+            self._pull_probe(a_dir)
+        for log_name in seg_logs:          # the server log(s) are evidence either way
+            self._pull(os.path.join(a_dir, log_name))
         for f in ("nvml.csv", "client.json"):
             if not os.path.exists(os.path.join(a_dir, f)):
                 self._pull(os.path.join(a_dir, f))
@@ -338,11 +438,37 @@ class Runner:
             pass
         return _read(local_path)
 
-    def _run_client(self, cell, a_dir_target, port):
-        c = self.spec.get("client") or cell.get("client")
+    def _run_client(self, cell, a_dir_target, port, seg=None, n_seg=None):
+        # cell-level client OVERRIDES the spec-level one (S0 probe cell,
+        # M-battery cells) — a per-cell contract is the finer one
+        c = cell.get("client") or self.spec.get("client")
         argv = [a.format(cell=a_dir_target, port=port,
                          bundle=self.backend.bundle_path()) for a in c["args"]]
+        # segment args are appended ONLY for multi-segment cells: existing
+        # clients (bench-llama and friends) do not accept them and a single-
+        # segment cell must see exactly the old argv shape
+        if seg is not None and n_seg and int(n_seg) > 1:
+            argv += ["--segment", str(seg), "--segments", str(n_seg)]
         return self.backend.run_client(argv)
+
+    def _probe_paths(self):
+        """{probe_<key>: value} substitutions for launch args, from the most
+        recent probe.json a client wrote (the S0 probe: the engine's reported
+        hybrid block size N, pool size, ...). N is a BOOT MECHANIC, not a
+        science field — but the value is persisted as evidence per cell."""
+        p = os.path.join(self.run_dir, "probe.json")
+        try:
+            d = json.load(open(p))
+        except (OSError, ValueError):
+            return {}
+        return {f"probe_{k}": str(v) for k, v in d.items()}
+
+    def _pull_probe(self, a_dir):
+        local = os.path.join(self.run_dir, "probe.json")
+        try:
+            self.backend.get_file(os.path.join(a_dir, "probe.json"), local)
+        except OSError:
+            pass
 
     def _gates(self, cell, client_data, wall):
         """Plausibility gates, SIZED per cell (unsized gates are how false-completes
@@ -403,6 +529,52 @@ class Runner:
         import glob
         import json as _json
         import statistics
+        if eg.get("kind") == "zero_count":
+            # 2026-09-13 LMCache review: the M phase gates on a ZERO condition
+            # (no restoration corruption across the target-only battery) —
+            # "is it safe" is a different question than "does it help", so it
+            # is a different gate. PASS: every listed cell's PASS evidence
+            # shows a zero count. VIOLATED: any non-zero count (a RESULT: the
+            # phase is blocked and the campaign completes with that answer).
+            # UNVERIFIABLE: any listed cell has no PASS evidence carrying the
+            # metric (absence of a result -> review).
+            def cell_count(name, metric):
+                files = sorted(glob.glob(os.path.join(
+                    self.run_dir, "attempts", f"{name}-*", "client.json")))
+                vals = []
+                for f in files:
+                    a_dir = os.path.dirname(f)
+                    try:
+                        vd = _json.load(open(os.path.join(a_dir, "verdict.json")))
+                    except (OSError, ValueError):
+                        continue
+                    if vd.get("class") != "PASS":
+                        continue
+                    try:
+                        c = _json.load(open(f))
+                    except (OSError, ValueError):
+                        continue
+                    v = c.get(metric)
+                    if v is not None:
+                        vals.append((os.path.basename(a_dir), v))
+                return vals
+            all_used, bad = {}, False
+            counts = {}
+            for name in eg["over"]:
+                vv = cell_count(name, eg["metric"])
+                all_used[name] = [a for a, _ in vv]
+                if not vv:
+                    return ("UNVERIFIABLE",
+                            f"zero-count gate: {eg['metric']} has no PASS "
+                            f"evidence from cell {name}", all_used)
+                counts[name] = max(v for _, v in vv)
+                bad = bad or max(v for _, v in vv) > 0
+            detail = f"zero-count gate {eg['metric']}: " + \
+                ", ".join(f"{n}={v}" for n, v in counts.items())
+            if bad:
+                return "VIOLATED", detail + " — non-zero count; dependent phase blocked", all_used
+            return "PASS", detail + " — clean", all_used
+
         def cell_metric(name, metric):
             files = sorted(glob.glob(
                 os.path.join(self.run_dir, "attempts", f"{name}-*", "client.json")))
@@ -456,6 +628,17 @@ class Runner:
     def _finish(self, final, reason):
         if self._hb:
             self._hb.stop()
+        # the sidecar is campaign-owned: it dies with the campaign, before the
+        # prod restore (the watchdog's kill manifest carries its pid too, so
+        # the fire path kills it as well)
+        if getattr(self, "_sidecar", None):
+            try:
+                self.backend.stop_sidecar(self._sidecar)
+                self.events.emit("SIDECAR_STOPPED",
+                                 pid=self._sidecar.get("pid"))
+            except Exception as e:
+                self.events.emit("SIDECAR_STOP_FAILED", detail=repr(e)[:160])
+            self._sidecar = None
         restore = {}
         if self.window is not None:
             restore = self.window.exit(reason)
