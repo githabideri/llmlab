@@ -1,0 +1,15 @@
+{
+ "segments": [
+  {
+   "requests": [
+    {
+     "tag": "probe",
+     "fixture": "p64",
+     "decode": 64,
+     "nonce": true,
+     "key_decode": 64
+    }
+   ]
+  }
+ ]
+}

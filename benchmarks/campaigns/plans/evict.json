@@ -1,0 +1,42 @@
+{
+ "segments": [
+  {
+   "fixtures": {
+    "b90A": "b90_A.txt",
+    "fill400": "fill400.txt"
+   },
+   "requests": [
+    {
+     "tag": "store-A",
+     "fixture": "b90A",
+     "decode": 32,
+     "key_decode": 64
+    },
+    {
+     "tag": "fill1",
+     "fixture": "fill400",
+     "decode": 16,
+     "nonce": true,
+     "key_decode": 64
+    },
+    {
+     "tag": "fill2",
+     "fixture": "fill400",
+     "decode": 16,
+     "nonce": true,
+     "key_decode": 64
+    },
+    {
+     "tag": "ret-A-after-eviction",
+     "fixture": "b90A",
+     "decode": 32,
+     "key": {
+      "query": "What is the value of KEY:k0? Answer only the value.",
+      "expected": "__K0__"
+     },
+     "key_decode": 64
+    }
+   ]
+  }
+ ]
+}

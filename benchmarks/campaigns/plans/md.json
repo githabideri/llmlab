@@ -1,0 +1,147 @@
+{
+ "segments": [
+  {
+   "fixtures": {
+    "m16": "m16384.txt"
+   },
+   "requests": [
+    {
+     "tag": "md-00-store",
+     "fixture": "m16",
+     "decode": 32,
+     "nonce": true,
+     "key_decode": 64
+    },
+    {
+     "tag": "md-01-store",
+     "fixture": "m16",
+     "decode": 32,
+     "nonce": true,
+     "key_decode": 64
+    },
+    {
+     "tag": "md-02-store",
+     "fixture": "m16",
+     "decode": 32,
+     "nonce": true,
+     "key_decode": 64
+    },
+    {
+     "tag": "md-03-store",
+     "fixture": "m16",
+     "decode": 32,
+     "nonce": true,
+     "key_decode": 64
+    },
+    {
+     "tag": "md-04-store",
+     "fixture": "m16",
+     "decode": 32,
+     "nonce": true,
+     "key_decode": 64
+    },
+    {
+     "tag": "md-05-store",
+     "fixture": "m16",
+     "decode": 32,
+     "nonce": true,
+     "key_decode": 64
+    },
+    {
+     "tag": "md-06-store",
+     "fixture": "m16",
+     "decode": 32,
+     "nonce": true,
+     "key_decode": 64
+    },
+    {
+     "tag": "md-07-store",
+     "fixture": "m16",
+     "decode": 32,
+     "nonce": true,
+     "key_decode": 64
+    },
+    {
+     "tag": "md-00-ret",
+     "fixture": "m16",
+     "decode": 32,
+     "key": {
+      "query": "What is the value of KEY:k0? Answer only the value.",
+      "expected": "MDVAL-00"
+     },
+     "key_decode": 64
+    },
+    {
+     "tag": "md-01-ret",
+     "fixture": "m16",
+     "decode": 32,
+     "key": {
+      "query": "What is the value of KEY:k0? Answer only the value.",
+      "expected": "MDVAL-01"
+     },
+     "key_decode": 64
+    },
+    {
+     "tag": "md-02-ret",
+     "fixture": "m16",
+     "decode": 32,
+     "key": {
+      "query": "What is the value of KEY:k0? Answer only the value.",
+      "expected": "MDVAL-02"
+     },
+     "key_decode": 64
+    },
+    {
+     "tag": "md-03-ret",
+     "fixture": "m16",
+     "decode": 32,
+     "key": {
+      "query": "What is the value of KEY:k0? Answer only the value.",
+      "expected": "MDVAL-03"
+     },
+     "key_decode": 64
+    },
+    {
+     "tag": "md-04-ret",
+     "fixture": "m16",
+     "decode": 32,
+     "key": {
+      "query": "What is the value of KEY:k0? Answer only the value.",
+      "expected": "MDVAL-04"
+     },
+     "key_decode": 64
+    },
+    {
+     "tag": "md-05-ret",
+     "fixture": "m16",
+     "decode": 32,
+     "key": {
+      "query": "What is the value of KEY:k0? Answer only the value.",
+      "expected": "MDVAL-05"
+     },
+     "key_decode": 64
+    },
+    {
+     "tag": "md-06-ret",
+     "fixture": "m16",
+     "decode": 32,
+     "key": {
+      "query": "What is the value of KEY:k0? Answer only the value.",
+      "expected": "MDVAL-06"
+     },
+     "key_decode": 64
+    },
+    {
+     "tag": "md-07-ret",
+     "fixture": "m16",
+     "decode": 32,
+     "key": {
+      "query": "What is the value of KEY:k0? Answer only the value.",
+      "expected": "MDVAL-07"
+     },
+     "key_decode": 64
+    }
+   ]
+  }
+ ]
+}
