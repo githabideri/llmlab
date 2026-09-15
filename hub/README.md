@@ -392,6 +392,15 @@ server, plus a periodic `snapshot.json` in the state dir (restored on boot
 so the UI isn't blank after a hub restart). No historical storage — for
 long-term trends, scrape `/metrics`.
 
+Snapshot shapes change with code versions. `restore()` therefore normalises
+restored model dicts (`kind` re-derived from the server's kind, `desc`
+backfilled) rather than trusting the stored shape: a v1-era snapshot that
+lacked `kind` on the vLLM entry once made `setdefault` keep the stale
+dict forever, which silently sent the Prometheus export down the llama.cpp
+branch and hid the whole vLLM series family (`hub_model_kv_*`, preemptions,
+request counts) from Prometheus. Never "fix" a snapshot by deleting it —
+normalisation on restore is the permanent fix.
+
 ## Compatibility
 
 Currently tested with:
