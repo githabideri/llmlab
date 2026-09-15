@@ -83,10 +83,15 @@ After server-up, send a tiny warmup request before the measured window (cudagrap
 
 > Results are hardware-specific — comparative guidance, not universal constants.
 
+### Plausibility floors: size per request *kind*, not per cell (2026-09-15)
+
+A wall-time floor exists to catch **false completes** — a client that wrote a clean result file around a request that never did the declared work (the LADDER-256k shape). That makes the floor a *lie detector for the workload*, and it must be applied where no-ops are actually dangerous: **first-touch (store) and unique-pressure legs**, where a too-fast row means nothing entered the cache and every downstream "hit" is void. A single cell-level floor taken over *all* rows breaks the moment a cell mixes request populations: **return legs are fast by construction** — the stock prefix cache (or the tier under test) serving a stored prefix in ~1.5 s instead of ~60 s is the *signal*, not a violation, and a min-over-rows floor flags the experiment's own measurement and invalidates the cell. Two companion lessons from the LMCache campaign: (1) a first-touch floor calibrated on today's prefill speed will misfire the *other* way as engines get faster — prefer relative or per-kind sizing over absolutes; (2) the wall floor does not catch a *silent short-prompt* no-op (a 60 K "fill" that took 1.7 s had simply not been sent) — a **prompt-size** floor on the actually-sent tokens is the check that catches that shape. A fast *return* is expected; a fast *store* is a suspect; a short *prompt* is void.
+
 ## Where the snapshots live
 
 | Snapshot | Report |
 |----------|--------|
+| LMCache 0.5.0 RAM tier on the dual-3090 27B (hard negative: HMA) | [2026-09-15](../reports/2026-09-15-lmcache-ram-tier-vllm-dual3090.md) |
 | gpt-oss-20b on single 3060 | [2026-02-03](../reports/2026-02-03-gpt-oss-20b.md) |
 | Nemotron profile (fixed 5-task set) | [2026-02-12 ABC](../reports/2026-02-12-nemotron-abc-executive-summary.md) |
 | ik_llama.cpp vs llama.cpp | [2026-02-12](../reports/2026-02-12-ik-llama-cpp-vs-main-preliminary.md) |

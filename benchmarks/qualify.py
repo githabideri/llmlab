@@ -1027,7 +1027,7 @@ p0("Q25 segments: per-segment server relaunch (fresh state), sidecar persists, c
 p0("Q26 zero-count effect gate: PASS / VIOLATED / UNVERIFIABLE with attempt provenance (LMCache G3)", q26_zero_count_gate)
 p1("Q27 probe substitution + isolation reset + client-declared doc-negative vs review (LMCache G2/G4)", q27_probe_isolation_declared)
 p1("Q28 pre-gate: conditional cell runs on clean evidence, recorded-SKIPPED on a dirty gate, final=review-required (LMCache M-B/M-D)", q28_pre_gate)
-p0("Q29 window rearm after target restart: bounded ssh wait, same-deadline rearm, clean refusal (CT324 permanent-step LXC restart)", q29_rearm_wait)
+p0("Q29 window rearm after target restart: bounded ssh wait, same-deadline rearm, clean refusal (permanent-step LXC restart: rearm after target reboot)", q29_rearm_wait)
 
 
 

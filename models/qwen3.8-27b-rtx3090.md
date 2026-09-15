@@ -89,7 +89,7 @@ The upstream `f8f0a47a` "quantized-KV flash-attention scratch blowup" does **not
 
 ## Known Limits
 
-- **CPU KV offload is not functional for this model** (vLLM 0.27.1): native offload stored to RAM but hit rate stayed 0% — the scheduler has no hybrid-aware offload planner (upstream #38230/#49537). Do not retry it, including via lmcache. See [2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md](../reports/2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md).
+- **CPU KV offload / RAM-tier extensions are not functional for this model**: on vLLM 0.27.1 the native offload stored to RAM but hit rate stayed 0% (no hybrid-aware offload planner, upstream #38230/#49537); on vLLM 0.28.0 **LMCache 0.5.0 fails even earlier** — its connector lacks `SupportsHMA`, vLLM disables the hybrid KV-cache manager, and this hybrid-SSM model dies at engine init (KV-spec unification) before the pool is touched. Do not retry either path; re-test only when LMCache ships real HMA support. See [2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md](../reports/2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md) and [2026-09-15-lmcache-ram-tier-vllm-dual3090.md](../reports/2026-09-15-lmcache-ram-tier-vllm-dual3090.md).
 - **TP2 has no NVLink on this board** — collectives run over PCIe (NCCL; custom allreduce disabled), both cards CPU-direct Gen4 x8. Adequate for the current workload; a PCIe-bound TP2 is the thing a full campaign should characterise (pending).
 - MTP requires the GGUF to include MTP heads (it does, natively for Qwen3.8).
 
