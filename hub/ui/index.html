@@ -162,6 +162,17 @@
 </header>
 <div id="grid" class="grid"></div>
 <div class="footer">
+  what the numbers mean — <b>t/s</b> aggregate generation throughput (2 s avg) ·
+  <b>pp/s</b> prompt tokens actually prefilled, prefix-cache hits excluded (2 s avg) ·
+  <b>ttft a/b</b> time-to-first-token p50/p95 over the [window] ·
+  <b>tpot</b> per-request avg time per output token over the [window] — grows with batch
+  size, so it can disagree with aggregate t/s (token-weighted ITL is in diagnostics) ·
+  <b>req</b> running requests (+waiting) at poll time ·
+  <b>kv</b> KV-cache blocks in use, incl. prefix-cache-held, over a pool sized for many
+  concurrent long contexts (low % is normal) ·
+  <b>cache</b> prefix-cache token hit rate over the [window] ·
+  <b>phase</b> (diagnostics) prefill/decode stats from the engine's own per-request clocks
+  <br>
   control = direct HTTP to each server's native API (proxied by the hub on demand) ·
   the hub is observability + UI, never in the inference path ·
   gpu data from per-machine nvidia-smi sidecars · poll 2 s ·
@@ -299,26 +310,30 @@ function nodeState(s) {
 function rateLine(m) {
   if (m.stale) return "";
   if (!m.loaded) return "—";
+  const vllm = m.kind === "vllm";
   const parts = [];
-  if (m.tgen != null) parts.push(`<b>${fmt(m.tgen, 1)} t/s</b>`);
-  if (m.tpp != null) parts.push(`${fmt(m.tpp, 0)} pp/s`);
+  if (m.tgen != null)
+    parts.push(`<b title="aggregate generation throughput, average over the last 2 s poll">${fmt(m.tgen, 1)} t/s</b>`);
+  if (m.tpp != null)
+    parts.push(`<span title="prompt tokens actually prefilled (prefix-cache hits excluded), 2 s average">${fmt(m.tpp, 0)} pp/s</span>`);
   if (m.spec_accept != null) parts.push(`mtp ${Math.round(m.spec_accept * 100)}%`);
   const lat = m.latency;
   if (lat) {
     const seg = [];
     if (lat.ttft && lat.ttft.p95 != null)
-      seg.push(`ttft ${fmtMs(lat.ttft.p50)}/${fmtMs(lat.ttft.p95)}`);
-    if (lat.tpot && lat.tpot.p50 != null) seg.push(`tpot ${fmtMs(lat.tpot.p50)}`);
+      seg.push(`ttft <span title="time to first token, p50/p95 over the window">${fmtMs(lat.ttft.p50)}/${fmtMs(lat.ttft.p95)}</span>`);
+    if (lat.tpot && lat.tpot.p50 != null)
+      seg.push(`tpot <span title="avg time per output token per request over the window (the canonical TPOT); it grows with batch size — token-weighted ITL is in diagnostics">${fmtMs(lat.tpot.p50)}</span>`);
     if (seg.length) {
       parts.push(seg.join(" "));
-      parts.push(`<span class="dim">[${winLbl(lat.window_s)}]</span>`);
+      parts.push(`<span class="dim" title="trailing window the percentiles cover">[${winLbl(lat.window_s)}]</span>`);
     }
   }
   // load signals — only when non-zero
   if (m.req_running != null && (m.req_running > 0 || (m.req_waiting || 0) > 0))
-    parts.push(`req ${m.req_running}${m.req_waiting ? "+" + m.req_waiting : ""}`);
+    parts.push(`<span title="requests the engine is running now; +N waiting">req ${m.req_running}${m.req_waiting ? "+" + m.req_waiting : ""}</span>`);
   if (m.kv_used != null && m.kv_used >= 0.01)
-    parts.push(`kv ${Math.round(m.kv_used * 100)}%`);
+    parts.push(`<span title="KV-cache blocks in use (incl. blocks held by the prefix cache), as a fraction of the pool">kv ${Math.round(m.kv_used * 100)}%</span>`);
   if (m.n_proc != null && m.n_proc > 0) parts.push(`${m.n_proc} proc`);
   if (m.n_deferred != null && m.n_deferred > 0) parts.push(`${m.n_deferred} defer`);
   // warnings — only when relevant
@@ -328,7 +343,8 @@ function rateLine(m) {
     parts.push(`<span class="warn">${m.finish.length} length-limited</span>`);
   if (m.sleep && m.sleep !== "awake")
     parts.push(`<span class="warn">sleep:${esc(m.sleep)}</span>`);
-  if (m.cache_hit != null) parts.push(`cache ${Math.round(m.cache_hit * 100)}%`);
+  if (m.cache_hit != null)
+    parts.push(`<span title="prefix-cache token hit rate over the window">cache ${Math.round(m.cache_hit * 100)}%</span>`);
   return parts.length ? parts.join(" · ") : "—";
 }
 
@@ -338,15 +354,29 @@ function diagHtml(s, m) {
   const bits = [];
   if (m.kind === "vllm") {
     const lat = m.latency;
-    if (lat && (lat.ttft || lat.tpot || lat.e2e || lat.queue)) {
-      const rows = [["ttft", "ttft"], ["tpot", "tpot"],
+    if (lat && (lat.ttft || lat.tpot || lat.itl || lat.e2e || lat.queue)) {
+      const rows = [["ttft", "ttft"], ["tpot", "tpot (per-req)"], ["itl", "itl (per-token)"],
                     ["e2e", "e2e"], ["queue", "queue"]];
-      let h = `<table class="diag-t"><tr><th>${"latency [" + winLbl(lat.window_s) + "]"}</th><th>p50</th><th>p95</th><th>p99</th></tr>`;
-      for (const [k] of rows) {
+      let h = `<table class="diag-t"><tr><th>latency [${winLbl(lat.window_s)}]</th><th>p50</th><th>p95</th><th>p99</th></tr>`;
+      for (const [k, label] of rows) {
         const q = lat[k] || {};
-        h += `<tr><td>${k}</td><td>${fmtMs(q.p50)}</td><td>${fmtMs(q.p95)}</td><td>${fmtMs(q.p99)}</td></tr>`;
+        if (q.p50 == null && q.p95 == null && q.p99 == null) continue;
+        h += `<tr><td>${label}</td><td>${fmtMs(q.p50)}</td><td>${fmtMs(q.p95)}</td><td>${fmtMs(q.p99)}</td></tr>`;
       }
       bits.push(h + "</table>");
+    }
+    // per-request phase stats: real prefill/decode speeds computed from the
+    // engine's own phase clocks (independent of arrival pattern)
+    const ph = m.phase;
+    if (ph && ph.window_s) {
+      const pf = ph.prefill || {}, dd = ph.decode || {}, pk = ph.pfkv || {};
+      const t = [];
+      if (pf.p50 != null) t.push(`prefill ${fmtMs(pf.p50)}/${fmtMs(pf.p95)} (p50/p95, ${pf.n != null ? pf.n : "?"} req)`);
+      if (pk.sum != null) t.push(`${fmt(pk.sum, 0)} tok computed`);
+      if (ph.prefill_speed != null) t.push(`~${fmt(ph.prefill_speed, 0)} tok/s`);
+      if (dd.p50 != null) t.push(`decode ${fmtMs(dd.p50)}/${fmtMs(dd.p95)} (p50/p95)`);
+      if (ph.decode_speed != null) t.push(`~${fmt(ph.decode_speed, 0)} tok/s (per-req, batch-inflated)`);
+      if (t.length) bits.push(`<div class="diag-x">phase [${winLbl(ph.window_s)}]: ${esc(t.join(" · "))}</div>`);
     }
     const x = [];
     if (m.finish)
