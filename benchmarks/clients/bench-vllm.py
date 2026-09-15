@@ -158,8 +158,14 @@ def stream_completions(server, model, prompt, maxtok, thinking_off=True, timeout
     rec["text"] = "".join(rec["text_parts"])
     return rec
 
-def finalize(rec, target_ctx):
-    """Derive the strict, separate quantities. Returns (rec, flags)."""
+def finalize(rec, target_ctx, client_encoded=None):
+    """Derive the strict, separate quantities. Returns (rec, flags).
+
+    client_encoded: the client's authoritative count of the tokens it actually
+    serialized (fixture manifest / tokenizer); None when unknown — absence is
+    evidence-relevant (see benchmarks/evidence.py), so it is reported as null,
+    never guessed.
+    """
     flags = []
     pt, ct = rec.get("prompt_tokens"), rec.get("completion_tokens")
     if ct is None:
@@ -181,6 +187,14 @@ def finalize(rec, target_ctx):
     rec["flags"] = flags
     rec["hard_fail"] = any(f for f in flags
                            if f not in ("prompt-from-target",) and not f.startswith("off-spec-prompt"))
+    # Workload-contract evidence (benchmarks/evidence.py): what was DECLARED,
+    # what the CLIENT actually encoded (None when the client synthesized the
+    # prompt and has no authoritative count), and what the ENGINE reported
+    # (usage transcription; None when the stream carried no usage).
+    rec["declared_prompt_tokens"] = target_ctx
+    rec["client_encoded_tokens"] = client_encoded
+    rec["server_usage_prompt_tokens"] = (pt if "prompt-from-target" not in flags
+                                         else None)
     if rec.get("t_first") and rec.get("t_last") and ct and ct > 1:
         decode_wall = rec["t_last"] - rec["t_first"]
         rec["ttft_s"] = round(rec["t_first"] - rec["t_start"], 4)
@@ -244,7 +258,7 @@ def m_tgen(server, model, a, out):
         base = out[:-5] if out.endswith(".json") else out
         rec = stream_completions(server, model, make_prompt(a.ctx_k * 1000, f"tg{rep}-"),
                                  a.ntok, a.thinking_off)
-        rec, flags = finalize(rec, a.ctx_k * 1000)
+        rec, flags = finalize(rec, a.ctx_k * 1000, a.client_encoded_tokens)
         rec["req"] = rep
         rec.update(ts4(rec))
         rec["flags"] = flags
@@ -272,7 +286,7 @@ def m_conc(server, model, a, out):
         base = out[:-5] if out.endswith(".json") else out
         rec = stream_completions(server, model, make_prompt(a.ctx_k * 1000, f"c{r}-"),
                                  a.ntok, a.thinking_off)
-        rec, flags = finalize(rec, a.ctx_k * 1000)
+        rec, flags = finalize(rec, a.ctx_k * 1000, a.client_encoded_tokens)
         rec["req"] = r; rec.update(ts4(rec)); rec["flags"] = flags
         with lock:
             results[r] = compact_rec(rec, base, r)
@@ -314,7 +328,7 @@ def m_qos(server, model, a, out):
     def big(r):
         rec = stream_completions(server, model, make_prompt(a.qos_big_k * 1000, f"big{r}-"),
                                  a.qos_big_ntok, a.thinking_off)
-        rec, _ = finalize(rec, a.qos_big_k * 1000)
+        rec, _ = finalize(rec, a.qos_big_k * 1000, a.client_encoded_tokens)
         rec["req"] = r; rec.update(ts4(rec))
         bigs.append(rec)
     decs = []        # compact records (raw itl/tok_t -> .dat sidecars)
@@ -322,7 +336,7 @@ def m_qos(server, model, a, out):
     def decode(r):
         rec = stream_completions(server, model, make_prompt(a.ctx_k * 1000, f"dec{r}-"),
                                  decode_maxtok, a.thinking_off)
-        rec, _ = finalize(rec, a.ctx_k * 1000)
+        rec, _ = finalize(rec, a.ctx_k * 1000, a.client_encoded_tokens)
         rec["req"] = r; rec.update(ts4(rec))
         # per-token wall times: rebuild from itl walk starting at t_first
         toks = [rec["t_first"]]
@@ -510,6 +524,9 @@ def main():
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--min-overlap-s", type=float, default=30.0)
     ap.add_argument("--ctx-tol", type=int, default=0, help="abs tol on prompt_tokens (0 = 2%%)")
+    ap.add_argument("--client-encoded-tokens", type=int, default=None,
+                    help="authoritative token count of the sent prompt (fixture "
+                         "manifest); reported as client_encoded_tokens evidence")
     ap.add_argument("--qos-big-k", type=int, default=64)
     ap.add_argument("--qos-big-ntok", type=int, default=1024)
     ap.add_argument("--thinking-off", dest="thinking_off", action="store_true", default=True)

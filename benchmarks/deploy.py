@@ -58,33 +58,70 @@ def verify_target(frozen, target_dir):
     return (not problems), problems
 
 
-def push(backend, bundle_tar_path, target_dir):
-    """Push the identical bytes to one target (v0: ssh base64; small tree).
-    Live-untested until the first dogfood."""
-    b64 = __import__("base64").b64encode(open(bundle_tar_path, "rb").read()).decode()
+def push(backend, bundle_tar_path, target_dir, frozen):
+    """Push the identical bytes to one target, then verify the extracted tree.
+
+    Transport: b64 over ssh STDIN (a full bundle's b64 far exceeds
+    MAX_ARG_STRLEN in an argv element — the 09-14 E2BIG shape).
+    Verify: the remote hashes its own tree; every file in the freeze must
+    be present and match, and no unexpected file may appear. A freeze
+    WITHOUT file_hashes is refused — verifying against nothing is how the
+    09-11 'cited SHA != live SHA' lesson was silently neutered (09-14: the
+    entire campaign ran on a bundle nobody pushed, because this function
+    had no call site and its verifier could not fail).
+    """
+    if not (frozen.get("file_hashes") or {}):
+        raise OSError("bundle push refused: freeze has no file_hashes — "
+                      "nothing to verify against")
+    import base64
+    local_sha = sha256_file(bundle_tar_path)
+    b64 = base64.b64encode(open(bundle_tar_path, "rb").read()).decode()
     rc, out, err = backend.sh(
-        f"mkdir -p {target_dir} && echo '{b64}' | base64 -d > {target_dir}/campaign-bundle.tar.gz "
-        f"&& cd {target_dir} && tar xzf campaign-bundle.tar.gz && echo EXTRACTED")
+        f"mkdir -p {target_dir} && base64 -d > {target_dir}/campaign-bundle.tar.gz && "
+        f"cd {target_dir} && sha256sum campaign-bundle.tar.gz | cut -d' ' -f1 && "
+        f"tar xzf campaign-bundle.tar.gz && echo EXTRACTED",
+        stdin=b64 + "\n")
     if "EXTRACTED" not in out:
         raise OSError(f"bundle push failed on {backend.name}: {err[:300]}")
-    ok, problems = verify_target_on_remote(backend, target_dir)
-    if not ok:
-        raise OSError(f"bundle verification failed on {backend.name}: {problems}")
+    lines = [l.strip() for l in out.splitlines() if l.strip()]
+    if not lines or lines[0] != local_sha:
+        raise OSError(f"bundle sha mismatch on {backend.name}: "
+                      f"local {local_sha[:12]}... remote {lines[0][:12] if lines else '?'}...")
+    kv = remote_tree_hashes(backend, target_dir)
+    problems = []
+    for f, want in sorted(frozen["file_hashes"].items()):
+        got = kv.get(f)
+        if got is None:
+            problems.append(f"missing: {f}")
+        elif got != want:
+            problems.append(f"changed: {f}")
+    for f in sorted(kv):
+        if f not in frozen["file_hashes"]:
+            problems.append(f"unexpected: {f}")
+    if problems:
+        raise OSError(f"bundle verification failed on {backend.name}: "
+                      f"{problems[:10]}")
+    return local_sha
 
 
-def verify_target_on_remote(backend, target_dir):
-    """Ask the target to hash its own tree (PF_ parse-back); compare to freeze
-    via the caller (kept here for the real path)."""
+def remote_tree_hashes(backend, target_dir):
+    """Ask the target to hash its own extracted tree (PF_ parse-back).
+
+    Keys match freeze.tree_hashes: paths relative to the benchmarks root
+    (the bundle extracts to <target_dir>/benchmarks/...)."""
     script = (
-        "cd {d}/benchmarks 2>/dev/null || cd {d}; "
+        f"cd {target_dir}/benchmarks 2>/dev/null || exit 3; "
         "find . -type f -not -path '*/__pycache__/*' -not -name 'freeze.json' | sort | "
-        "while read f; do echo \"PF_$(echo $f | tr / _)=$(sha256sum $f | cut -d' ' -f1)\"; done"
-    ).format(d=target_dir)
+        "while read f; do h=$(sha256sum \"$f\" | cut -d' ' -f1); "
+        "echo \"PF_ $f $h\"; done"
+    )
     rc, out, err = backend.sh("bash -s", stdin=script)
+    if rc != 0:
+        raise OSError(f"remote tree hashing failed on {backend.name}: {err[:200]}")
     kv = {}
     for line in out.splitlines():
         line = line.strip()
-        if line.startswith("PF_") and "=" in line:
-            k, _, v = line.partition("=")
-            kv[k] = v
-    return kv, err
+        if line.startswith("PF_ "):
+            rel, _, h = line[4:].partition(" ")
+            kv[rel.lstrip("./")] = h.strip()
+    return kv

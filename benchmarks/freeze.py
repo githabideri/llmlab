@@ -55,6 +55,10 @@ def bake(campaign_id, spec_path, spec_obj, llmlab_dir, profile_id,
         "build_sha256": build_sha,
         "qualification": qualification,                 # {"p0": "10/10 PASS", "p1": "4/4", ...}
     }
+    # P0 (09-14): the per-file hash set is part of the freeze. Every earlier
+    # caller blanked it, which made every downstream verifier vacuous
+    # (deploy push compared against nothing; the bundle never got checked).
+    frozen["file_hashes"] = tree_hashes(llmlab_dir)
     return frozen
 
 

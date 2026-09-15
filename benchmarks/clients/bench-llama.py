@@ -122,6 +122,12 @@ def main():
     ap.add_argument("--warmup", type=int, default=0,
                     help="run N throwaway reps before the measured reps (page-cache/"
                          "graph warmup); discarded, but recorded as the 'warmup' count")
+    ap.add_argument("--declared-prompt-tokens", type=int, default=None,
+                    help="the workload the spec declared this prompt to be (contract "
+                         "reference; None = not declared, runner falls back to spec)")
+    ap.add_argument("--client-encoded-tokens", type=int, default=None,
+                    help="authoritative token count of the prompt file (fixture "
+                         "manifest); reported as client_encoded_tokens evidence")
     a = ap.parse_args()
     prompt = open(a.prompt_file).read()
     rows = []
@@ -158,6 +164,11 @@ def main():
             row["server_decode_tps"] = round(truth[4], 3)
             row["server_prefill_tps"] = round(truth[2] * 1000.0 / truth[1], 2) if truth[1] else None
             row["source"] = "server-log"
+            # workload-contract evidence: the engine's own log, read by the
+            # client (independent of the client process's own counting)
+            row["server_log_prompt_tokens"] = truth[0]
+        row["declared_prompt_tokens"] = a.declared_prompt_tokens
+        row["client_encoded_tokens"] = a.client_encoded_tokens
         rows.append(row)
         full.append(row["sha256"])
         row2 = {k: row[k] for k in ("rep", "ttft_s", "decode_tps", "server_decode_tps", "sha256") if k in row}

@@ -29,7 +29,7 @@ import statistics
 import threading
 import time
 
-from . import preflight, verdict as verdict_mod
+from . import preflight, verdict as verdict_mod, evidence as evidence_mod
 from .classifier import engine as classifier
 from .host_failure import HostFailureDetector
 from .window import Window
@@ -414,15 +414,31 @@ class Runner:
         _write(os.path.join(a_dir, "attempt.json"),
                {"wall_s": round(wall, 3), "client": _slim(client_data)})
 
+        # (4.5) workload contract: did the declared workload demonstrably happen?
+        # Evaluated BEFORE the plausibility gates; evidence sources per engine
+        # come from evidence_policy.jsonc (accepted sets), so the gate never
+        # assumes which channel an engine reports through.
+        contract = None
+        if self.spec.get("engine"):
+            log_text = None
+            for log_name in (["server.log"] + list(seg_logs)):
+                p = os.path.join(a_dir, log_name)
+                if os.path.exists(p):
+                    chunk = open(p, errors="replace").read()
+                    log_text = (log_text + "\n" if log_text else "") + chunk
+            contract = evidence_mod.evaluate(cell, client_data, log_text,
+                                             self.spec["engine"])
         # (5) classify (only when there is a failure log), then gates, then verdict
         cls = None
         if fail_log and fail_log != "server never became ready (no load log)":
             cls = classifier.classify(fail_log)
             _write(os.path.join(a_dir, "classification.json"), cls)
         gates = self._gates(cell, client_data, wall)
-        v_class, reason = verdict_mod.decide(cell, cls, gates, client_data, wall)
+        v_class, reason = verdict_mod.decide(cell, cls, gates, client_data, wall,
+                                             contract=contract)
         v = {"class": v_class, "reason": reason,
              "gates": {g[1]: g[0] for g in gates},
+             "contract": contract,
              "observed": (cls or {}).get("observed", []),
              "inferred": (cls or {}).get("inferred", []),
              "not_established": (cls or {}).get("not_established", [])}

@@ -158,7 +158,6 @@ def _ctx(tmp, fault, spec=None, profile=None):
     bundle_dir = os.path.dirname(os.path.abspath(__file__))
     fz = freeze_mod.bake("qualify-" + fault, spec_file, spec,
                          bundle_dir, "fixture", {"p0": "pending"})
-    fz["file_hashes"] = {}
     freeze_mod.write(run_dir, fz)
     b = FixtureBackend(profile, bundle_dir, run_dir, fault=fault)
     r = runner_mod.Runner(spec, profile, fz, run_dir, b, bundle_dir, max_attempts=1)
@@ -261,7 +260,6 @@ def q6_crash_watchdog_resume(tmp):
     bundle_dir = os.path.dirname(os.path.abspath(__file__))
     fz = freeze_mod.bake("q6", spec_file, spec, bundle_dir, "fixture",
                          {"p0": "pending"})
-    fz["file_hashes"] = {}
     freeze_mod.write(run_dir, fz)
     b1 = FixtureBackend(_profile(tmp), bundle_dir, run_dir, fault="ok")
     # crash after the first cell completes: run cell 1 manually, then hard-kill
@@ -312,7 +310,6 @@ def q7_restore_idempotent(tmp):
     bundle_dir = os.path.dirname(os.path.abspath(__file__))
     fz = freeze_mod.bake("q7", spec_file, spec, bundle_dir, "fixture",
                          {"p0": "pending"})
-    fz["file_hashes"] = {}
     freeze_mod.write(run_dir, fz)
     b = FixtureBackend(_profile(tmp), bundle_dir, run_dir)
     w = Window(b, _profile(tmp), run_dir, deadline_h=1)
@@ -340,7 +337,6 @@ def q8_host_reboot(tmp):
     prof = _profile(tmp)
     fz = freeze_mod.bake("q8", spec_file, spec, bundle_dir, "fixture",
                          {"p0": "pending"})
-    fz["file_hashes"] = {}
     freeze_mod.write(run_dir, fz)
     b = FixtureBackend(prof, bundle_dir, run_dir, fault="reboot-mid")
     b.reboot_after_checks = 1          # first btime read is T0; after that it jumps
@@ -384,7 +380,6 @@ def q9_pve_dialect(tmp):
     prof["temp_changes"] = [{"cmd": good, "undo": "pct set 382 --memory 16384"}]
     fz = freeze_mod.bake("q9", spec_file, spec, bundle_dir, "fixture",
                          {"p0": "pending"})
-    fz["file_hashes"] = {}
     freeze_mod.write(run_dir, fz)
     b = FixtureBackend(prof, bundle_dir, run_dir)
     from benchmarks.window import Window
@@ -1028,6 +1023,274 @@ p0("Q26 zero-count effect gate: PASS / VIOLATED / UNVERIFIABLE with attempt prov
 p1("Q27 probe substitution + isolation reset + client-declared doc-negative vs review (LMCache G2/G4)", q27_probe_isolation_declared)
 p1("Q28 pre-gate: conditional cell runs on clean evidence, recorded-SKIPPED on a dirty gate, final=review-required (LMCache M-B/M-D)", q28_pre_gate)
 p0("Q29 window rearm after target restart: bounded ssh wait, same-deadline rearm, clean refusal (permanent-step LXC restart: rearm after target reboot)", q29_rearm_wait)
+
+
+# ------------------------------------------------------------------ Q34-Q37: 09-15 P0 fixes
+
+def _stub_real_backend():
+    """A RealBackend with _ssh replaced by a recorder (no network)."""
+    from benchmarks.backends.real import RealBackend
+    import importlib
+    b = RealBase = RealBackend.__new__(RealBackend)
+    b.p = {}
+    b.run_dir = None
+    b.b64_args = []
+    def _ssh(recorder, where, cmd, timeout=120, stdin=None):
+        recorder.b64_args.append((where, cmd, stdin))
+        return 0, "WROTE\n", ""
+    b._ssh = _ssh.__get__(b, RealBackend)
+    return b
+
+
+def q34_putfile_no_argv_e2big(tmp):
+    """E2BIG regression (09-14 a40-off): a 300 KiB file's b64 (~400 KB) must
+    never appear in an argv element (MAX_ARG_STRLEN ~131072); it goes over
+    ssh stdin, and a remote size check guards the write."""
+    src = os.path.join(tmp, "big.bin")
+    with open(src, "wb") as f:
+        f.write(os.urandom(300 * 1024))
+    b = _stub_real_backend()
+    b.put_file(src, "/remote/dir/big.bin", where="target")
+    where, cmd, stdin = b.b64_args[0]
+    argv_ok = len(cmd.encode()) < 131072
+    import base64
+    payload_ok = stdin is not None and \
+        base64.b64decode(stdin.strip()) == open(src, "rb").read()
+    size_check_ok = f"307200" in cmd and "stat -c%s" in cmd
+    return argv_ok and payload_ok and size_check_ok, \
+        f"cmd-len={len(cmd)} stdin-bytes={len(stdin or b'')} size-check={size_check_ok}"
+
+
+def q35_arm_watchdog_creates_lease(tmp):
+    """Arm contract (both backends): the arm creates the lease + an initial
+    heartbeat — the in-LXC watchdog's first loop line is
+    '[ -f $lease ] || exit 0', so an arm without the lease is a dead
+    watchdog (the 09-14 dead-on-arrival defect)."""
+    from benchmarks.backends.fixture import FixtureBackend
+    b = FixtureBackend({}, tmp, os.path.join(tmp, "runs", "q35"))
+    lease = os.path.join(tmp, "lease.lock")
+    hb = os.path.join(tmp, "heartbeat")
+    pid = b.arm_watchdog(9999999999, lease, hb, "{}", {"unit": "x.service"})
+    lease_ok = os.path.exists(lease) and os.path.exists(hb)
+    op_ok = any("lease_created" in o for o in b.op_log)
+    held = b.watchdog.get("lease_held") is True
+    b.disarm_watchdog(lease)
+    released = b.watchdog.get("lease_held") is False and \
+        "disarm_watchdog" in b.op_log
+    return lease_ok and op_ok and held and released, \
+        f"files={lease_ok} op={op_ok} held={held} released={released} pid={pid}"
+
+
+class _LocalSh:
+    """Executes the platform's own remote scripts with local bash — the
+    script TEXT is what travels over ssh; here we prove the text is right
+    (extraction, sha, parse-back). `corrupt_after_extract` mutates the
+    extracted tree between the push and the verification hash."""
+    name = "local"
+
+    def __init__(self, target_dir, mutate=None):
+        self.target_dir = target_dir
+        self.mutate = mutate  # fn(extracted_root) called after successful extract
+
+    def sh(self, cmd, timeout=120, stdin=None):
+        p = subprocess.run(["bash", "-c", cmd], input=(stdin or "").encode(),
+                           capture_output=True, timeout=timeout)
+        if p.returncode == 0 and self.mutate and "tar xzf" in cmd:
+            self.mutate(os.path.join(self.target_dir, "benchmarks"))
+        return p.returncode, p.stdout.decode(), p.stderr.decode()
+
+
+def q36_deploy_push_verifies(tmp):
+    """deploy.push: real transport + real verification. A freeze without
+    file_hashes is refused; a changed/missing/unexpected file on the
+    target is a hard failure (the 09-14 bundle-never-deployed +
+    unfalsifiable-verifier pair)."""
+    from benchmarks import deploy, freeze as freeze_mod
+    fake = os.path.join(tmp, "llmlab")
+    for rel in ("a.py", "sub/c.py"):
+        p = os.path.join(fake, "benchmarks", rel)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        open(p, "w").write(f"# {rel}\n")
+    frozen = {"file_hashes": freeze_mod.tree_hashes(fake)}
+    tdir = os.path.join(tmp, "t")
+
+    def mk(mutate):
+        return _LocalSh(tdir, mutate=mutate)
+
+    def do_push(mutate):
+        tar, sha = deploy.build_bundle(fake, os.path.join(tmp, "b"))
+        return deploy.push(mk(mutate), tar, tdir, frozen)
+
+    # (a) no file_hashes -> refused
+    refused = None
+    tar, _ = deploy.build_bundle(fake, os.path.join(tmp, "b2"))
+    try:
+        deploy.push(mk(None), tar, tdir, {})
+    except OSError as e:
+        refused = str(e)
+    # (b) happy path (capture the tar sha NOW — later sub-cases rebuild it)
+    ok_sha = do_push(None)
+    happy_tar_sha = deploy.sha256_file(os.path.join(tmp, "b", "campaign-bundle.tar.gz"))
+    # (c) changed file
+    os.system(f"mkdir -p {tdir}/benchmarks")
+    changed = None
+    try:
+        do_push(lambda root: open(os.path.join(root, "a.py"), "a").write("# tampered\n"))
+    except OSError as e:
+        changed = str(e)
+    # (d) missing file
+    missing = None
+    try:
+        do_push(lambda root: os.remove(os.path.join(root, "sub", "c.py")))
+    except OSError as e:
+        missing = str(e)
+    # (e) unexpected file
+    unexpected = None
+    try:
+        do_push(lambda root: open(os.path.join(root, "rogue.py"), "w").write("x\n"))
+    except OSError as e:
+        unexpected = str(e)
+    ok = (refused and "no file_hashes" in refused
+          and ok_sha == happy_tar_sha
+          and changed and "changed: a.py" in changed
+          and missing and "missing: sub/c.py" in missing
+          and unexpected and "unexpected: rogue.py" in unexpected)
+    return ok, (f"refused={bool(refused)} happy={ok_sha[:8] if ok_sha else None} "
+                f"changed={'changed: a.py' in (changed or '')} "
+                f"missing={'missing' in (missing or '')} "
+                f"unexpected={'unexpected' in (unexpected or '')}")
+
+
+def q37_real_arm_liveness(tmp):
+    """real.arm_watchdog: lease touched BEFORE the spawn, and the arm-time
+    liveness check refuses a watchdog that is dead 2 s after arming
+    (Q17 pattern applied to the watchdog itself; the in-LXC watchdog was
+    dead on arrival for the entire 09-14 campaign)."""
+    from benchmarks.backends.real import RealBackend
+
+    class Armed(RealBackend):
+        def __init__(self, responses):
+            self.p = {"window": {"script": "/x/campaign-watchdog.sh",
+                                 "dir": "/tmp/wd", "restore_result": "/tmp/r.txt",
+                                 "health_wait_s": 5}}
+            self.run_dir = tmp
+            self.responses = list(responses)
+            self.calls = []
+
+        def _ssh(self, where, cmd, timeout=120, stdin=None):
+            self.calls.append(cmd)
+            return self.responses.pop(0)
+
+        def put_file(self, local, remote, where="target"):
+            self.calls.append("PUTFILE:" + remote)
+
+    manifest = os.path.join(tmp, "undo.json")
+    open(manifest, "w").write('{"temp_changes": []}')
+
+    # (a) healthy arm: lease touched before spawn; liveness ok
+    b = Armed([(0, "PF_armed=12345\n", ""), (0, "WD_ALIVE=1\n", "")])
+    pid = b.arm_watchdog(9999999999, "/tmp/lease.lock", "/tmp/hb", manifest, {"unit": "x"})
+    arm_cmd = next(c for c in b.calls if "setsid" in c)
+    lease_first = arm_cmd.index("touch /tmp/lease.lock") < arm_cmd.index("setsid")
+    hb_first = arm_cmd.index("touch /tmp/hb") < arm_cmd.index("setsid")
+    alive_ok = pid == 12345 and any("kill -0 12345" in c for c in b.calls)
+
+    # (b) dead at arm -> hard refusal (window never enters)
+    b2 = Armed([(0, "PF_armed=999\n", ""), (0, "Traceback... boom\nWD_DEAD=1\n", "")])
+    refused = None
+    try:
+        b2.arm_watchdog(9999999999, "/tmp/lease.lock", "/tmp/hb", manifest, {"unit": "x"})
+    except RuntimeError as e:
+        refused = str(e)
+    ok = lease_first and hb_first and alive_ok and refused and "died at arm" in refused
+    return ok, f"lease-order={lease_first} hb-order={hb_first} alive={alive_ok} " \
+               f"refusal={bool(refused)}"
+
+
+p0("Q34 put_file: >128 KiB b64 never in argv (E2BIG), stdin transport + remote size check", q34_putfile_no_argv_e2big)
+p0("Q35 arm_watchdog creates lease + heartbeat before the watchdog can die on them (fixture contract)", q35_arm_watchdog_creates_lease)
+p0("Q36 deploy.push: no-file_hashes refusal, happy sha, changed/missing/unexpected all hard-fail", q36_deploy_push_verifies)
+p0("Q37 real.arm_watchdog: lease before spawn + arm-time liveness refusal (dead-on-arrival regression)", q37_real_arm_liveness)
+
+
+# ------------------------------------------------- Q30-Q33: the workload contract
+def _cell_declared(tokens, min_wall=30.0):
+    return {"cell": "c", "requests": [{"prompt_tokens": tokens, "decode": 128}],
+            "gates": {"min_wall_s": min_wall}}
+
+
+def _row(declared, encoded=None, usage=None, wall=1.0, toks=128):
+    return {"declared_prompt_tokens": declared, "client_encoded_tokens": encoded,
+            "server_usage_prompt_tokens": usage, "wall_s": wall,
+            "decode_tokens": toks, "completion_tokens": toks, "ttft_s": 0.01}
+
+
+def _decide(cell, row, log_text, engine, wall):
+    from benchmarks import evidence, verdict as v
+    client = {"valid": True, "rows": [row]}
+    contract = evidence.evaluate(cell, client, log_text, engine)
+    gates = [(wall >= (cell["gates"].get("min_wall_s") or 0), "min_wall_s",
+              f"wall {wall}s vs floor {cell['gates'].get('min_wall_s')}")]
+    return v.decide(cell, None, gates, client, wall, contract=contract), contract
+
+
+def q30_contract_noop_proven(tmp):
+    """LADDER-256k shape, proven not guessed: declared 256K, client claims a
+    2-token PASS, server log IS pulled and contains NO request. The log being
+    present with zero request lines is VIOLATED (proven no-op) -> INVALID,
+    not the old wall-floor guess."""
+    cell = _cell_declared(256 * 1024)
+    row = _row(256 * 1024, encoded=None, usage=None, wall=0.05, toks=2)
+    (verdict, reason), contract = _decide(
+        cell, row, "INFO:engine  heartbeat tick\n", "vllm", 0.05)
+    ok = verdict == "INVALID" and contract["status"] == "VIOLATED" and "no record" in reason
+    return ok, f"verdict={verdict} contract={contract['status']} reason={reason[:70]}"
+
+
+def q31_contract_wrong_prompt(tmp):
+    """The 09-14 fill-row shape: 60K declared, client actually encoded 200
+    (the server is perfectly HONEST about the 200). 1.7 s wall — the old floor
+    missed this; the declared-vs-encoded mismatch is the violation."""
+    cell = _cell_declared(60 * 1024)
+    row = _row(60 * 1024, encoded=200, usage=200, wall=1.7, toks=128)
+    (verdict, reason), contract = _decide(
+        cell, row, "INFO: 127.0.0.1 \"POST /v1/completions HTTP/1.1\" 200 OK\n", "vllm", 1.7)
+    ok = verdict == "INVALID" and contract["status"] == "VIOLATED" \
+        and "61440" in contract["detail"]
+    return ok, f"verdict={verdict} contract={contract['status']} detail={contract['detail'][:70]}"
+
+
+def q32_contract_fast_but_proven(tmp):
+    """A cached return that is legitimately fast (1.5 s for 40K — the whole
+    point of the cache) with complete evidence: declared=encoded=usage, request
+    in the log. The wall floor firing here is a REVIEW anomaly, never INVALID."""
+    cell = _cell_declared(40 * 1024, min_wall=30.0)
+    row = _row(40 * 1024, encoded=40 * 1024, usage=40 * 1024, wall=1.5)
+    (verdict, reason), contract = _decide(
+        cell, row, "INFO: 127.0.0.1 \"POST /v1/completions HTTP/1.1\" 200 OK\n", "vllm", 1.5)
+    ok = verdict == "PLAUSIBILITY_ANOMALY" and contract["status"] == "SATISFIED"
+    return ok, f"verdict={verdict} contract={contract['status']} reason={reason[:60]}"
+
+
+def q33_contract_evidence_gap(tmp):
+    """40K declared, client encoded 40K, but no usage and NO server log was
+    pulled (evidence pipeline broken), wall 40 s (plausible). This is an
+    evidence GAP: HARNESS_FAILURE — never INVALID, never PASS, and it must
+    block dependent science (the campaign final goes review-required)."""
+    cell = _cell_declared(40 * 1024)
+    row = _row(40 * 1024, encoded=40 * 1024, usage=None, wall=40.0)
+    (verdict, reason), contract = _decide(cell, row, None, "vllm", 40.0)
+    from benchmarks import verdict as v
+    final = v.campaign_final({"c": verdict})
+    ok = (verdict == "HARNESS_FAILURE" and contract["status"] == "UNVERIFIABLE"
+          and final == "review-required")
+    return ok, f"verdict={verdict} contract={contract['status']} final={final}"
+
+
+p0("Q30 workload contract: 256K no-op PROVEN by a present-but-empty log -> INVALID (LADDER-256k, exact)", q30_contract_noop_proven)
+p0("Q31 workload contract: declared 60K vs encoded 200 (honest server) -> INVALID (09-14 fill-row, the floor missed it)", q31_contract_wrong_prompt)
+p0("Q32 workload contract: fast but fully evidenced return -> PLAUSIBILITY_ANOMALY, never INVALID", q32_contract_fast_but_proven)
+p0("Q33 workload contract: evidence gap (no usage, no log) -> HARNESS_FAILURE, campaign review-required", q33_contract_evidence_gap)
 
 
 

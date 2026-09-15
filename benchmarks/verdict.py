@@ -14,6 +14,9 @@ Top-level cell verdict classes:
     RESOURCE_LIMIT       OOM / cgroup-oom / disk — not the documented negative
     HARNESS_FAILURE      OUR code failed (crash, misparse) — not a model verdict;
                          feeds the bounded repair lane
+    PLAUSIBILITY_ANOMALY measured with COMPLETE integrity evidence, but a
+                         plausibility gate (the wall floor) fired anyway —
+                         the numbers are kept for review, never silent
     UNKNOWN              unrecognized failure shape — REVIEW_REQUIRED, pages the owner
     SAFETY_ABORT         stop_policy / watchdog — pages the owner (URGENT)
 
@@ -24,6 +27,13 @@ Campaign-level finals:
 Design rule baked in (the 2026-09-12 lesson): an outcome that matches the spec's
 `documented_negative` classes is EXPECTED_NEGATIVE and the runner stops DONE. It is
 never "needs human review", because a correct predicted result is not an error.
+
+Integrity rule baked in (the 2026-09-14 lesson, generalized): a workload the
+spec declared is verified by EVIDENCE (evidence.py) before any plausibility
+gate runs. A wall floor may only demote a complete-evidence attempt to
+PLAUSIBILITY_ANOMALY; it is INVALID again only when the workload itself is
+unverifiable (the LADDER-256k shape: no evidence at all and an impossible
+wall).  Timing is a hint; integrity is fact.
 """
 
 PASS = "PASS"
@@ -33,11 +43,13 @@ RETRYABLE_FAILURE = "RETRYABLE_FAILURE"
 RETRYABLE_INFRA = "RETRYABLE_INFRA"
 RESOURCE_LIMIT = "RESOURCE_LIMIT"
 HARNESS_FAILURE = "HARNESS_FAILURE"
+PLAUSIBILITY_ANOMALY = "PLAUSIBILITY_ANOMALY"
 UNKNOWN = "UNKNOWN"
 SAFETY_ABORT = "SAFETY_ABORT"
 
 CELL_CLASSES = (PASS, EXPECTED_NEGATIVE, INVALID, RETRYABLE_FAILURE, RETRYABLE_INFRA,
-                RESOURCE_LIMIT, HARNESS_FAILURE, UNKNOWN, SAFETY_ABORT)
+                RESOURCE_LIMIT, HARNESS_FAILURE, PLAUSIBILITY_ANOMALY, UNKNOWN,
+                SAFETY_ABORT)
 
 # classifier class -> cell verdict, when the cell's own measurement produced no data
 CLASS_TO_VERDICT = {
@@ -64,7 +76,8 @@ CLASS_TO_VERDICT = {
 }
 
 
-def decide(cell_cfg, classifier_result, gates, client_result, attempt_wall_s):
+def decide(cell_cfg, classifier_result, gates, client_result, attempt_wall_s,
+           contract=None):
     """Map one attempt's evidence to a cell verdict.
 
     cell_cfg:        the spec cell dict (expects, documented_negative, ...)
@@ -74,6 +87,7 @@ def decide(cell_cfg, classifier_result, gates, client_result, attempt_wall_s):
                      plausibility gates
     client_result:   the client's JSON result dict (or None on client failure)
     attempt_wall_s:  wall time of the attempt in seconds
+    contract:        evidence.evaluate() output for this attempt (or None)
 
     Returns (verdict, reason).
     """
@@ -81,7 +95,23 @@ def decide(cell_cfg, classifier_result, gates, client_result, attempt_wall_s):
     if client_result is None and classifier_result is None and attempt_wall_s < 2:
         return HARNESS_FAILURE, "no client result and no server failure evidence"
 
-    # 2) documented-negative check runs BEFORE the generic mapping: the spec says
+    # 2) WORKLOAD CONTRACT (integrity) — before anything else scientific: if the
+    #    declared workload did not demonstrably happen, no downstream reading of
+    #    this attempt is valid.
+    c_status = (contract or {}).get("status")
+    if c_status == "VIOLATED":
+        return INVALID, "workload contract violated: " + (contract or {}).get("detail", "")
+    if c_status == "UNVERIFIABLE":
+        wall_violated = any(not ok and label == "min_wall_s" for ok, label, _ in gates)
+        if wall_violated:
+            return INVALID, ("workload unverifiable AND wall implausible "
+                             "(LADDER-256k last resort): "
+                             + (contract or {}).get("detail", ""))
+        return HARNESS_FAILURE, ("workload contract unverifiable (evidence gap, "
+                                 "not a scientific fact): "
+                                 + (contract or {}).get("detail", ""))
+
+    # 3) documented-negative check runs BEFORE the generic mapping: the spec says
     #    which classes are the expected answer for THIS cell. The class can come
     #    from the failure-log classifier OR be DECLARED BY THE CLIENT from
     #    evidence (e.g. a store that wrote but never served a retrieval line,
@@ -95,16 +125,23 @@ def decide(cell_cfg, classifier_result, gates, client_result, attempt_wall_s):
         return EXPECTED_NEGATIVE, f"documented negative {class_} matched: " \
             + ", ".join((classifier_result or {}).get("observed", [])[:2])
 
-    # 3) plausibility gates — only when the client actually measured something:
+    # 4) plausibility gates — only when the client actually measured something:
     #    a server that died at load time has no measurement to gate (the class
     #    decides it). Gating a load-failure log on min_wall_s is how the 09-12
     #    night turned the documented wall into 'needs human review'.
+    #    With SATISFIED contract evidence, a firing wall floor is a REVIEW
+    #    anomaly, not INVALID — the evidence says the workload happened.
     if client_result is not None:
         for ok, label, detail in gates:
             if not ok:
+                if label == "min_wall_s" and c_status == "SATISFIED":
+                    return PLAUSIBILITY_ANOMALY, ("plausibility: wall floor "
+                                                  "fired with complete integrity "
+                                                  "evidence — numbers kept for "
+                                                  "review: " + detail)
                 return INVALID, f"gate failed: {label} ({detail})"
 
-    # 4) client measured data: trust it unless it self-reports invalid
+    # 5) client measured data: trust it unless it self-reports invalid
     if client_result is not None:
         if client_result.get("valid") is False:
             return INVALID, "client reported invalid (see client result flags)"
@@ -119,7 +156,7 @@ def decide(cell_cfg, classifier_result, gates, client_result, attempt_wall_s):
             return UNKNOWN, f"client declared {class_} (not a documented " \
                             f"negative for this cell)"
 
-    # 5) no client data: fall back to what the server log says
+    # 6) no client data: fall back to what the server log says
     if class_ is not None:
         v = CLASS_TO_VERDICT.get(class_)
         if v is not None:
@@ -148,7 +185,7 @@ def campaign_final(cell_verdicts, host_failure=None):
     if any(v == SAFETY_ABORT for v in vs):
         return "safety-abort"
     if any(v in (RETRYABLE_FAILURE, RETRYABLE_INFRA, UNKNOWN,
-                 HARNESS_FAILURE, INVALID, "SKIPPED") for v in vs):
+                 HARNESS_FAILURE, INVALID, PLAUSIBILITY_ANOMALY, "SKIPPED") for v in vs):
         return "review-required"
     if all(v in (PASS, EXPECTED_NEGATIVE) for v in vs) and vs:
         if all(v == EXPECTED_NEGATIVE for v in vs):

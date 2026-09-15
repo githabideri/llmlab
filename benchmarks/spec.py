@@ -113,7 +113,7 @@ def validate(spec, strict=True):
 
 # fields that define WHAT is measured (the repair lane may not touch any of these)
 SCIENCE_FIELDS = ("question", "model", "workload", "matrix", "verdict_policy",
-                  "stop_policy", "reps_default")
+                  "stop_policy", "reps_default", "engine")
 
 
 def _canonical(obj):
