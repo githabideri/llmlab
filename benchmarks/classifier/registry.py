@@ -34,6 +34,10 @@ CLASSES = (
                                     # unforgivable case
     "LMCACHE_PERSISTENCE_SUBPAGE", # (phase 2) 1-of-N physical pages persisted
                                     # while reporting full hits (LMCache #4731)
+    "LMCACHE_HMA_BOOT_FAILURE",  # connector lacks SupportsHMA (LMCache 0.5.0 vs
+                                    # vLLM 0.28): vLLM disables the hybrid KV
+                                    # manager, engine init dies. A BOOT outcome,
+                                    # never a data result
     "UNKNOWN",               # nothing matched — this pages the owner, by design
 )
 
@@ -55,4 +59,5 @@ PROVENANCE = {
     "LMCACHE_NO_HIT": "2026-08-30: write path healthy, read path dead",
     "LMCACHE_RESTORE_CORRUPTION": "open upstream report: Qwen3.8-27B TP2 multi-session restore corruption",
     "LMCACHE_PERSISTENCE_SUBPAGE": "LMCache #4731: hybrid subpage geometry persists 1 of N attention pages",
+    "LMCACHE_HMA_BOOT_FAILURE": "2026-09-14 s0: LMCacheConnectorV1 (0.5.0) lacks SupportsHMA; vLLM 0.28 failed the hybrid KV promotion and EngineCore died",
 }
