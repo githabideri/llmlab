@@ -26,8 +26,17 @@ def sha256_file(path):
     return h.hexdigest()
 
 
-def build_bundle(llmlab_dir, out_dir, bench_rel="benchmarks"):
-    """tar.gz the benchmarks tree; returns (tar_path, sha256)."""
+def build_bundle(llmlab_dir, out_dir, bench_rel="benchmarks",
+                 campaigns_src=None, spec_name=None):
+    """tar.gz the benchmarks tree (plus the campaigns payload when given);
+    returns (tar_path, sha256).
+
+    campaigns_src: the directory holding the campaign spec + plans/; the
+    spec (by spec_name) and every file under campaigns_src/plans/ are added
+    as campaigns/… entries. The payload is FROZEN (see freeze.bake) and
+    verified on the target — a plan is a science document, not transport
+    clutter, so it ships in the one content-addressed bundle.
+    """
     os.makedirs(out_dir, exist_ok=True)
     src = os.path.join(llmlab_dir, bench_rel)
     tar_path = os.path.join(out_dir, "campaign-bundle.tar.gz")
@@ -40,6 +49,20 @@ def build_bundle(llmlab_dir, out_dir, bench_rel="benchmarks"):
                     continue
                 p = os.path.join(dirpath, f)
                 t.add(p, arcname=os.path.join(bench_rel, os.path.relpath(p, src)))
+        if campaigns_src and spec_name:
+            spec_p = os.path.join(campaigns_src, spec_name)
+            if os.path.isfile(spec_p):
+                t.add(spec_p, arcname="campaigns/" + spec_name)
+            plans_p = os.path.join(campaigns_src, "plans")
+            if os.path.isdir(plans_p):
+                for dirpath, _, files in os.walk(plans_p):
+                    if "__pycache__" in dirpath:
+                        continue
+                    for f in sorted(files):
+                        p = os.path.join(dirpath, f)
+                        if f.endswith(".pyc"):
+                            continue
+                        t.add(p, arcname="campaigns/plans/" + os.path.relpath(p, plans_p))
     return tar_path, sha256_file(tar_path)
 
 
@@ -108,12 +131,18 @@ def remote_tree_hashes(backend, target_dir):
     """Ask the target to hash its own extracted tree (PF_ parse-back).
 
     Keys match freeze.tree_hashes: paths relative to the benchmarks root
-    (the bundle extracts to <target_dir>/benchmarks/...)."""
+    (the bundle extracts to <target_dir>/benchmarks/...), plus the
+    campaigns payload under <target_dir>/campaigns/ (keys "campaigns/…").
+    """
     script = (
         f"cd {target_dir}/benchmarks 2>/dev/null || exit 3; "
         "find . -type f -not -path '*/__pycache__/*' -not -name 'freeze.json' | sort | "
         "while read f; do h=$(sha256sum \"$f\" | cut -d' ' -f1); "
-        "echo \"PF_ $f $h\"; done"
+        "echo \"PF_ $f $h\"; done; "
+        f"cd {target_dir}/campaigns 2>/dev/null && "
+        "find . -type f -not -path '*/__pycache__/*' | sort | "
+        "while read f; do h=$(sha256sum \"$f\" | cut -d' ' -f1); "
+        "echo \"PF_ campaigns/${f#./} $h\"; done; true"
     )
     rc, out, err = backend.sh("bash -s", stdin=script)
     if rc != 0:

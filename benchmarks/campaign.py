@@ -88,11 +88,14 @@ def cmd_prepare(args):
             '"sha256": "UNSET"', f'"sha256": "{model_sha}"')
         with open(ship_spec, "w") as f:
             f.write(ship_text)
+    payload = _campaigns_payload(ship_spec,
+                                 plans_dir=os.path.join(spec_dir, "plans"))
     fz = freeze_mod.bake(spec_obj.get("id"), ship_spec, spec_mod.load_spec(ship_spec),
                          _llmlab_dir(),
                          profile.get("id")
                          or profile.get("host", {}).get("ssh", "local"),
-                         {"p0": "pending"}, model_sha=model_sha)
+                         {"p0": "pending"}, model_sha=model_sha,
+                         campaigns_payload=payload)
     print("== QUALIFICATION (must be green before this freeze is usable) ==")
     ok, results = qualify.run_all()
     fz["qualification"] = {
@@ -137,7 +140,10 @@ def cmd_deploy(args):
     out = args[args.index("--out") + 1] if "--out" in args else None
     llmlab_dir = _llmlab_dir()
     out_dir = out or os.path.join(os.path.dirname(os.path.abspath(spec_path)), "bundle")
-    tar, sha = deploy.build_bundle(llmlab_dir, out_dir)
+    spec_dir = os.path.dirname(os.path.abspath(spec_path))
+    tar, sha = deploy.build_bundle(llmlab_dir, out_dir,
+                                   campaigns_src=spec_dir,
+                                   spec_name=os.path.basename(spec_path))
     print(f"bundle: {tar}\nsha256: {sha}")
     # verify our own tree against a fresh extraction (the target will do the same)
     import tarfile
@@ -150,7 +156,8 @@ def cmd_deploy(args):
     spec_obj = spec_mod.load_spec(spec_path)
     fz = freeze_mod.bake(spec_obj.get("id"), spec_path, spec_obj, llmlab_dir,
                          profile.get("host", {}).get("ssh", "local"),
-                         {"p0": "pending", "note": "finalize at prepare"})
+                         {"p0": "pending", "note": "finalize at prepare"},
+                         campaigns_payload=_campaigns_payload(spec_path))
     fz["bundle_sha256"] = sha
     print(f"file_hashes: {len(fz['file_hashes'])} files")
     print("NOTE: live push (ssh) is live-untested until the first dogfood window.")
@@ -220,7 +227,9 @@ def cmd_run(args):
                                (backend if backend == "real" else "fixture") +
                                "-" + time.strftime("%Y%m%d-%H%M%S", time.gmtime()))
         fz = freeze_mod.bake(spec_obj.get("id"), spec_path, spec_obj, llmlab_dir,
-                             profile.get("host", {}).get("ssh", "fixture"), {"p0": "pending"})
+                             profile.get("host", {}).get("ssh", "fixture"),
+                             {"p0": "pending"},
+                             campaigns_payload=_campaigns_payload(spec_path))
         freeze_mod.write(run_dir, fz)
         print("WARNING: no prepared freeze found — running unqualified (fixture use only)")
     if backend == "real":
@@ -242,7 +251,10 @@ def cmd_run(args):
             "target_dir", "/root/campaigns/active")
         bundle_dir = os.path.join(run_dir, "bundle")
         try:
-            tar, sha = deploy.build_bundle(llmlab_dir, bundle_dir)
+            tar, sha = deploy.build_bundle(
+                llmlab_dir, bundle_dir,
+                campaigns_src=os.path.dirname(os.path.abspath(spec_path)),
+                spec_name=os.path.basename(spec_path))
             deploy.push(b, tar, target_dir, fz)
         except OSError as e:
             r.events.emit("BUNDLE_DEPLOY_FAILED", note=str(e)[:400])
@@ -284,6 +296,26 @@ def cmd_ingest(args):
     for f in rep["completeness_findings"]:
         print("FINDING:", f)
     return 0 if not rep["completeness_findings"] and rep["production"]["ok"] else 1
+
+
+def _campaigns_payload(spec_path, plans_dir=None):
+    """{relpath: sha256} of the shipped campaign payload: the spec file as
+    shipped + every file under the campaign's plans/ dir. Plans are science
+    documents (they decide which fixture is served in which segment), so the
+    payload enters BOTH the scientific projection and the target-verified
+    bundle. None when there is no plans dir (plain campaigns)."""
+    from benchmarks import freeze as fz_mod
+    d = os.path.dirname(os.path.abspath(spec_path))
+    out = {os.path.basename(spec_path): fz_mod.sha256_file(spec_path)}
+    pd = plans_dir or os.path.join(d, "plans")
+    if os.path.isdir(pd):
+        for dirpath, _, files in os.walk(pd):
+            for f in sorted(files):
+                if f.endswith(".pyc"):
+                    continue
+                fp = os.path.join(dirpath, f)
+                out["plans/" + os.path.relpath(fp, pd)] = fz_mod.sha256_file(fp)
+    return out
 
 
 def main():

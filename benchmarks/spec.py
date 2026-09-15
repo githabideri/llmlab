@@ -120,7 +120,7 @@ def _canonical(obj):
     return json.dumps(obj, sort_keys=True, separators=(",", ":"))
 
 
-def _project_science(spec):
+def _project_science(spec, campaigns_payload=None):
     proj = {k: spec[k] for k in SCIENCE_FIELDS if k in spec}
     proj.pop("matrix", None)
     # the matrix's science: everything except launch mechanics
@@ -130,11 +130,17 @@ def _project_science(spec):
         c.pop("launch", None)
         slim.append(c)
     proj["matrix"] = slim
+    # the campaign PAYLOAD (the shipped plan files + spec copy) is a science
+    # document: a plan decides which fixture is served in which segment, so
+    # changing a plan changes the experiment. 09-14: the plans lived outside
+    # every projection (the store/return bug went unnoticed for a reason).
+    if campaigns_payload is not None:
+        proj["campaigns_payload"] = dict(sorted(campaigns_payload.items()))
     return proj
 
 
-def scientific_hash(spec):
-    return hashlib.sha256(_canonical(_project_science(spec)).encode()).hexdigest()
+def scientific_hash(spec, campaigns_payload=None):
+    return hashlib.sha256(_canonical(_project_science(spec, campaigns_payload)).encode()).hexdigest()
 
 
 def implementation_hash(llmlab_commit):

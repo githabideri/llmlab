@@ -1096,7 +1096,8 @@ class _LocalSh:
         p = subprocess.run(["bash", "-c", cmd], input=(stdin or "").encode(),
                            capture_output=True, timeout=timeout)
         if p.returncode == 0 and self.mutate and "tar xzf" in cmd:
-            self.mutate(os.path.join(self.target_dir, "benchmarks"))
+            self.mutate(os.path.join(self.target_dir, "benchmarks"),
+                        os.path.join(self.target_dir, "campaigns"))
         return p.returncode, p.stdout.decode(), p.stderr.decode()
 
 
@@ -1135,19 +1136,19 @@ def q36_deploy_push_verifies(tmp):
     os.system(f"mkdir -p {tdir}/benchmarks")
     changed = None
     try:
-        do_push(lambda root: open(os.path.join(root, "a.py"), "a").write("# tampered\n"))
+        do_push(lambda root, cr: open(os.path.join(root, "a.py"), "a").write("# tampered\n"))
     except OSError as e:
         changed = str(e)
     # (d) missing file
     missing = None
     try:
-        do_push(lambda root: os.remove(os.path.join(root, "sub", "c.py")))
+        do_push(lambda root, cr: os.remove(os.path.join(root, "sub", "c.py")))
     except OSError as e:
         missing = str(e)
     # (e) unexpected file
     unexpected = None
     try:
-        do_push(lambda root: open(os.path.join(root, "rogue.py"), "w").write("x\n"))
+        do_push(lambda root, cr: open(os.path.join(root, "rogue.py"), "w").write("x\n"))
     except OSError as e:
         unexpected = str(e)
     ok = (refused and "no file_hashes" in refused
@@ -1291,6 +1292,46 @@ p0("Q30 workload contract: 256K no-op PROVEN by a present-but-empty log -> INVAL
 p0("Q31 workload contract: declared 60K vs encoded 200 (honest server) -> INVALID (09-14 fill-row, the floor missed it)", q31_contract_wrong_prompt)
 p0("Q32 workload contract: fast but fully evidenced return -> PLAUSIBILITY_ANOMALY, never INVALID", q32_contract_fast_but_proven)
 p0("Q33 workload contract: evidence gap (no usage, no log) -> HARNESS_FAILURE, campaign review-required", q33_contract_evidence_gap)
+
+def q38_campaigns_payload_in_bundle(tmp):
+    """The campaign payload (shipped spec + plans) ships INSIDE the frozen
+    bundle, is verified on the target, and enters the SCIENTIFIC
+    projection. 09-14: the plans lived outside every projection (the
+    store/return bug sat in them for a whole campaign unnoticed)."""
+    from benchmarks import deploy, freeze as freeze_mod, spec as spec_mod, campaign as camp_mod
+    fake = os.path.join(tmp, "llmlab38")
+    os.makedirs(os.path.join(fake, "benchmarks"), exist_ok=True)
+    open(os.path.join(fake, "benchmarks", "a.py"), "w").write("# a\n")
+    cdir = os.path.join(tmp, "camps38")
+    os.makedirs(os.path.join(cdir, "plans"), exist_ok=True)
+    open(os.path.join(cdir, "spec.jsonc"), "w").write('{\n"question": "q"\n}\n')
+    open(os.path.join(cdir, "plans", "a.json"), "w").write('[{"requests": []}]\n')
+    payload = camp_mod._campaigns_payload(os.path.join(cdir, "spec.jsonc"))
+    assert set(payload) == {"spec.jsonc", "plans/a.json"}, payload
+    fz = freeze_mod.bake("c1", os.path.join(cdir, "spec.jsonc"), {"question": "q"},
+                         fake, "p", {"p0": "x"}, campaigns_payload=payload)
+    assert any(k.startswith("campaigns/") for k in fz["file_hashes"])
+    # the payload is in the scientific projection: tamper it, hash changes
+    h1 = spec_mod.scientific_hash({"question": "q"}, payload)
+    h2 = spec_mod.scientific_hash({"question": "q"},
+                                  dict(payload, **{"plans/a.json": "0" * 64}))
+    assert h1 != h2 and fz["scientific_hash"] == h1
+    # push + verify: happy, then a tampered plan on the target
+    tdir = os.path.join(tmp, "t38")
+    tar, _ = deploy.build_bundle(fake, os.path.join(tmp, "b38"),
+                                 campaigns_src=cdir, spec_name="spec.jsonc")
+    ok_sha = deploy.push(_LocalSh(tdir), tar, tdir, fz)
+    def mut(bench_root, camps_root):
+        open(os.path.join(camps_root, "plans", "a.json"), "a").write("# tampered\n")
+    changed = None
+    try:
+        deploy.push(_LocalSh(tdir, mutate=mut), tar, tdir, fz)
+    except OSError as e:
+        changed = str(e)
+    ok = (bool(ok_sha) and bool(changed) and "campaigns/plans/a.json" in changed)
+    return ok, f"happy={bool(ok_sha)} tamper-detected={'campaigns/plans/a.json' in (changed or '')}"
+
+p0("Q38 campaigns payload: in bundle, target-verified, in the scientific projection", q38_campaigns_payload_in_bundle)
 
 
 
