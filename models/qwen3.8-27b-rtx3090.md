@@ -15,7 +15,7 @@
 | Parameter | Value |
 |-----------|-------|
 | **Parameters** | ~27.3 billion |
-| **Context Window** | 262,144 tokens (native) — deployed in full on the dual-3090 TP2 pool (776,928-token KV ≈ 2.96× max concurrency); was 163,840 on the single 3090 |
+| **Context Window** | 262,144 tokens (native) — deployed in full on the dual-3090 TP2 pool (710,402-token KV = 897 GPU blocks, block size 832 → ≈ 2.7× max concurrency); was 163,840 on the single 3090 |
 | **Embedding Dimension** | 5120 |
 | **Vocabulary Size** | 248,320 |
 | **Quantization** | Q4_K_M (17.1 GB) |
@@ -96,6 +96,11 @@ The upstream `f8f0a47a` "quantized-KV flash-attention scratch blowup" does **not
 ---
 
 ## Changelog
+
+### 2026-09-16: Endpoint port 8082 → 8080, ctx-budget aliases added (undocumented drift made official)
+- The serving endpoint moved 8082 → **8080** via an undocumented `Environment=PORT=8080` systemd drop-in (created 2026-09-15) — port 8082 was being taken by a host-local service. The move had no decision behind it and left every consumer that still said 8082 (the hub, the Prometheus scrape job, two agent clients) broken. On 2026-09-16 the port was made **officially 8080** and drift-proof: start-script default 8080, unit drop-in pins `PORT=8080`, unit description updated, all consumers re-pointed.
+- The endpoint now advertises **7 names**: `qwen3.8-27b-dual` plus ctx-budget aliases `qwen3.8-27b-dual-{160,128,100,80,64,32}k` — the *same single endpoint* (one engine, one KV pool); the suffix is a client-side budget hint for consumers that want to state their context expectation. No config difference between names.
+- KV pool note: the 0.28.0 engine resolves a block size of 832 for this hybrid model (not 1024), so the pool is 897 blocks = **710,402 tokens** (≈ 2.71× the 262,144 max), not the 776,928 logged at the 09-08 cutover. Same bytes, different block arithmetic — the "2×160K + 10×32K fits with headroom" conclusion is unchanged.
 
 ### 2026-09-11: Operating-envelope campaign — knee confirmed at k=3; TP1 text-decode parity (card freeability still open)
 - Overnight v2 campaign ([report](../reports/2026-09-11-dual3090-v2-operating-envelope.md)): MTP envelope on the 8192 profile — k=0/2/3/4 = 67.1/113.4/151.1/167.6 t/s @16K; **knee at k=3** (k4 is the measured max, +11%, with a *narrower* IQR — so a knee, not a proven optimum; kept k3 as the conservative depth). Single-stream 16K on the live endpoint: 147.8 t/s (IQR 1.1). **Prefill interference measured: a 64K prefill in flight raises running-decode ITL 25.8 → 39.2 ms (+51.9%)** on the 8192 profile, with full recovery after — the measured **8192-side baseline** for the 8192-vs-2048 batch-budget A/B (the 2048 side is still to be measured; 48 h passive monitoring verdict due same day). **TP1 (single 3090) = 149.8 t/s ≈ TP2 147.8** at single-user 16K *text* decode → **no measurable text-decode benefit from the second card; whether it is operationally freeable depends on KV/concurrency/multimodal** (the 09-11 multi-image OOM is the counterexample — a rank can be irrelevant to text tgen yet load-bearing for the memory envelope). 32K prefix cache: 36.5 s cold → 1.22 s on a spaced re-send (~30×) while the near-immediate re-send missed — a real observation, mechanism not yet established (see the report's post-hoc note). Concurrency rows invalid by design (512-out vs 30 s overlap gate) — cells redesigned for the next window. First unattended campaign after the two 09-08/09-10 crashes: the box held, recovery stack unused.

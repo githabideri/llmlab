@@ -77,11 +77,25 @@ WIN_SAMPLES = max(2, LAT_WINDOW // POLL_INTERVAL)   # window ring buffer size
 COOKIE_SECURE = os.environ.get("LLM_HUB_COOKIE_SECURE", "").lower() in ("1", "true", "yes")
 
 # vLLM latency histograms (emitted per engine/model; buckets incl. +Inf).
+# "tpot" is the per-request time-per-output-token histogram (the canonical
+# SLO metric: decode_time / (n_tokens - 1)); "itl" is the token-weighted
+# inter-token latency histogram (grows with batch size — see README
+# "What the numbers mean"). A build missing either just omits that row.
 VLLM_HISTS = (
     ("ttft",  "time_to_first_token_seconds"),
-    ("tpot",  "inter_token_latency_seconds"),
+    ("tpot",  "request_time_per_output_token_seconds"),
+    ("itl",   "inter_token_latency_seconds"),
     ("e2e",   "e2e_request_latency_seconds"),
     ("queue", "request_queue_time_seconds"),
+)
+# Per-request phase histograms, sampled on request FINISH (a long-running
+# request contributes its phase stats late): wall-clock prefill time
+# (scheduled -> first token), decode time (first -> last token), and the
+# KV tokens actually computed in prefill (cached tokens excluded).
+VLLM_PHASE_HISTS = (
+    ("prefill", "request_prefill_time_seconds"),
+    ("decode",  "request_decode_time_seconds"),
+    ("pfkv",    "request_prefill_kv_computed_tokens"),
 )
 
 CONFIG = {}
@@ -180,6 +194,24 @@ def parse_buckets(text):
         d = out.setdefault(head[: -len("_bucket")], {})
         d[le] = d.get(le, 0.0) + v
     return out
+
+
+def parse_sum(text, name):
+    """Sum of all value samples of one metric across its label sets
+    (parse_prom's max() would undercount a _sum series with several
+    label combinations). None when the metric is absent."""
+    prefix, plain = name + "{", name + " "
+    total = None
+    for line in text.splitlines():
+        if line.startswith("#") or not line.strip():
+            continue
+        if line.startswith(plain) or line.startswith(prefix):
+            try:
+                v = float(line.rpartition(" ")[2])
+            except ValueError:
+                continue
+            total = (total or 0.0) + v
+    return total
 
 
 def parse_labeled(text, name, label):
@@ -384,7 +416,23 @@ class Server:
             raise RuntimeError(f"/metrics HTTP {status or 'timeout'}")
         p = parse_prom(body)
         gen = get_metric(p, "generation_tokens_total", prefixes=("vllm:", "vllm_"))
-        prompt = get_metric(p, "prompt_tokens_total", prefixes=("vllm:", "vllm_"))
+        # vLLM's prompt_tokens_total counts each request's FULL prompt
+        # length — prefix-cache hits included — so its raw rate is
+        # inflated whenever the cache is hot (13.7M counted vs 0.8M
+        # computed on the dual-3090 with a 95% hit rate). The GPU's
+        # actual prefill work is the computed share: prompt_tokens_by_source
+        # {source="local_compute"} when the build exposes it, else the
+        # equivalent queries - hits (both monotone non-decreasing, so
+        # _rate's restart re-baseline stays safe).
+        src = parse_labeled(body, "vllm:prompt_tokens_by_source_total", "source")
+        if "local_compute" in src:
+            pp = src["local_compute"]
+        else:
+            pq = get_metric(p, "prefix_cache_queries_total",
+                            prefixes=("vllm:", "vllm_")) or 0.0
+            ph = get_metric(p, "prefix_cache_hits_total",
+                            prefixes=("vllm:", "vllm_")) or 0.0
+            pp = max(0.0, pq - ph)
         req_running = int(get_metric(p, "num_requests_running",
                                      prefixes=("vllm:", "vllm_")) or 0)
         req_waiting = int(get_metric(p, "num_requests_waiting",
@@ -406,9 +454,15 @@ class Server:
                                     prefixes=("vllm:", "vllm_")) or 0.0
         counters["pre"] = get_metric(p, "num_preemptions_total",
                                      prefixes=("vllm:", "vllm_")) or 0.0
+        counters["gen"] = gen
+        for key, base in VLLM_PHASE_HISTS:
+            s = parse_sum(body, "vllm:" + base + "_sum")
+            if s is None:                       # older builds: bare names
+                s = parse_sum(body, base + "_sum")
+            counters["sum:" + key] = s
         self._winbuf.append((now, buckets, counters))
 
-        latency = finish_win = cache_hit = preempt_win = None
+        latency = finish_win = cache_hit = preempt_win = phase = None
         if len(self._winbuf) >= 2:
             ts0, b0, c0 = self._winbuf[0]
             win = max(1, round(now - ts0))
@@ -442,6 +496,44 @@ class Server:
                 cache_hit = round(dh / dq, 3)
             pd = _counter_delta(c0.get("pre"), counters["pre"])
             preempt_win = int(pd) if pd is not None else None
+            # per-request phase stats over the window (histograms are
+            # sampled on request FINISH): p50/p95/p99 of the phase
+            # histogram + the _sum deltas -> real prefill/decode speeds
+            # independent of the request-arrival pattern.
+            ph = {}
+            for key, base in VLLM_PHASE_HISTS:
+                full = next((n for n in (base, "vllm:" + base,
+                                          "vllm_" + base)
+                             if n in b0 or n in buckets), base)
+                d = _bucket_deltas(b0.get(full), buckets.get(full))
+                sd = _counter_delta(c0.get("sum:" + key),
+                                    counters.get("sum:" + key))
+                if d is None and sd is None:
+                    ph[key] = None
+                else:
+                    ph[key] = {
+                        "p50": hist_quantile(d, 0.50) if d else None,
+                        "p95": hist_quantile(d, 0.95) if d else None,
+                        "p99": hist_quantile(d, 0.99) if d else None,
+                        "n": int(d.get(float("inf"), 0)) if d else None,
+                        "sum": sd,
+                    }
+            if any(ph.values()):
+                pf, dd, pk = ph.get("prefill"), ph.get("decode"), ph.get("pfkv")
+                prefill_speed = decode_speed = None
+                if (pf and pf.get("sum") and pf["sum"] > 0
+                        and pk is not None and pk.get("sum") is not None):
+                    prefill_speed = round(pk["sum"] / pf["sum"], 1)
+                gen_d = _counter_delta(c0.get("gen"), counters.get("gen"))
+                if dd and dd.get("sum") and dd["sum"] > 0 and gen_d is not None:
+                    decode_speed = round(gen_d / dd["sum"], 1)
+                phase = {
+                    "window_s": win, "prefill": pf, "decode": dd,
+                    "pfkv": pk, "prefill_speed": prefill_speed,
+                    "decode_speed": decode_speed,
+                }
+            else:
+                phase = None
 
         sleep_state = next((k for k, v in sleep.items() if v >= 1), None)
         wr = None
@@ -455,11 +547,13 @@ class Server:
             })
             st.update({
                 "tgen": self._rate("(vllm)", "gen", gen, now),
-                "tpp": self._rate("(vllm)", "prompt", prompt, now),
+                # pp = prompt tokens actually computed (see above); same
+                # _rate machinery, monotone input
+                "tpp": self._rate("(vllm)", "prompt", pp, now),
                 "spec_accept": None,
                 "req_running": req_running, "req_waiting": req_waiting,
                 "kv_used": kv,
-                "latency": latency, "finish": finish_win,
+                "latency": latency, "finish": finish_win, "phase": phase,
                 "cache_hit": cache_hit, "preempt_win": preempt_win,
                 "preempt_total": int(get_metric(p, "num_preemptions_total",
                                                 prefixes=("vllm:", "vllm_")) or 0),
@@ -927,10 +1021,23 @@ def prom_text():
                 _g(L, "hub_model_requests_waiting", ml, m.get('req_waiting'))
                 _g(L, "hub_model_kv_cache_used", ml, m.get('kv_used'))
                 lat = m.get("latency") or {}
-                for key in ("ttft", "tpot", "e2e", "queue"):
+                for key in ("ttft", "tpot", "itl", "e2e", "queue"):
                     q = lat.get(key) or {}
                     for qn in ("p50", "p95", "p99"):
                         _g(L, f"hub_model_{key}_{qn}_seconds", ml, q.get(qn))
+                ph = m.get("phase") or {}
+                if ph.get("window_s"):
+                    pf, dd, pk = ph.get("prefill"), ph.get("decode"), ph.get("pfkv")
+                    _g(L, "hub_model_prefill_avg_seconds", ml,
+                       pf.get("p50") if pf else None)
+                    _g(L, "hub_model_decode_avg_seconds", ml,
+                       dd.get("p50") if dd else None)
+                    _g(L, "hub_model_prefill_computed_tokens_window", ml,
+                       pk.get("sum") if pk else None)
+                    _g(L, "hub_model_prefill_speed_tokens_per_second", ml,
+                       ph.get("prefill_speed"))
+                    _g(L, "hub_model_decode_speed_tokens_per_second", ml,
+                       ph.get("decode_speed"))
                 _g(L, "hub_model_preemptions_total", ml, m.get('preempt_total'))
                 _g(L, "hub_model_preemptions_window", ml, m.get('preempt_win'))
                 fin = m.get("finish") or {}

@@ -1,7 +1,7 @@
 # LLM Serving — systemd Unit Reference
 
 **Services (current):**
-- `vllm-dual.service` — Qwen3.8-27B, **vLLM 0.28.0 tensor-parallel 2** (production since 2026-09-08, port 8082, both RTX 3090s)
+- `vllm-dual.service` — Qwen3.8-27B, **vLLM 0.28.0 tensor-parallel 2** (production since 2026-09-08, port 8080 since 2026-09-16, both RTX 3090s)
 - `gpu-power-limits.service` — 250 W per 3090 (default via `GPU_POWER_LIMIT_W`; was 220 W single-card / 115 W 3060s)
 - `llama-server.service` — Qwen3.6-35B-A3B MTP, llama.cpp, backup box (port 8080)
 - `llama-qwen3.8-27b.service` — Qwen3.8-27B, llama.cpp (**disabled, kept on disk** as validated rollback)
@@ -15,14 +15,15 @@
 
 ---
 
-## vLLM — Qwen3.8-27B (Port 8082, dual RTX 3090, TP2 — current)
+## vLLM — Qwen3.8-27B (Port 8080, dual RTX 3090, TP2 — current)
 
 **Service:** `vllm-dual.service` — **production since 2026-09-08** (supersedes the single-3090 0.27.1 unit, kept disabled as rollback)  
 **Placement:** dedicated LXC on the GPU-server host (Ubuntu 24.04); from the host: `pct exec <lxc-id> -- systemctl status vllm-dual`  
-**Runtime:** vLLM **0.28.0** (`syv-ai` patch stack, CUDA 12 venv; first-request FlashInfer JIT needs `CUDA_PATH` set) · **Model:** Qwen3.8-27B W4A16-AutoRound, served as `qwen3.8-27b-dual`  
-**Effective config:** `--tensor-parallel-size 2` (`CUDA_VISIBLE_DEVICES=0,1`) · `--max-model-len 262144` · `--max-num-seqs 16` · `--max-num-batched-tokens 2048` · fp8 KV · MTP `num_speculative_tokens 3` (drafter capped 163,840) · prefix caching · mamba-cache-mode align · `--reasoning-parser qwen3` · `--enable-auto-tool-choice --tool-call-parser qwen3_xml` · `--mamba-ssm-cache-dtype float16` · `--async-scheduling` · `--limit-mm-per-prompt {image:1}` (vision **on** — weight-sharded tower) · `VLLM_USE_FLASHINFER_SAMPLER=0` · **keyless**, port 8082
+**Runtime:** vLLM **0.28.0** (`syv-ai` patch stack, CUDA 12 venv; first-request FlashInfer JIT needs `CUDA_PATH` set) · **Model:** Qwen3.8-27B W4A16-AutoRound, served as `qwen3.8-27b-dual` + 6 ctx-budget aliases `-160k/-128k/-100k/-80k/-64k/-32k` (same single endpoint, one KV pool)  
+**Effective config:** `--tensor-parallel-size 2` (`CUDA_VISIBLE_DEVICES=0,1`) · `--max-model-len 262144` · `--max-num-seqs 16` · `--max-num-batched-tokens 8192` · fp8 KV · MTP `num_speculative_tokens 3` (drafter capped 163,840) · prefix caching · mamba-cache-mode align · `--reasoning-parser qwen3` · `--enable-auto-tool-choice --tool-call-parser qwen3_xml` · `--mamba-ssm-cache-dtype float16` · `--async-scheduling` · `--enable-prompt-tokens-details` · `--limit-mm-per-prompt {"image":{"count":16}}` + `--mm-processor-cache-type shm` (vision **on** — weight-sharded tower) · `VLLM_USE_FLASHINFER_SAMPLER=0` · **keyless**, **port 8080** (2026-09-08→16: 8082; then back to 8080 — see note below)  
+**Port pin (drift-proof, 2026-09-16):** `/etc/systemd/system/vllm-dual.service.d/10-port.conf` sets `Environment=PORT=8080`; the start-script default is also 8080. An earlier undocumented drop-in moved the endpoint 8082→8080 without any consumer update, breaking every 8082 reference; the pin plus updated script default and unit description make the port explicit in three places.
 
-KV pool: 776,928 tokens (13.24 GiB/rank) → 34.9 KiB/logical token; thinking is **on by default per request** — non-reasoning consumers should pass `enable_thinking: false` (same behaviour as the old production). Power: 250 W/card (220 W single-card was the pre-cutover setting; 250 W is +6.2–6.5% prefill at equal stability).
+KV pool: **710,402 tokens** (897 GPU blocks, block size 832 — the 0.28.0 hybrid-SSM block arithmetic; the 776,928 logged at the 09-08 cutover used 1024-token blocks, same bytes) → ≈ 2.71× the 262,144 max as concurrency headroom. Thinking is **on by default per request** — non-reasoning consumers should pass `enable_thinking: false` (same behaviour as the old production). Power: 250 W/card (220 W single-card was the pre-cutover setting; 250 W is +6.2–6.5% prefill at equal stability).
 
 <details><summary>Historic: single-3090 vLLM 0.27.1 unit (pre-2026-09-08, kept for rollback)</summary>
 
@@ -66,7 +67,7 @@ WantedBy=multi-user.target
 
 **Service:** `llama-qwen3.8-27b.service`  
 **Unit:** `/etc/systemd/system/llama-qwen3.8-27b.service`  
-**Status:** ⏸ **Dormant fallback** — since 2026-08-21 the 27B endpoint on :8080 is served by vLLM 0.27.1 in a separate LXC (see [runbook](runbook.md)); this unit stays on disk as the validated llama.cpp rollback  
+**Status:** ⏸ **Dormant fallback** — since 2026-08-21 the 27B endpoint on :8080 was served by vLLM 0.27.1 in a separate LXC (superseded by the dual-3090 TP2 unit on 2026-09-08, which re-occupied :8080 on 2026-09-16); this unit stays on disk as the validated llama.cpp rollback  
 **GPU:** RTX 3090 24GB (CUDA0)  
 **Context:** 160K, q8_0/q8_0 KV, MTP speculative decoding  
 **Cutover:** 2026-08-15 (replaced BeeLlama Qwen3.6-27B; stock llama.cpp 5f754ea); superseded by vLLM 2026-08-21

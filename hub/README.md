@@ -52,9 +52,12 @@ Per server, every 2 s:
   prompt-processing throughput (pp/s), speculative-decoding (MTP)
   acceptance, prompt-cache hit rate (5-min window), in-flight and deferred
   requests, busy decode slots, and model load state.
-- **vLLM**: generation and prompt-processing throughput, rolling p50/p95/p99
-  percentiles for TTFT, TPOT, E2E and queue time, queue and KV-cache state,
-  prefix-cache hit rate, preemptions, engine state, and finish reasons.
+- **vLLM**: generation throughput and **real** prompt-processing throughput
+  (prefix-cache hits excluded), rolling p50/p95/p99 percentiles for TTFT,
+  **per-request** TPOT, token-weighted ITL, E2E and queue time, per-request
+  prefill/decode phase stats (avg times + real prefill/decode speeds over
+  the window), queue and KV-cache state, prefix-cache hit rate, preemptions,
+  engine state, and finish reasons.
 - **GPU telemetry**: per-card utilization, VRAM, temperature, and power,
   from the per-host sidecar.
 
@@ -93,6 +96,33 @@ States are derived per model (node state is the worst across its models):
   process-lifetime cumulative values. Resolution is bounded by the engine's
   bucket edges. llama.cpp has no equivalent latency histograms; that is a
   vLLM-only capability.
+- **`tpot` (vLLM) is the per-request metric** `request_time_per_output_token_seconds`
+  (decode time ÷ tokens-1, the canonical SLO number). It is a *per-request*
+  average and **grows with batch size** — under a big decode batch it can
+  legitimately exceed the aggregate t/s divided by the batch. The
+  token-weighted inter-token histogram is available as `itl` (and in the
+  diagnostics table) when you want the per-token view. Both come from the
+  engine; the hub does not estimate them.
+- **vLLM `pp/s` measures actual prefill compute.** vLLM's
+  `prompt_tokens_total` counts each request's *full* prompt length —
+  prefix-cache hits included — so a hot cache inflates it by an order of
+  magnitude. The hub instead rates `prompt_tokens_by_source{source="local_compute"}`
+  (tokens the GPU actually computed during prefill), falling back to
+  `prefix_cache_queries − prefix_cache_hits` on builds without that counter.
+- **Per-request phase stats** (`prefill` / `decode` / `pfkv` histograms,
+  sampled when a request *finishes*) feed two window aggregates:
+  `prefill_speed` = computed tokens ÷ prefill seconds, `decode_speed` =
+  generated tokens ÷ decode seconds. These are the honest per-phase speeds
+  for the window, independent of the request-arrival pattern. Note the
+  per-request histograms only move when requests *complete* — a long
+  in-flight request contributes its phase stats late.
+- **KV usage** (`kv`) is the engine's block-pool gauge: blocks in use
+  *including those held by the prefix cache*, divided by the pool. The pool
+  is sized for several concurrent max-context requests, so low percent
+  values are normal for one conversation — it is a headroom gauge, not a
+  "is it busy" gauge.
+- **Cache hit rate** is the token-weighted prefix-cache hit rate over the
+  window (hits ÷ queries), not a per-request count.
 - Unknown values are `null` in the API and **omitted** in `/metrics` (not
   `NaN`, which would poison PromQL aggregates; not `0`, which must mean
   "measured, zero").
@@ -343,8 +373,13 @@ CT lists no `rsyslogd` profile and the host journal shows no new
 utilization/memory/temperature/power, per-model generation and
 prompt-processing throughput, backend parser-compat flags
 (`hub_vllm_metrics_ok`, `hub_llama_metrics_ok`), vLLM latency percentiles
-(seconds), request counts, KV usage, cache hit rates, preemptions, and
-engine sleep state.
+(seconds: `hub_model_{ttft,tpot,itl,e2e,queue}_{p50,p95,p99}_seconds`,
+where `tpot` is the *per-request* metric and `itl` the token-weighted one),
+per-request phase aggregates (`hub_model_prefill_avg_seconds`,
+`hub_model_decode_avg_seconds`, `hub_model_prefill_computed_tokens_window`,
+`hub_model_prefill_speed_tokens_per_second`,
+`hub_model_decode_speed_tokens_per_second`), request counts, KV usage, cache
+hit rates, preemptions, and engine sleep state.
 Unknown values are omitted rather than exported as `NaN` (which would poison
 `avg()`/`sum()` in PromQL); a measured zero is exported as `0`.
 This is the stable scrape surface for a Grafana stack — a separate concern;
