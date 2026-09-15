@@ -36,8 +36,15 @@ def sha256_bytes(b):
 
 
 def bake(campaign_id, spec_path, spec_obj, llmlab_dir, profile_id,
-         qualification, bundle_sha=None, model_sha=None, build_sha=None):
-    """Write freeze.json into the campaign's bundle dir. Returns the dict."""
+         qualification, bundle_sha=None, model_sha=None, build_sha=None,
+         campaigns_payload=None):
+    """Write freeze.json into the campaign's bundle dir. Returns the dict.
+
+    campaigns_payload: optional {relpath: sha256} of the shipped campaign
+    payload (the spec copy + plan files). It is (a) a science input — the
+    plans are part of the scientific projection — and (b) verified on the
+    target by deploy.push (keys namespaced "campaigns/…").
+    """
     from . import spec as specmod
     frozen = {
         "schema": 3,
@@ -45,7 +52,7 @@ def bake(campaign_id, spec_path, spec_obj, llmlab_dir, profile_id,
         "prepared_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "llmlab_dir": llmlab_dir,
         "llmlab_commit": _git_head(llmlab_dir),
-        "scientific_hash": specmod.scientific_hash(spec_obj),
+        "scientific_hash": specmod.scientific_hash(spec_obj, campaigns_payload),
         "implementation_hash": _git_head(llmlab_dir),   # the commit IS the impl identity
         "spec_path": os.path.basename(spec_path),
         "spec_sha256": sha256_file(spec_path),
@@ -59,6 +66,10 @@ def bake(campaign_id, spec_path, spec_obj, llmlab_dir, profile_id,
     # caller blanked it, which made every downstream verifier vacuous
     # (deploy push compared against nothing; the bundle never got checked).
     frozen["file_hashes"] = tree_hashes(llmlab_dir)
+    if campaigns_payload:
+        frozen["campaigns_payload"] = dict(sorted(campaigns_payload.items()))
+        for k, v in sorted(campaigns_payload.items()):
+            frozen["file_hashes"]["campaigns/" + k] = v
     return frozen
 
 
