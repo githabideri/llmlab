@@ -1192,6 +1192,14 @@ def restore():
             s.gpus = sd.get("gpus", [])
             s.gpus_ts = data.get("ts") if sd.get("gpus") else None
             for m in sd.get("models", []):
+                # normalize stale snapshot shapes: the vLLM entry was
+                # created without kind/desc by the v1-era setdefault and
+                # a restored dict suppresses the current creation
+                # defaults (setdefault never overwrites), which sent the
+                # Prometheus export down the llama branch and hid the
+                # vision advisor's kind. Re-derive from the server kind.
+                m.setdefault("kind", "vllm" if s.kind == "vllm" else "llama.cpp")
+                m.setdefault("desc", s.desc)
                 s.models[m["id"]] = m
     except (OSError, json.JSONDecodeError):
         pass
