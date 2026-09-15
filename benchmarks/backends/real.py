@@ -57,9 +57,15 @@ class RealBackend:
 
     def put_file(self, local_path, remote_path, where="target"):
         b64 = base64.b64encode(open(local_path, "rb").read()).decode()
+        # b64 over ssh STDIN, never in argv: a 16k+ token prompt b64 (~135 KB)
+        # exceeds MAX_ARG_STRLEN (~131072) and died with E2BUG/E2BIG at cell
+        # a40-off (09-14). Remote size check makes a truncated write fail loud.
+        size = os.path.getsize(local_path)
         rc, out, err = self._ssh(where,
                                  f"mkdir -p $(dirname {shlex.quote(remote_path)}) && "
-                                 f"echo '{b64}' | base64 -d > {shlex.quote(remote_path)} && echo WROTE")
+                                 f"base64 -d > {shlex.quote(remote_path)} && "
+                                 f"[ \"$(stat -c%s {shlex.quote(remote_path)})\" = {size} ] && echo WROTE",
+                                 stdin=b64 + "\n")
         if "WROTE" not in out:
             raise OSError(f"put_file failed for {remote_path}: {err[:200]}")
 
@@ -328,13 +334,30 @@ class RealBackend:
         rc, out, err = self._ssh("target",
                                  f"mkdir -p {wd['dir']} && echo '{b64}' | base64 -d > "
                                  f"{wd['dir']}/params.json && "
+                                 f"touch {shlex.quote(lease_path)} && touch {shlex.quote(heartbeat_path)} && "
                                  f"setsid nohup bash {wd['script']} {wd['dir']} > "
                                  f"{wd['dir']}/watchdog.log 2>&1 < /dev/null & "
                                  f"echo PF_armed=$!")
+        pid = None
         for line in out.splitlines():
             if line.strip().startswith("PF_armed="):
-                return int(line.strip().split("=", 1)[1])
-        raise RuntimeError(f"watchdog arm failed: {err[:300]}")
+                pid = int(line.strip().split("=", 1)[1])
+        if pid is None:
+            raise RuntimeError(f"watchdog arm failed: {err[:300]}")
+        # P0 (09-14): the lease is created BEFORE the spawn (the watchdog's
+        # first loop line is '[ -f $lease ] || exit 0' — the old arm never
+        # created it, so every in-LXC watchdog was dead on arrival), and the
+        # arm-time liveness check proves the process is still alive 2 s in
+        # (the Q17 pattern applied to the watchdog itself).
+        wlog = wd['dir'] + '/watchdog.log'
+        rc, out, err = self._ssh("target",
+                                 f"sleep 2; kill -0 {pid} 2>/dev/null && echo WD_ALIVE=1 || "
+                                 f"(head -c 600 {wlog} 2>/dev/null; echo WD_DEAD=1)")
+        if "WD_ALIVE=1" not in out:
+            tail = " ".join(out.split())[:400]
+            raise RuntimeError(
+                f"watchdog died at arm (pid {pid}) — refusing to enter the window: {tail}")
+        return pid
 
     def disarm_watchdog(self, lease_path):
         wd = self.p["window"]

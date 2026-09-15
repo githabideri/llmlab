@@ -221,7 +221,6 @@ def cmd_run(args):
                                "-" + time.strftime("%Y%m%d-%H%M%S", time.gmtime()))
         fz = freeze_mod.bake(spec_obj.get("id"), spec_path, spec_obj, llmlab_dir,
                              profile.get("host", {}).get("ssh", "fixture"), {"p0": "pending"})
-        fz["file_hashes"] = {}
         freeze_mod.write(run_dir, fz)
         print("WARNING: no prepared freeze found — running unqualified (fixture use only)")
     if backend == "real":
@@ -233,6 +232,29 @@ def cmd_run(args):
     if approve:
         r.events.emit("OWNER_APPROVAL", window=approve,
                       note="recorded by campaign.py run --approve-window")
+    if backend == "real":
+        # P0 (09-14): the bundle is deployed AND verified on the target before
+        # the window may open — 'run' owns the bundle on the target. The 09-14
+        # campaign never got a bundle this way (deploy.push had no call site)
+        # and needed an ad-hoc agent script; a stale/absent tree is a
+        # pre-window refusal, not a mid-campaign discovery.
+        target_dir = (profile.get("deploy") or {}).get(
+            "target_dir", "/root/campaigns/active")
+        bundle_dir = os.path.join(run_dir, "bundle")
+        try:
+            tar, sha = deploy.build_bundle(llmlab_dir, bundle_dir)
+            deploy.push(b, tar, target_dir, fz)
+        except OSError as e:
+            r.events.emit("BUNDLE_DEPLOY_FAILED", note=str(e)[:400])
+            print(f"refused: bundle deploy/verification failed (no window entered):\n  {e}")
+            return 2
+        fz["bundle_sha256"] = sha
+        freeze_mod.write(run_dir, fz)
+        r.events.emit("BUNDLE_DEPLOYED", sha=sha,
+                      files=len(fz.get("file_hashes") or {}),
+                      target_dir=target_dir)
+        print(f"bundle deployed+verified on target: sha {sha[:12]}... "
+              f"({len(fz.get('file_hashes') or {})} files)")
     fin = r.run()
     print(f"\nfinal: {fin['final']}  cells: {fin['cells']}  "
           f"restored: {fin['restore'].get('restored')}")

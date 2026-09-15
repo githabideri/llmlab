@@ -380,9 +380,21 @@ class FixtureBackend:
 
     def arm_watchdog(self, deadline_epoch, lease_path, heartbeat_path, undo_manifest,
                      prod_desc):
-        self.op_log.append("arm_watchdog")
+        # Contract parity with real (09-14 P0): the arm CREATES the lease and
+        # an initial heartbeat and returns a live pid — the watchdog's first
+        # loop line is '[ -f $lease ] || exit 0', so an arm without the lease
+        # is a dead watchdog.
+        self.op_log.append(f"arm_watchdog(lease_created={lease_path},heartbeat)")
+        for pth in (lease_path, heartbeat_path):
+            try:
+                d = os.path.dirname(pth)
+                if d:
+                    os.makedirs(d, exist_ok=True)
+                open(pth, "a").close()
+            except OSError:
+                pass
         self.watchdog.update(armed=True, deadline=deadline_epoch, pid=777,
-                             disarmed=False, lease=lease_path,
+                             disarmed=False, lease=lease_path, lease_held=True,
                              heartbeat=heartbeat_path,
                              undo=undo_manifest, prod_desc=prod_desc)
 
@@ -393,8 +405,10 @@ class FixtureBackend:
                           undo_manifest, prod_desc)
 
     def disarm_watchdog(self, lease_path):
+        # op string stays canonical ("disarm_watchdog") — Q7/Q17 count it
+        # exactly; the lease-release fact lives in the watchdog state.
         self.op_log.append("disarm_watchdog")
-        self.watchdog.update(disarmed=True, armed=False)
+        self.watchdog.update(disarmed=True, armed=False, lease_held=False)
 
     def heartbeat(self, heartbeat_path):
         pass

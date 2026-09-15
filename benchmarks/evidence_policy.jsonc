@@ -1,0 +1,57 @@
+// evidence_policy.jsonc — per-engine evidence SOURCES for workload contracts.
+//
+// A workload contract (spec cell) requires a set of evidence CONCEPTS:
+//   server_prompt_tokens  — the engine's own count of prompt tokens it processed
+//   client_encoded_tokens — what the client actually serialized (manifest/
+//                           tokenizer count; None where the client has no
+//                           authoritative count)
+//   request_seen          — an independent record that the request reached the
+//                           engine (server access log)
+//
+// The gate accepts a concept from ANY source in the engine's accepted set
+// below. "Accepted" means the source is trusted for THAT engine; adding a
+// source here is a platform decision (frozen in the bundle, hash-pinned).
+//
+// Source layers (provenance taxonomy):
+//   client-constructed     — client-manifest, client-tokenizer (we made it)
+//   server-computed /      — *usage: the engine counted; the client transcribed
+//     client-transcribed   — the number from the response
+//   server-log /           — *-server-log: written by the engine process,
+//     independent          — never touched by the client process
+//
+// Absence semantics (the 2026-09-14 lesson, made precise):
+//   * a source present in the result/log            -> value compared
+//   * source declared accepted here but not in the  -> contributes UNVERIFIABLE
+//     result AND the log shows no record            -> for request_seen the
+//     request at all                                 log being PRESENT with
+//                                                     zero request lines is
+//                                                     VIOLATED (proven absent),
+//                                                     not unverifiable
+//
+// The spec may override per cell: `workload_contract: {accept: {...},
+// tolerance: {absolute: 32, relative: 0.01}}` — overrides are frozen into the
+// scientific hash with the spec.
+
+{
+  "vllm": {
+    "server_prompt_tokens": ["vllm-usage", "vllm-server-log"],
+    "request_seen": ["vllm-server-log"],
+    "log_patterns": {
+      // uvicorn access log lines one request each
+      "request_seen": "POST /v1/",
+      // only matches when the engine/launcher configures request logging;
+      // optional by design — its absence is UNVERIFIABLE, not failure
+      "server_prompt_tokens": "prompt_tokens[=: ]+([0-9]+)"
+    }
+  },
+
+  "llama_cpp": {
+    "server_prompt_tokens": ["llama-cpp-usage", "llama-cpp-server-log"],
+    "request_seen": ["llama-cpp-server-log"],
+    "log_patterns": {
+      "request_seen": "slot|prompt eval",
+      // one line per processed request: 'prompt eval time = 412.3 ms / 40832 tokens'
+      "server_prompt_tokens": "prompt eval time = [0-9.]+ ms / ([0-9]+) tokens"
+    }
+  }
+}
