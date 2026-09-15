@@ -55,7 +55,7 @@ For each gate answer: *"why does crossing this invalidate the result?"*
 | Kind | Example | Meaning of crossing |
 |---|---|---|
 | Measurement contract | exact token count, within-config determinism | the measurement is broken → INVALID |
-| Sanity floor | `min_wall_s`, cheap `min_tps` | the run is degenerate (hung/serialized/lost stream) → INVALID; generous on purpose, it does NOT predict performance |
+| Sanity floor | `min_wall_s`, cheap `min_tps` — **REVIEW-grade only** | the run *looks* degenerate → REVIEW_REQUIRED; generous on purpose, it does NOT predict performance, and it is never the primary no-op detector (see §3) |
 | Comparison | effect gate floor, paired differences | the *question's answer* → below floor is a RESULT (expected-negative), not a defect |
 | Interpretation criterion | divergence thresholds, coherence review | reported in the analysis, never enforced — the value is the finding |
 
@@ -77,6 +77,19 @@ cell; copying a gate across workloads is a known defect class.
 - **Median of N, keep every attempt.** MLPerf's rule: N independent runs,
   score the median. Failed/invalid attempts stay on disk as evidence — and
   they are excluded from estimators (below).
+- **Integrity over timing (2026-09 lesson).** Prefer *direct evidence that the
+  declared work happened* over performance-based plausibility proxies. The
+  per-request **work contract** — declared ≈ client-encoded ≈
+  server-observed prompt tokens (tolerance `max(32, 1%)`) plus server-side
+  request-occurrence evidence — is the validity gate; wall-time floors are
+  weak anomaly detectors and **must never reject the phenomenon being
+  measured**. Counterexample (LMCache campaign): a cell-level `min_wall_s`
+  misfired on 1.5 s *cached returns* (the signal) and invalidated three
+  healthy controls, while *missing* a never-sent 60 K "filler" (1.7 s) that
+  token accounting would have caught. A request's **kind** (`first_touch`,
+  `cached_return`, `pressure`, …) selects *which evidence is required* —
+  not which time constants apply. Timing floors on return legs are always
+  wrong: the speedup *is* the result.
 - **Cold vs warm is a first-class axis.** Repeated fixtures silently hit
   prefix caches and fake prefill; a unique nonce per request for cold,
   deliberate repeats for warm. If the question involves first-use behavior,
