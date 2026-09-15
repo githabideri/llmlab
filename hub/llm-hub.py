@@ -98,6 +98,13 @@ VLLM_PHASE_HISTS = (
     ("pfkv",    "request_prefill_kv_computed_tokens"),
 )
 
+# KV pool history: peak-usage windows shown in the UI, and how far back the
+# hub keeps (t, kv_used) samples (2 s poll; time-trimmed to the longest
+# window, deque maxlen as backstop).
+KV_PEAK_WINDOWS = ((600, "10m"), (1800, "30m"), (3600, "1h"), (86400, "24h"))
+KV_HIST_SECONDS = 86400
+KV_HIST_MAX = 43200
+
 CONFIG = {}
 TOKEN = ""
 NO_AUTH = False
@@ -212,6 +219,29 @@ def parse_sum(text, name):
                 continue
             total = (total or 0.0) + v
     return total
+
+
+def parse_kv_pool(text):
+    """KV pool capacity from vLLM's cache_config_info gauge (0.28+ exposes
+    the whole cache config as labels, value == 1): pool size in tokens,
+    block count, and max concurrency. None on builds that don't expose it."""
+    line = next((l for l in text.splitlines()
+                 if l.startswith("vllm:cache_config_info{")
+                 and not l.startswith("#")), None)
+    if line is None:
+        return None
+    def g(key):
+        m = re.search(key + r'="([^"]+)"', line)
+        if not m or m.group(1) == "None":
+            return None
+        try:
+            return float(m.group(1))
+        except ValueError:
+            return None
+    pool = {"size_tokens": g("kv_cache_size_tokens"),
+            "num_blocks": g("num_gpu_blocks"),
+            "max_concurrency": g("kv_cache_max_concurrency")}
+    return pool if any(v is not None for v in pool.values()) else None
 
 
 def parse_labeled(text, name, label):
@@ -333,6 +363,7 @@ class Server:
         self._spec_ts = {}                 # mid -> last spec-activity ts
         # rolling 5-min windows: deque of (ts, buckets, counters)
         self._winbuf = collections.deque(maxlen=WIN_SAMPLES)
+        self._kv_hist = collections.deque(maxlen=KV_HIST_MAX)
         # llama.cpp per-model window: mid -> deque of (ts, {cached, new})
         self._wins = {}
         # sparkline ring: (t, tgen_sum, gpu_max, ttft_p95_ms|None)
@@ -441,6 +472,22 @@ class Server:
         if kv is not None and kv > 1.0:       # some builds expose 0..100
             kv /= 100.0
         kv = round(kv, 3) if kv is not None else None
+
+        # KV pool capacity + recent peak usage. The usage gauge is a
+        # point-in-time snapshot (and low whenever idle, because the pool
+        # is sized by VRAM — ~2.7x max ctx on the dual-3090), so the hub
+        # keeps its own (t, kv) history to answer "how full does it get
+        # and when" across 10m/30m/1h/24h windows.
+        pool = parse_kv_pool(body)
+        if kv is not None:
+            self._kv_hist.append((now, kv))
+            cut = now - KV_HIST_SECONDS
+            while self._kv_hist and self._kv_hist[0][0] < cut:
+                self._kv_hist.popleft()
+        peaks = {}
+        for secs, label in KV_PEAK_WINDOWS:
+            w = [v for t, v in self._kv_hist if t >= now - secs]
+            peaks[label] = round(max(w), 3) if w else None
 
         # ---- rolling 5-min window: snapshot, then compute deltas ----------
         buckets = parse_buckets(body)
@@ -553,6 +600,10 @@ class Server:
                 "spec_accept": None,
                 "req_running": req_running, "req_waiting": req_waiting,
                 "kv_used": kv,
+                "kv_used_tokens": (round(kv * pool["size_tokens"]) if
+                                   kv is not None and pool and pool.get("size_tokens")
+                                   else None),
+                "kv_pool": pool, "kv_peaks": peaks,
                 "latency": latency, "finish": finish_win, "phase": phase,
                 "cache_hit": cache_hit, "preempt_win": preempt_win,
                 "preempt_total": int(get_metric(p, "num_preemptions_total",
@@ -1020,6 +1071,16 @@ def prom_text():
                 _g(L, "hub_model_requests_running", ml, m.get('req_running'))
                 _g(L, "hub_model_requests_waiting", ml, m.get('req_waiting'))
                 _g(L, "hub_model_kv_cache_used", ml, m.get('kv_used'))
+                _g(L, "hub_model_kv_used_tokens", ml, m.get('kv_used_tokens'))
+                kpool = m.get("kv_pool") or {}
+                _g(L, "hub_model_kv_pool_tokens", ml, kpool.get('size_tokens'))
+                _g(L, "hub_model_kv_pool_blocks", ml, kpool.get('num_blocks'))
+                _g(L, "hub_model_kv_pool_max_concurrency", ml,
+                   kpool.get('max_concurrency'))
+                for wl, pv in (m.get("kv_peaks") or {}).items():
+                    if pv is not None:
+                        L.append(f'hub_model_kv_peak{{server="{s.name}",'
+                                 f'model="{m["id"]}",window="{wl}"}} {pv}')
                 lat = m.get("latency") or {}
                 for key in ("ttft", "tpot", "itl", "e2e", "queue"):
                     q = lat.get(key) or {}
