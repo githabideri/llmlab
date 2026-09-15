@@ -108,6 +108,9 @@
   canvas { width:100%; height:auto; display:block; margin-top:6px; }
 
   .footer { color:var(--faint); font-size:11px; margin-top:16px; max-width:900px; }
+  #spktip { position:fixed; z-index:60; pointer-events:none; background:#141618;
+            border:1px solid #2a2e33; border-radius:4px; padding:6px 9px;
+            font:11px/1.6 ui-monospace,monospace; color:var(--dim); white-space:pre; }
   .toast { position:fixed; bottom:14px; right:14px; background:var(--panel);
            border:1px solid var(--line); border-radius:4px; padding:9px 13px;
            font-size:12px; opacity:0; transition:opacity .3s;
@@ -171,14 +174,17 @@
   <b>kv</b> KV-cache blocks in use, incl. prefix-cache-held, over a pool sized for many
   concurrent long contexts (low % is normal) ·
   <b>cache</b> prefix-cache token hit rate over the [window] ·
-  <b>phase</b> (diagnostics) prefill/decode stats from the engine's own per-request clocks
+  <b>phase</b> (diagnostics) prefill/decode stats from the engine's own per-request clocks ·
+  <b>prefill…</b> a request is in flight but no tokens counted in the last 30 s yet
   <br>
   control = direct HTTP to each server's native API (proxied by the hub on demand) ·
   the hub is observability + UI, never in the inference path ·
   gpu data from per-machine nvidia-smi sidecars · poll 2 s ·
+  hover the 30-min graph for exact values (each lane labels its own 0–max scale) ·
   click a model name for diagnostics · source of truth: <code>/api/servers</code>
 </div>
 <div id="toast" class="toast"></div>
+<div id="spktip" hidden></div>
 <div id="auth" hidden>
   <div class="abox">
     <h2>LLM Hub — unlock</h2>
@@ -196,6 +202,10 @@ const grid = document.getElementById("grid");
 const toast = document.getElementById("toast");
 const tickEl = document.getElementById("tick");
 const subEl = document.getElementById("sub");
+const spkTip = document.getElementById("spktip");
+// latest sparkline data per server (for hover tooltips) + render bookkeeping
+const lastSpark = {}, lastKind = {};
+let lastRenderAt = 0, spkHover = null;
 let toastTimer;
 function notify(msg, err) {
   toast.textContent = msg;
@@ -218,18 +228,26 @@ const esc = s => String(s == null ? "" : s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
   .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
-function api(path, method, body) {
+function api(path, method, body, timeoutMs = 5000) {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), timeoutMs);
   return fetch("/api" + path, {
     method: method || "GET",
     // auth: the hub's session cookie (set by POST /auth) — same-origin,
     // HttpOnly, so this page never contains the token itself
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
+    signal: ac.signal,
   }).then(async r => {
+    clearTimeout(t);
     const j = await r.json().catch(() => ({}));
     if (r.status === 401) { const e = new Error(j.error || "unauthorized"); e.unauthorized = true; throw e; }
     if (!r.ok) throw new Error(j.error || r.status);
     return j;
+  }).catch(e => {
+    clearTimeout(t);
+    if (e && e.name === "AbortError") throw new Error(`timeout after ${timeoutMs} ms`);
+    throw e;
   });
 }
 
@@ -316,6 +334,8 @@ function rateLine(m) {
     parts.push(`<b title="aggregate generation throughput, average over the last 2 s poll">${fmt(m.tgen, 1)} t/s</b>`);
   if (m.tpp != null)
     parts.push(`<span title="prompt tokens actually prefilled (prefix-cache hits excluded), 2 s average">${fmt(m.tpp, 0)} pp/s</span>`);
+  if (m.tgen == null && m.tpp == null && m.req_running > 0)
+    parts.push(`<span class="dim" title="request in flight but no tokens counted in the last 30 s — prefill in progress; rates appear once tokens flow">prefill…</span>`);
   if (m.spec_accept != null) parts.push(`mtp ${Math.round(m.spec_accept * 100)}%`);
   const lat = m.latency;
   if (lat) {
@@ -468,7 +488,10 @@ function card(s) {
 
 // multi-lane sparkline: independently scaled lanes sharing one time axis.
 // vLLM: tokens/s, ttft p95, gpu %. llama.cpp: tokens/s, gpu %.
-function drawSpark(name, spark, isVllm) {
+// Each lane labels its own scale (0–max) — the three lanes have different
+// units and are scaled independently, so the label is the only y-axis.
+// hoverX (0..1) draws a guide + value markers for the tooltip.
+function drawSpark(name, spark, isVllm, hoverX) {
   const c = document.getElementById("spark-" + name.replace(/[^a-zA-Z0-9_-]/g, "_"));
   if (!c) return;
   const ctx = c.getContext("2d");
@@ -480,19 +503,20 @@ function drawSpark(name, spark, isVllm) {
   const lanes = isVllm
     ? [ { idx: 1, color: "#d6d9dc", label: "tok/s",
           max: () => Math.max(10, ...spark.map(p => p[1] || 0)) * 1.1,
-          fmt: v => fmt(v, 1) },
+          scale: v => fmt(v, 0), fmt: v => fmt(v, 1) },
         { idx: 3, color: "#cf9d4e", label: "ttft p95",
           max: () => Math.max(0.5, ...spark.map(p => (p[3] || 0) / 1000)) * 1.15,
-          to: v => v / 1000, fmt: v => fmtMs(v / 1000) },
+          to: v => v / 1000, scale: v => fmtMs(v), fmt: v => fmtMs(v / 1000) },
         { idx: 2, color: "#6b7480", label: "gpu %",
-          max: () => 100, fmt: v => Math.round(v) + "%" } ]
+          max: () => 100, scale: v => Math.round(v) + "%", fmt: v => Math.round(v) + "%" } ]
     : [ { idx: 1, color: "#d6d9dc", label: "tok/s",
           max: () => Math.max(10, ...spark.map(p => p[1] || 0)) * 1.1,
-          fmt: v => fmt(v, 1) },
+          scale: v => fmt(v, 0), fmt: v => fmt(v, 1) },
         { idx: 2, color: "#6b7480", label: "gpu %",
-          max: () => 100, fmt: v => Math.round(v) + "%" } ];
+          max: () => 100, scale: v => Math.round(v) + "%", fmt: v => Math.round(v) + "%" } ];
   const n = lanes.length;
   const lh = H / n;
+  const xs = spark.map(p => (p[0] - t0) / span * W);
   lanes.forEach((ln, i) => {
     const y0 = Math.round(i * lh);
     if (i > 0) {
@@ -500,11 +524,11 @@ function drawSpark(name, spark, isVllm) {
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(0, y0 + 0.5); ctx.lineTo(W, y0 + 0.5); ctx.stroke();
     }
+    const max = ln.max();
     ctx.fillStyle = "#5c6168";
     ctx.font = "11px ui-monospace,monospace";
     ctx.textAlign = "left";
-    ctx.fillText(ln.label, 4, y0 + 13);
-    const max = ln.max();
+    ctx.fillText(ln.label + (max > 0 ? " 0–" + ln.scale(max) : ""), 4, y0 + 13);
     if (!(max > 0)) return;
     const top = y0 + 17, bot = y0 + lh - 3;
     const y = v => bot - Math.min(v, max) / max * (bot - top);
@@ -512,13 +536,12 @@ function drawSpark(name, spark, isVllm) {
     ctx.lineWidth = 1.25;
     ctx.beginPath();
     let started = false;
-    for (const p of spark) {
-      const raw = p[ln.idx];
+    for (let k = 0; k < spark.length; k++) {
+      const raw = spark[k][ln.idx];
       if (raw == null) continue;
       const v = ln.to ? ln.to(raw) : raw;
-      const x = (p[0] - t0) / span * W;
-      if (!started) { ctx.moveTo(x, y(v)); started = true; }
-      else ctx.lineTo(x, y(v));
+      if (!started) { ctx.moveTo(xs[k], y(v)); started = true; }
+      else ctx.lineTo(xs[k], y(v));
     }
     if (started) ctx.stroke();
     const last = spark[spark.length - 1];
@@ -534,6 +557,27 @@ function drawSpark(name, spark, isVllm) {
     ctx.font = "11px ui-monospace,monospace";
     ctx.textAlign = "center";
     ctx.fillText("no activity in window", W / 2, H / 2 + 4);
+  }
+  if (hoverX != null) {
+    const hx = Math.round(hoverX * W);
+    ctx.strokeStyle = "#3a4047";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(hx + 0.5, 0); ctx.lineTo(hx + 0.5, H); ctx.stroke();
+    // nearest sample
+    const tt = t0 + hoverX * span;
+    let bi = 0;
+    for (let k = 0; k < spark.length; k++)
+      if (Math.abs(spark[k][0] - tt) < Math.abs(spark[bi][0] - tt)) bi = k;
+    const p = spark[bi];
+    lanes.forEach((ln, i) => {
+      if (p[ln.idx] == null) return;
+      const max = ln.max();
+      if (!(max > 0)) return;
+      const top = i * lh + 17, bot = (i + 1) * lh - 3;
+      const y = bot - Math.min(ln.to ? ln.to(p[ln.idx]) : p[ln.idx], max) / max * (bot - top);
+      ctx.fillStyle = ln.color;
+      ctx.beginPath(); ctx.arc(xs[bi], y, 2.5, 0, Math.PI * 2); ctx.fill();
+    });
   }
 }
 
@@ -567,6 +611,9 @@ async function act(server, model, action) {
 }
 
 async function refresh() {
+  if (refreshing) return;   // slow tick: never stack fetches
+  refreshing = true;
+  try {
   let j;
   try {
     j = await api("/servers");
@@ -588,25 +635,82 @@ async function refresh() {
     notify("hub API: " + e.message, true);
     return;
   }
+  j.servers.forEach(s => { lastSpark[s.name] = s.spark; lastKind[s.name] = s.kind; });
   const struct = JSON.stringify(j.servers.map(s => [s.name, s.kind, s.online,
     s.models.map(m => [m.id, m.loaded, m.stale]), s.gpus.length]));
-  if (!grid.dataset.struct || grid.dataset.struct !== struct
-      || !grid.matches(":hover")) {
+  // Re-render on structural change, or every tick — EXCEPT while the cursor
+  // sits on the grid (swapping a card under the cursor kills :hover and can
+  // interrupt a click). That skip is time-bounded: after 10 s the card
+  // updates anyway, so numbers never freeze while you're reading them.
+  const staleRender = Date.now() - lastRenderAt > 10000;
+  if (grid.dataset.struct !== struct || !grid.matches(":hover") || staleRender) {
     if (grid.dataset.struct !== struct) grid.innerHTML = "";
     j.servers.forEach(s => {
       let el = [...grid.children].find(e => e.dataset.name === s.name);
       if (!el) { el = card(s); grid.appendChild(el); }
       else el.replaceWith(card(s));
-      drawSpark(s.name, s.spark, s.kind === "vllm");
+      drawSpark(s.name, s.spark, s.kind === "vllm",
+                spkHover && spkHover.name === s.name ? spkHover.frac : null);
     });
     grid.dataset.struct = struct;
+    lastRenderAt = Date.now();
   }
   if (j.poll_tick) {
     const age = Date.now() / 1000 - j.poll_tick;
     tickEl.textContent = `poll ${Math.round(age)}s ago`;
     if (age > 30) notify(`poller appears stopped (last tick ${Math.round(age)}s ago)`, true);
   }
+  } finally {
+    refreshing = false;
+  }
 }
+let refreshing = false;
+
+// ---- sparkline hover: exact values at the cursor (delegated — the canvases
+// are re-created on every render, so the listeners live on the grid)
+function hideSpk() {
+  spkTip.hidden = true;
+  if (spkHover) {
+    const { name } = spkHover;
+    spkHover = null;
+    drawSpark(name, lastSpark[name] || null, lastKind[name] === "vllm", null);
+  }
+}
+function showSpk(p, isVllm, cx, cy) {
+  const ts = new Date(p[0] * 1000);
+  const hh = String(ts.getHours()).padStart(2, "0");
+  const mm = String(ts.getMinutes()).padStart(2, "0");
+  const ss = String(ts.getSeconds()).padStart(2, "0");
+  const lines = [hh + ":" + mm + ":" + ss, fmt(p[1], 1) + " tok/s"];
+  if (isVllm) lines.push((p[3] != null ? fmtMs(p[3] / 1000) : "—") + " ttft p95");
+  lines.push(Math.round(p[2] || 0) + "% gpu");
+  spkTip.textContent = lines.join("\n");
+  spkTip.hidden = false;
+  const r = spkTip.getBoundingClientRect();
+  spkTip.style.left = (cx + 14 + r.width > innerWidth ? cx - r.width - 10 : cx + 14) + "px";
+  spkTip.style.top = (cy + 12) + "px";
+}
+grid.addEventListener("mousemove", e => {
+  const c = e.target;
+  if (!c || c.tagName !== "CANVAS" || !c.id.startsWith("spark-")) { hideSpk(); return; }
+  const cardEl = c.closest("[data-name]");
+  if (!cardEl) return;
+  const name = cardEl.dataset.name;
+  const spark = lastSpark[name];
+  if (!spark || spark.length < 2) return;
+  const r = c.getBoundingClientRect();
+  const frac = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  spkHover = { name, frac };
+  drawSpark(name, spark, lastKind[name] === "vllm", frac);
+  const t0 = spark[0][0], t1 = spark[spark.length - 1][0];
+  const tt = t0 + frac * (t1 - t0);
+  let bi = 0;
+  for (let k = 0; k < spark.length; k++)
+    if (Math.abs(spark[k][0] - tt) < Math.abs(spark[bi][0] - tt)) bi = k;
+  showSpk(spark[bi], lastKind[name] === "vllm", e.clientX, e.clientY);
+});
+grid.addEventListener("mouseleave", hideSpk);
+
 setInterval(refresh, 2000);
 refresh();
 </script>
