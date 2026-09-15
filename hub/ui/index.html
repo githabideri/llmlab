@@ -92,6 +92,11 @@
   .btn.unload { color:var(--warn); border-color:rgba(207,157,78,.45); }
 
   /* diagnostics (expanded model row) */
+  .kvbar { display:inline-block; width:120px; height:8px; background:#1d2023;
+           border-radius:2px; vertical-align:middle; margin-left:8px;
+           overflow:hidden; }
+  .kvbar-f { height:100%; background:#cf9d4e; }
+  .kvbar-f.hot { background:#c0564f; }
   tr.diagrow td { padding:4px 6px 10px; background:rgba(16,17,18,.5); }
   .diag { display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start; min-width:0; }
   .diag > * { min-width:0; max-width:100%; }
@@ -216,6 +221,8 @@ function notify(msg, err) {
 const fmt = (n, d = 0) => n == null ? "—" : n.toLocaleString(undefined,
   { maximumFractionDigits: d, minimumFractionDigits: d });
 const ctxFmt = c => c ? (c >= 1000 ? Math.round(c / 1000) + "k" : c) : null;
+const fmtK = n => n == null ? "—" : n >= 1e6 ? (n / 1e6).toFixed(1) + "M"
+           : n >= 1e3 ? Math.round(n / 1e3) + "K" : String(n);
 const fmtMs = s => {
   if (s == null) return "—";
   if (s < 1) return Math.round(s * 1000) + "ms";
@@ -397,6 +404,30 @@ function diagHtml(s, m) {
       if (dd.p50 != null) t.push(`decode ${fmtMs(dd.p50)}/${fmtMs(dd.p95)} (p50/p95)`);
       if (ph.decode_speed != null) t.push(`~${fmt(ph.decode_speed, 0)} tok/s (per-req, batch-inflated)`);
       if (t.length) bits.push(`<div class="diag-x">phase [${winLbl(ph.window_s)}]: ${esc(t.join(" · "))}</div>`);
+    }
+    // KV pool: current occupancy (with a glance bar) + recent peaks. The
+    // pool is sized by VRAM (~2.7x max ctx on the dual-3090), so a low idle
+    // % is normal — the peak row is the one that says whether the pool is
+    // being pushed (peaks near 100% = prefix cache starts turning over).
+    if (m.kv_used != null || m.kv_pool) {
+      const pool = m.kv_pool || {};
+      const pct = m.kv_used != null ? Math.round(m.kv_used * 100) : null;
+      const bar = pct != null
+        ? `<span class="kvbar" title="KV pool occupancy now"><span class="kvbar-f${pct >= 80 ? ' hot' : ''}" style="width:${Math.min(100, pct)}%"></span></span>`
+        : "";
+      const cur = [];
+      if (pct != null && m.kv_used_tokens != null && pool.size_tokens)
+        cur.push(`${fmtK(m.kv_used_tokens)} / ${fmtK(pool.size_tokens)} tok (${pct}%)`);
+      else if (pct != null) cur.push(`${pct}%`);
+      if (pool.max_concurrency)
+        cur.push(`max ~${pool.max_concurrency} full-ctx concurrent`);
+      if (cur.length)
+        bits.push(`<div class="diag-x"><span title="KV blocks in use now (incl. blocks held by the prefix cache) over the pool">kv pool now: ${esc(cur.join(" · "))}</span> ${bar}</div>`);
+      const pk = m.kv_peaks || {};
+      const pkStr = ["10m", "30m", "1h", "24h"].filter(k => pk[k] != null)
+        .map(k => `${k} ${Math.round(pk[k] * 100)}%`).join(" · ");
+      if (pkStr)
+        bits.push(`<div class="diag-x" title="peak pool occupancy over recent windows; the hub remembers 24h">kv peak: ${esc(pkStr)}</div>`);
     }
     const x = [];
     if (m.finish)
