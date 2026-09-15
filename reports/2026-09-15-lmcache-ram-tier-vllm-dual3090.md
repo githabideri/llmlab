@@ -42,12 +42,14 @@ The engine dies during memory determination — the LMCache engine/pool is never
 
 ## Conclusion
 
-- **LMCache 0.5.0 is not adoptable on this model class under vLLM 0.28.** The blocker is upstream: the connector lacks HMA support, and hybrid (mamba/SSM) models hard-require it. No configuration, chunk size, or role reaches past that check; the only "fix" would be a venv-level `SupportsHMA` impersonation patch, which would paper over a genuine capability gap (the connector has no mamba KV handling to offer) and was deliberately not done.
-- Consequently the campaign's scientific core — TTFT gain and restore-corruption safety of the RAM tier on **this** engine pair — is **untestable**, not merely negative. A future re-test requires either an LMCache release with real HMA support or a vLLM line that relaxes the HMA requirement for non-hybrid models.
-- The production stack is unchanged: the candidate ran entirely in the isolated venv/sidecar, and every window exit was live-verified (health 200 + a real completion) before the next one opened.
+- **Hard compatibility negative (the exact combination): LMCache 0.5.0 (`LMCacheConnectorV1`) cannot initialize Qwen3.8-27B under the tested vLLM 0.28.0 hybrid-KV path.** The hybrid KV-cache manager is disabled for a connector that doesn't advertise HMA, and hybrid KV specs cannot be unified, so engine init fails before the LMCache pool is ever touched. No configuration, chunk size, or role reaches past that check; the only "fix" would be a venv-level `SupportsHMA` impersonation, which would paper over a genuine capability gap (the connector has no mamba KV handling to offer) and was deliberately not done.
+- **So, precisely:** *adoption on this stack = NO* (the compatibility prerequisite failed). *TTFT benefit = not tested.* *Restore correctness = not tested.* Not merely negative — the scientific core is **untestable** on this pair, and the verdict (`review-required`, no adoption evidence, no corruption evidence) encodes exactly that: nothing was measured, and nothing is claimed.
+- **Retest trigger (narrow).** This closes **LMCache 0.5.0 + `LMCacheConnectorV1` on this stack** — not LMCache in general. A candidate connector is retest-eligible when it (1) advertises HMA to the tested vLLM version, (2) supports this model's hybrid mamba/attention cache groups, and (3) initializes it without disabling the hybrid manager. That may be near: **LMCache 0.5.5 on PyPI ships `LMCacheMPConnector`, which subclasses `SupportsHMA`** (verified in the sdist, 2026-09-15). Advertise-only is necessary, not sufficient, for this topology — conditions (2)–(3) are the actual gate.
+- **Production impact: zero.** The candidate ran entirely in the isolated venv/sidecar; every window exit was live-verified (health 200 + a real completion) before the next one opened.
+- **The next test**, if an HMA-advertising connector passes the (2)–(3) gate: a sidecar-less `kv_transfer_config` A/B on the two 3090s, with store/return legs in different restart-isolated segments so the return can only be served by the RAM tier.
 
 ## Related
 
 - [2026-08-30 — vLLM CPU KV offload fails on hybrid mamba](2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md) — the antecedent: native offload wrote but never restored; "do not retry, including via lmcache"
-- [docs/benchmarks.md](../docs/benchmarks.md) — plausibility-floor sizing (store vs return legs)
+- [docs/benchmarks.md](../docs/benchmarks.md) — workload integrity: evidence of work, not wall-time proxies
 - [Qwen3.8-27B model card](../models/qwen3.8-27b-rtx3090.md)
