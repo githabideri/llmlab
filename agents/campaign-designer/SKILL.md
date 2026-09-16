@@ -240,3 +240,21 @@ IPs, container numbers, secrets) — a sanitizer sweep with a checked-in
 substitution table runs before every push. Campaign *specs* for internal
 hardware live in the private homelab repo; this repo holds the platform,
 the methods, and sanitized results.
+
+## 8. Lanes: chop first, paved when proven (2026-09-16)
+
+Before writing a paved campaign for a mechanism that has never booted on the
+target stack (new connector, new engine version, first-of-kind feature), run
+the **chop lane** first: a brief-driven session where the agent has free hand
+*inside declared hard boundaries* to make the mechanism work, with an
+append-only decisions log and a stop rule. Discovery failures (engine-arg
+validation walls, config shapes, allocator conflicts) are only visible at
+boot — paying a full prod-impact window to learn one line of error at a time
+is the anti-pattern this lane exists to kill. The probe is the cheapest chop
+instrument: same command, tiny memory reservation, scratch port — validation
+walls fire identically, and nothing touches production.
+
+The paved campaign then **freezes the chop lane's working state** and
+measures it. Design the paved spec from the *proven* configuration, not from
+the hoped-for one. `docs/benchmarks.md` ("Execution lanes") is the reference
+for the contract between the two.

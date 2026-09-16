@@ -95,6 +95,17 @@ The invariant was never "60 K takes more than 30 s". It was "**the 60 K request 
 
 Every critical quantity carries **provenance** (`{value, source}`: client-tokenizer, vllm-usage, server-log, client-monotonic) so the runner evaluates facts rather than treating one client JSON as the oracle. A request's **kind** (`first_touch`, `cached_return`, `pressure`, …) selects *which evidence is required* — not which time constants apply. Brand-new hardware with no baseline is a non-problem: the engine's own token accounting validates the workload, and the wall time is free to be whatever physics produced.
 
+## Execution lanes: chop and paved (2026-09-16)
+
+A measurement question on live hardware is reached by one of two lanes. The lane is a *process* choice, not a different engine — paved is this platform; chop is a brief-driven mode that deliberately does not use it.
+
+- **Chop lane** — the agent gets (near-)free hand to *make the setup work*: fix configs, retry, re-derive flags, iterate until the mechanism demonstrably runs. What it must have: **hard outer boundaries** (declared in the brief: which files may change, which containers/services are off-limits, no host-level changes, no evidence deletion), an **append-only decisions log** (every change with before/after, plus the proof artifacts), and a **stop rule** (touching a boundary or an unknown that requires crossing one → stop and write why). The artifact is a *working state + the log* — no verdict, no freeze.
+- **Paved lane** — this platform, as documented above: freeze, qualify, window, watchdog, per-cell verdicts, declared repair policy. The agent repairs only what the spec's `repair_policy.allowed` declares (mechanical classes); everything science-adjacent is an owner decision.
+
+**Transition rule:** when the mechanism under study is *unproven* on the target stack (a new connector, a new engine version, a first-of-kind feature), chop first — discovery is cheap and fast outside any window, and the failure surface (e.g. engine-arg validation walls) is only visible at boot. Once the mechanism demonstrably works, **the working state is the input to a paved freeze**: re-freeze around the chop lane's output and measure. Paved never starts a question whose mechanism it cannot even boot; chop never claims a number.
+
+The in-run *repair lane* (bounded repairs of the frozen implementation) is a third, orthogonal concept: it is a sub-path *inside* paved runs, named after what it repairs, and must not be confused with the execution lanes above.
+
 ## Where the snapshots live
 
 | Snapshot | Report |
