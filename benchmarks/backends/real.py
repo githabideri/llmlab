@@ -363,12 +363,20 @@ class RealBackend:
         # fallback (self-exclusion idiom) in case the pidfile lags.
         wlog = wd['dir'] + '/watchdog.log'
         pidf = wd['dir'] + '/.watchdog.pid'
+        # Bounded polling grace (09-16 run #3): a single 2 s check raced the
+        # spawn on a loaded box — the check saw nothing, the runner disarmed,
+        # and the still-starting watchdog saw .disarmed and exited silently
+        # (no OOM/fork errors in the kernel log: a scheduling race, not a
+        # crash). 4 attempts x ~5 s: a truly dead watchdog is still refused
+        # (in ~20 s); a slow but healthy start is found.
         rc, out, err = self._ssh("target",
-                                 f"sleep 2; if [ -f {pidf} ] && kill -0 \"$(cat {pidf})\" "
-                                 f"2>/dev/null; then echo WD_ALIVE=\"$(cat {pidf})\"; "
-                                 f"elif W=$(pgrep -f {self._wd_pattern()} | head -1) && [ -n \"$W\" ]; then "
-                                 f"echo WD_ALIVE=\"$W\"; else head -c 600 {wlog} 2>/dev/null; "
-                                 f"echo WD_DEAD=1; fi")
+                                 f"for i in 1 2 3 4; do "
+                                 f"if [ -f {pidf} ] && kill -0 \"$(cat {pidf})\" 2>/dev/null; then "
+                                 f"echo WD_ALIVE=\"$(cat {pidf})\"; exit 0; fi; "
+                                 f"W=$(pgrep -f {self._wd_pattern()} | head -1); "
+                                 f"if [ -n \"$W\" ]; then echo WD_ALIVE=\"$W\"; exit 0; fi; "
+                                 f"sleep 5; done; "
+                                 f"head -c 600 {wlog} 2>/dev/null; echo WD_DEAD=1")
         pid = None
         for line in out.splitlines():
             if line.strip().startswith("WD_ALIVE="):
