@@ -1,0 +1,5 @@
+INFO 09-16 16:24:11 [argparse.py:132] 0.28.0
+vllm serve: error: argument --kv-transfer-config: 1 validation error for KVTransferConfig
+kv_transfer_config
+  Value error, Please specify kv_role when kv_connector is set, supported roles are ('kv_producer', 'kv_both', 'kv_consumer') [type=value_error, input_value={'kv_connector': 'LMCache...lmcache.mp.port': 5555}}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error
