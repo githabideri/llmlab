@@ -1,0 +1,3 @@
+0.00.133.490 E ggml_backend: LLAMA_SPLIT_MODE_TENSOR not implemented for architecture '<experimental>'
+0.00.133.494 E llama_model_load_from_file_impl: failed to load model
+0.00.134.086 E srv  llama_server: exiting due to model loading error

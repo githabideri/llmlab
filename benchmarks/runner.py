@@ -674,9 +674,32 @@ class Runner:
             pass
 
     def _final_json(self, final, reason, restore):
-        # the scientific hash must not have moved (repair-lane invariant)
+        # the scientific hash must not have moved (repair-lane invariant).
+        # 09-16 run #7: the old version recomputed WITHOUT the campaigns
+        # payload while bake computed WITH it — two different projections,
+        # so the flag was true by construction for every payload campaign
+        # (a false positive: the live files were byte-identical). Now both
+        # sides use the same projection, from LIVE files: the run-dir spec
+        # copy re-read from disk plus the payload files re-hashed from disk
+        # (a mid-run edit of any science document still moves the hash and
+        # invalidates the run; an unreadable payload degrades to moved).
         from . import spec as specmod
-        sci_now = specmod.scientific_hash(self.spec)
+        live_spec = self.spec
+        sp = os.path.join(self.run_dir, "spec.shipped.jsonc")
+        if os.path.exists(sp):
+            try:
+                live_spec = specmod.load_spec(sp)
+            except Exception:
+                pass
+        live_payload = None
+        if self.freeze.get("campaigns_payload"):
+            try:
+                from . import campaign as campaign_mod
+                live_payload = campaign_mod._campaigns_payload(
+                    self.freeze.get("spec_path"))
+            except Exception:
+                live_payload = None
+        sci_now = specmod.scientific_hash(live_spec, live_payload)
         sci_moved = sci_now != self.freeze.get("scientific_hash")
         obj = {
             "campaign_id": self.freeze.get("campaign_id"),

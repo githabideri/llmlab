@@ -38,6 +38,11 @@ CLASSES = (
                                     # vLLM 0.28): vLLM disables the hybrid KV
                                     # manager, engine init dies. A BOOT outcome,
                                     # never a data result
+    "KV_CONFIG_INVALID",         # kv_transfer_config fails the engine's argument
+                                    # validation (vLLM 0.28 requires kv_role):
+                                    # the process dies at argparse before any
+                                    # engine exists. A launch defect, never a
+                                    # science result (2026-09-16 run #7)
     "UNKNOWN",               # nothing matched — this pages the owner, by design
 )
 
@@ -60,4 +65,5 @@ PROVENANCE = {
     "LMCACHE_RESTORE_CORRUPTION": "open upstream report: Qwen3.8-27B TP2 multi-session restore corruption",
     "LMCACHE_PERSISTENCE_SUBPAGE": "LMCache #4731: hybrid subpage geometry persists 1 of N attention pages",
     "LMCACHE_HMA_BOOT_FAILURE": "2026-09-14 s0: LMCacheConnectorV1 (0.5.0) lacks SupportsHMA; vLLM 0.28 failed the hybrid KV promotion and EngineCore died",
+    "KV_CONFIG_INVALID": "2026-09-16 run #7 s0/mc: LMCache 0.5.5 MP connector config without kv_role; vLLM 0.28 pydantic validation rejected --kv-transfer-config at argparse",
 }

@@ -18,7 +18,7 @@
   },
   "workload": {
     "client": "llama.cpp",
-    "notes": "one nonced prompt, 64 decode tokens, 3 reps, fixed seed; determinism across reps is the payload. Window drill only, no science claimed.",
+    "notes": "one nonced prompt, 64 decode tokens, 3 reps, fixed seed; determinism across reps is the payload. Window drill only, no science claimed."
   },
   "client": {
     "script": "clients/bench-llama.py",
