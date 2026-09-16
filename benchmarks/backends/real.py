@@ -129,6 +129,16 @@ class RealBackend:
     def _target_run_dir(self):
         return os.path.join(self._bundle_target(), "runs", os.path.basename(self.run_dir))
 
+    def ensure_run_dir(self):
+        # 09-16 run #6: the target-side run dir is created by the DEPLOY, not
+        # by the bundle tarball (the tar has benchmarks/ + campaigns/ only).
+        # Without it, every log redirect into it failed INSIDE the background
+        # subshell — the parent still emitted PF_pid for the dead job, and
+        # the failure surfaced 5 min later as a misleading 'sidecar never
+        # became ready'. The dir must exist before any launch redirects
+        # into it.
+        self.sh(f"mkdir -p {shlex.quote(self._target_run_dir())}")
+
     def target_path(self, local_path):
         if local_path.startswith(self.run_dir):
             return self._target_run_dir() + local_path[len(self.run_dir):]
@@ -189,9 +199,17 @@ class RealBackend:
         pidfile = script_path + ".pid"
         inner = (f"nohup setsid bash {q(script_path)} > {q(log_path)} 2>&1 < /dev/null & "
                  f"echo $! > {q(pidfile)}")
-        cmd = (f"cd {q(_os.path.dirname(script_path))} && chmod +x {q(script_path)} && "
-               f"sh -c {q(inner)} && echo PF_pid=$(cat {q(pidfile)})")
+        # mkdir -p the log dir in the FOREGROUND: a redirect into a missing
+        # dir fails inside the background subshell, where the error goes
+        # nowhere and $! still yields a (dead) pid (09-16 run #6).
+        cmd = (f"mkdir -p {q(_os.path.dirname(log_path))} && "
+               f"cd {q(_os.path.dirname(script_path))} && chmod +x {q(script_path)} && "
+               f"sh -c {q(inner)} && echo PF_pid=$(cat {q(pidfile)}) && "
+               f"sleep 1 && kill -0 $(cat {q(pidfile)}) 2>/dev/null || echo PF_DEAD")
         rc, out, err = self.sh(cmd, where=where)
+        if "PF_DEAD" in out:
+            raise StartupFailure(f"launch process died at start (script {script_path}); "
+                                 f"check {log_path}: {err[:300]}")
         pid = None
         for line in out.splitlines():
             if "PF_pid=" in line:

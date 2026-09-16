@@ -167,6 +167,9 @@ class FixtureBackend:
 
     name = "fixture"
 
+    def ensure_run_dir(self):
+        return None
+
     def __init__(self, profile, bundle_dir, run_dir, fault="ok", client="bench-llama",
                  prod_live=True, btime=None):
         self.p = profile

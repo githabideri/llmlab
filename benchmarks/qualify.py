@@ -1326,6 +1326,52 @@ p0("Q37 real.arm_watchdog: lease before spawn, liveness via pidfile not $!, dead
 p0("Q39 watchdog detach: old $!-of-chain protocol false-negatives a healthy watchdog; new pidfile/pgrep check finds it from a separate shell (09-16 run #2)", q39_watchdog_detach_shell_semantics)
 
 
+def q40_launch_logdir_dead_on_arrival(tmp):
+    import subprocess
+    from benchmarks.backends.real import RealBackend
+    from benchmarks.backends.base import StartupFailure
+
+    class Local3(RealBackend):
+        def __init__(self):
+            self.p = {}
+            self.run_dir = tmp
+            self.name = "local"
+            self._events = []
+
+        def _ssh(self, where, cmd, timeout=120, stdin=None):
+            p = subprocess.run(["bash", "-c", cmd], capture_output=True, timeout=timeout)
+            return p.returncode, p.stdout.decode(), p.stderr.decode()
+
+    # (a) healthy script, log dir that does not exist yet
+    logdir = os.path.join(tmp, "does-not-exist-yet", "nested")
+    svc = os.path.join(tmp, "svc.sh")
+    with open(svc, "w") as f:
+        f.write("#!/bin/bash\necho started\nsleep 120\n")
+    os.chmod(svc, 0o755)
+    b = Local3()
+    h = b.launch(svc, logdir + "/svc.log")
+    log_ok = os.path.exists(os.path.join(logdir, "svc.log")) \
+        and "started" in open(os.path.join(logdir, "svc.log")).read()
+    pid_ok = h.get("pid") and os.path.exists(f"/proc/{h['pid']}")
+    b.kill(h)
+    # (b) a script that exits immediately must surface as dead-at-start,
+    # not as a ghost pid that the health poll burns 5 minutes on
+    die = os.path.join(tmp, "die.sh")
+    with open(die, "w") as f:
+        f.write("#!/bin/bash\nexit 0\n")
+    os.chmod(die, 0o755)
+    raised = False
+    try:
+        b.launch(die, logdir + "/die.log")
+    except StartupFailure as e:
+        raised = "died at start" in str(e)
+    ok = log_ok and pid_ok and raised
+    return ok, f"logdir-created={log_ok} pid-alive={bool(pid_ok)} dead-at-start-raised={raised}"
+
+
+p0("Q40 launch(): log-dir mkdir in foreground + dead-at-start probe (09-16 run #6: redirect into a missing run dir failed inside the background subshell; the parent reported a ghost pid and the failure surfaced 5 min later as 'sidecar never became ready')", q40_launch_logdir_dead_on_arrival)
+
+
 # ------------------------------------------------- Q30-Q33: the workload contract
 def _cell_declared(tokens, min_wall=30.0):
     return {"cell": "c", "requests": [{"prompt_tokens": tokens, "decode": 128}],
