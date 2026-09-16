@@ -1163,10 +1163,9 @@ def q36_deploy_push_verifies(tmp):
 
 
 def q37_real_arm_liveness(tmp):
-    """real.arm_watchdog: lease touched BEFORE the spawn, and the arm-time
-    liveness check refuses a watchdog that is dead 2 s after arming
-    (Q17 pattern applied to the watchdog itself; the in-LXC watchdog was
-    dead on arrival for the entire 09-14 campaign)."""
+    """real.arm_watchdog: lease touched BEFORE the spawn, the liveness check
+    does NOT trust $! of the `&&`-chain (it is the wrapper subshell, 09-16
+    run #2), and a watchdog dead 2 s after arming is refused."""
     from benchmarks.backends.real import RealBackend
 
     class Armed(RealBackend):
@@ -1188,30 +1187,143 @@ def q37_real_arm_liveness(tmp):
     manifest = os.path.join(tmp, "undo.json")
     open(manifest, "w").write('{"temp_changes": []}')
 
-    # (a) healthy arm: lease touched before spawn; liveness ok
-    b = Armed([(0, "PF_armed=12345\n", ""), (0, "WD_ALIVE=1\n", "")])
+    # (a) healthy arm: lease before spawn; liveness from the watchdog's own
+    # pidfile, not $!
+    b = Armed([(0, "", ""), (0, "WD_ALIVE=12345\n", "")])
     pid = b.arm_watchdog(9999999999, "/tmp/lease.lock", "/tmp/hb", manifest, {"unit": "x"})
     arm_cmd = next(c for c in b.calls if "setsid" in c)
     lease_first = arm_cmd.index("touch /tmp/lease.lock") < arm_cmd.index("setsid")
     hb_first = arm_cmd.index("touch /tmp/hb") < arm_cmd.index("setsid")
-    alive_ok = pid == 12345 and any("kill -0 12345" in c for c in b.calls)
+    no_dollar_bang = "$!" not in arm_cmd
+    check = b.calls[-1]
+    uses_pidfile = ".watchdog.pid" in check and "kill -0" in check
+    pgrep_self_exclusion = "watchdog[.]sh" in check
+    alive_ok = pid == 12345
 
     # (b) dead at arm -> hard refusal (window never enters)
-    b2 = Armed([(0, "PF_armed=999\n", ""), (0, "Traceback... boom\nWD_DEAD=1\n", "")])
+    b2 = Armed([(0, "", ""), (0, "Traceback... boom\nWD_DEAD=1\n", "")])
     refused = None
     try:
         b2.arm_watchdog(9999999999, "/tmp/lease.lock", "/tmp/hb", manifest, {"unit": "x"})
     except RuntimeError as e:
         refused = str(e)
-    ok = lease_first and hb_first and alive_ok and refused and "died at arm" in refused
-    return ok, f"lease-order={lease_first} hb-order={hb_first} alive={alive_ok} " \
-               f"refusal={bool(refused)}"
+
+    # (c) disarm/rearm pkill uses the self-exclusion idiom (a plain pattern
+    # matches the checker's own `bash -c` cmdline and kills its own shell)
+    b3 = Armed([(0, "", ""), (0, "WD_ALIVE=7\n", ""), (0, "", "")])
+    b3.arm_watchdog(9999999999, "/tmp/lease.lock", "/tmp/hb", manifest, {"unit": "x"})
+    b3.disarm_watchdog("/tmp/lease.lock")
+    disarm_cmd = next(c for c in b3.calls if "pkill" in c)
+    disarm_ok = "watchdog[.]sh" in disarm_cmd
+    ok = (lease_first and hb_first and no_dollar_bang and uses_pidfile
+          and pgrep_self_exclusion and alive_ok and refused
+          and "died at arm" in refused and disarm_ok)
+    return ok, f"lease={lease_first} hb={hb_first} no-$!={no_dollar_bang} " \
+               f"pidfile={uses_pidfile} pgrep-idom={pgrep_self_exclusion} " \
+               f"alive={alive_ok} refusal={bool(refused)} disarm={disarm_ok}"
+
+
+def q39_watchdog_detach_shell_semantics(tmp):
+    """09-16 run #2, proven at the shell level: the spawn is an `&&`-chain
+    backgrounded with a single `&`, so $! is NOT reliably the watchdog (on the
+    target it was a wrapper subshell that died while the setsid-detached
+    watchdog lived — deterministic false negative, 2/2). The new protocol must
+    therefore find the ACTUAL watchdog from a separate shell (the post-spawn
+    ssh is a new session): the watchdog writes its own pidfile; the check reads
+    it (pgrep self-exclusion as fallback). Asserts: arm returns the watchdog's
+    own pid; that pid is alive 3 s later in a fresh shell; its cmdline is the
+    watchdog script; disarm stops it without killing the checker's shell.
+    (What $! of the old chain shape points at is machine-dependent — recorded,
+    not asserted.)"""
+    import subprocess
+    wddir = os.path.join(tmp, "wd")
+    os.makedirs(wddir)
+    script = os.path.join(tmp, "watchdog.sh")
+    with open(script, "w") as f:
+        f.write(f"""#!/bin/bash
+set -u
+echo $$ > {wddir}/.watchdog.pid 2>/dev/null || true
+trap 'rm -f {wddir}/.watchdog.pid 2>/dev/null' EXIT
+sleep 120
+""")
+    os.chmod(script, 0o755)
+
+    def sh(cmd):
+        p = subprocess.run(["bash", "-c", cmd], capture_output=True, timeout=30)
+        return p.returncode, p.stdout.decode(), p.stderr.decode()
+
+    # (a) OLD shape: whole chain backgrounded — record what $! points at.
+    # The chain subshell outlives the command (it waits on the watchdog), so
+    # the harness must not wait on a captured pipe (over real ssh the sshd
+    # channel closes anyway): stdout -> devnull, the echoed PID -> a file.
+    oldpid = os.path.join(wddir, "oldpid.txt")
+    subprocess.run(
+        ["bash", "-c",
+         f"mkdir -p {wddir} && touch {wddir}/lease && "
+         f"setsid nohup bash {script} {wddir} > {wddir}/log 2>&1 < /dev/null & "
+         f"echo PID=$! > {oldpid}"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+    old_pid = int(open(oldpid).read().strip().split("=")[1])
+    time.sleep(1)
+    _, out_a, _ = sh(
+        f"kill -0 {old_pid} 2>/dev/null && echo OLD-ALIVE || echo OLD-DEAD; "
+        f"[ -f {wddir}/.watchdog.pid ] && kill -0 \"$(cat {wddir}/.watchdog.pid)\" "
+        f"2>/dev/null && echo WD-ALIVE || echo WD-GONE")
+    old_note = "wrapper-died" if "OLD-DEAD" in out_a else "wrapper-alive"
+    sh(f"kill \"$(cat {wddir}/.watchdog.pid 2>/dev/null)\" 2>/dev/null; "
+       f"pkill -f 'watchdog[.]sh {wddir}' 2>/dev/null; sleep 0.5; true")
+    if "WD-GONE" in out_a:
+        # watchdog must be running for the old-shape record to mean anything;
+        # if the spawn never produced one, the new-protocol part below will
+        # fail on its own — fail now with a clear signal
+        return False, f"old-shape: no watchdog produced ({out_a.strip()})"
+
+    # (b) NEW protocol: real.py's exact command texts, separate shells
+    from benchmarks.backends.real import RealBackend
+
+    class Local2(RealBackend):
+        def __init__(self):
+            self.p = {"window": {"script": script, "dir": wddir,
+                                 "restore_result": os.path.join(wddir, "r.md"),
+                                 "health_wait_s": 5}}
+            self.run_dir = tmp
+
+        def _ssh(self, where, cmd, timeout=120, stdin=None):
+            p = subprocess.run(["bash", "-c", cmd], capture_output=True, timeout=timeout)
+            return p.returncode, p.stdout.decode(), p.stderr.decode()
+
+        def put_file(self, local, remote, where="target"):
+            import shutil
+            shutil.copy(local, remote)
+
+    l = Local2()
+    manifest = os.path.join(tmp, "undo.json")
+    open(manifest, "w").write('{"temp_changes": []}')
+    pid = l.arm_watchdog(9999999999, wddir + "/lease", wddir + "/hb", manifest, {"unit": "x"})
+    time.sleep(3)
+    _, out_b, _ = sh(
+        f"kill -0 {pid} 2>/dev/null && echo ALIVE || echo DEAD; "
+        f"tr '\\0' ' ' < /proc/{pid}/cmdline 2>/dev/null | head -c 120; echo; "
+        f"cat {wddir}/.watchdog.pid 2>/dev/null")
+    alive = "ALIVE" in out_b and "DEAD" not in out_b
+    is_the_watchdog = os.path.basename(script) in out_b
+    pidfile_matches = out_b.strip().split()[-1:] == [str(pid)]
+    # (c) disarm: the checker's shell must survive (pkill self-exclusion idiom)
+    l.disarm_watchdog(wddir + "/lease")
+    time.sleep(1)
+    _, out_c, _ = sh(f"kill -0 {pid} 2>/dev/null && echo ALIVE || echo DEAD")
+    disarm_killed_watchdog = "DEAD" in out_c
+    ok = alive and is_the_watchdog and pidfile_matches and disarm_killed_watchdog
+    return ok, (f"old-shape={old_note}(recorded) new-alive={alive} "
+                f"cmdline={is_the_watchdog} pidfile-match={pidfile_matches} "
+                f"disarm={disarm_killed_watchdog} pid={pid}")
 
 
 p0("Q34 put_file: >128 KiB b64 never in argv (E2BIG), stdin transport + remote size check", q34_putfile_no_argv_e2big)
 p0("Q35 arm_watchdog creates lease + heartbeat before the watchdog can die on them (fixture contract)", q35_arm_watchdog_creates_lease)
 p0("Q36 deploy.push: no-file_hashes refusal, happy sha, changed/missing/unexpected all hard-fail", q36_deploy_push_verifies)
-p0("Q37 real.arm_watchdog: lease before spawn + arm-time liveness refusal (dead-on-arrival regression)", q37_real_arm_liveness)
+p0("Q37 real.arm_watchdog: lease before spawn, liveness via pidfile not $!, dead-at-arm refusal, self-excluding pkill", q37_real_arm_liveness)
+p0("Q39 watchdog detach: old $!-of-chain protocol false-negatives a healthy watchdog; new pidfile/pgrep check finds it from a separate shell (09-16 run #2)", q39_watchdog_detach_shell_semantics)
 
 
 # ------------------------------------------------- Q30-Q33: the workload contract

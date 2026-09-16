@@ -230,7 +230,7 @@ class RealBackend:
         # process; the lease/heartbeat files survive on durable storage.
         # Kill any stale process, then re-arm with the SAME absolute deadline.
         wd = self.p["window"]
-        self._ssh("target", f"pkill -f {shlex.quote(wd['script'])} 2>/dev/null; true")
+        self._ssh("target", f"pkill -f {self._wd_pattern()} 2>/dev/null; true")
         self.arm_watchdog(deadline_epoch, lease_path, heartbeat_path,
                           undo_manifest, prod_desc)
 
@@ -304,6 +304,18 @@ class RealBackend:
                             "benchmarks")
 
     # -- window mechanics --------------------------------------------------------------
+    def _wd_pattern(self):
+        """pkill/pgrep -f pattern for the watchdog with the self-exclusion
+        idiom: the ssh command runs as `bash -c '<pattern> in this very
+        string'`, so a plain pattern matches the checker's OWN process and
+        pkill kills its own shell (and pgrep false-positives liveness).
+        Replacing the first '.' with '[.]' keeps the regex matching the
+        watchdog's cmdline (real dot) but not the literal pattern text."""
+        s = self.p["window"]["script"]
+        if "." in s:
+            s = s.replace(".", "[.]", 1)
+        return shlex.quote(s + " " + self.p["window"]["dir"])
+
     def arm_watchdog(self, deadline_epoch, lease_path, heartbeat_path, undo_manifest,
                      prod_desc):
         # the watchdog runs ON THE TARGET (it must restore what the target hosts)
@@ -335,33 +347,44 @@ class RealBackend:
                                  f"mkdir -p {wd['dir']} && echo '{b64}' | base64 -d > "
                                  f"{wd['dir']}/params.json && "
                                  f"touch {shlex.quote(lease_path)} && touch {shlex.quote(heartbeat_path)} && "
-                                 f"setsid nohup bash {wd['script']} {wd['dir']} > "
-                                 f"{wd['dir']}/watchdog.log 2>&1 < /dev/null & "
-                                 f"echo PF_armed=$!")
-        pid = None
-        for line in out.splitlines():
-            if line.strip().startswith("PF_armed="):
-                pid = int(line.strip().split("=", 1)[1])
-        if pid is None:
-            raise RuntimeError(f"watchdog arm failed: {err[:300]}")
+                                 f"{{ setsid nohup bash {wd['script']} {wd['dir']} > "
+                                 f"{wd['dir']}/watchdog.log 2>&1 < /dev/null & }}")
+        if rc != 0:
+            raise RuntimeError(f"watchdog arm spawn failed (rc={rc}): {err[:300]}")
         # P0 (09-14): the lease is created BEFORE the spawn (the watchdog's
         # first loop line is '[ -f $lease ] || exit 0' — the old arm never
-        # created it, so every in-LXC watchdog was dead on arrival), and the
-        # arm-time liveness check proves the process is still alive 2 s in
-        # (the Q17 pattern applied to the watchdog itself).
+        # created it, so every in-LXC watchdog was dead on arrival).
+        # P0 (09-16, run #2): the liveness check must NOT trust $! — with
+        # `A && … && setsid nohup X &` the whole chain is one background job
+        # and $! is the wrapper subshell, which exits when the ssh session
+        # unwinds while the setsid-detached watchdog lives (deterministic
+        # false negative: WD_DEAD on a healthy watchdog). The watchdog writes
+        # its OWN pidfile at start; the check reads it, with a pgrep
+        # fallback (self-exclusion idiom) in case the pidfile lags.
         wlog = wd['dir'] + '/watchdog.log'
+        pidf = wd['dir'] + '/.watchdog.pid'
         rc, out, err = self._ssh("target",
-                                 f"sleep 2; kill -0 {pid} 2>/dev/null && echo WD_ALIVE=1 || "
-                                 f"(head -c 600 {wlog} 2>/dev/null; echo WD_DEAD=1)")
-        if "WD_ALIVE=1" not in out:
+                                 f"sleep 2; if [ -f {pidf} ] && kill -0 \"$(cat {pidf})\" "
+                                 f"2>/dev/null; then echo WD_ALIVE=\"$(cat {pidf})\"; "
+                                 f"elif W=$(pgrep -f {self._wd_pattern()} | head -1) && [ -n \"$W\" ]; then "
+                                 f"echo WD_ALIVE=\"$W\"; else head -c 600 {wlog} 2>/dev/null; "
+                                 f"echo WD_DEAD=1; fi")
+        pid = None
+        for line in out.splitlines():
+            if line.strip().startswith("WD_ALIVE="):
+                try:
+                    pid = int(line.strip().split("=", 1)[1])
+                except ValueError:
+                    pass
+        if pid is None:
             tail = " ".join(out.split())[:400]
             raise RuntimeError(
-                f"watchdog died at arm (pid {pid}) — refusing to enter the window: {tail}")
+                f"watchdog died at arm — refusing to enter the window: {tail}")
         return pid
 
     def disarm_watchdog(self, lease_path):
         wd = self.p["window"]
-        self._ssh("target", f"touch {wd['dir']}/.disarmed; pkill -f {shlex.quote(wd['script'])} 2>/dev/null; "
+        self._ssh("target", f"touch {wd['dir']}/.disarmed; pkill -f {self._wd_pattern()} 2>/dev/null; "
                             f"rm -f {lease_path}; true")
 
     def heartbeat(self, heartbeat_path):
