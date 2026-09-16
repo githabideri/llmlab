@@ -88,6 +88,13 @@ class Backend:
         """Kill by PID, process-group, after cmdline verification (never pkill)."""
         raise NotImplementedError
 
+    def ensure_run_dir(self):
+        """Create the run dir on the execution side before any log redirect
+        into it (no-op for backends whose run dir is local). 09-16 run #6:
+        a missing target-side run dir made every redirect fail inside the
+        background subshell while the parent still reported a (dead) pid."""
+        return None
+
     def wait_ready(self, health_url, attempts=90, sleep=5):
         """Poll a /health-style endpoint. -> bool (all-ready)."""
         raise NotImplementedError

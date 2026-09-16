@@ -103,6 +103,7 @@ class Runner:
     # ------------------------------------------------------------------ run
     def run(self):
         os.makedirs(self.run_dir, exist_ok=True)
+        self.backend.ensure_run_dir()
         self._state_init()
         final = "aborted-failure"
         try:
