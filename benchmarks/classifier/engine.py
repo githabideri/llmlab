@@ -94,6 +94,19 @@ def classify(text):
         out["observed"].append(line.strip())
         return out
 
+    # ---- precedence 3b: launch-config validation (vLLM pydantic argparse).
+    # 09-16 run #7: a connector config without kv_role is rejected before any
+    # engine exists — a launch defect (HARNESS_FAILURE), never a science
+    # outcome. Distinct from LMCACHE_HMA_BOOT_FAILURE (engine init dies
+    # *inside* vLLM; here vLLM never even starts). ----
+    line = _first(text, r"validation error for KVTransferConfig|Please specify kv_role when kv_connector is set")
+    if line:
+        out["class"] = "KV_CONFIG_INVALID"
+        out["observed"].append(line.strip())
+        out["inferred"].append("the launch script's kv_transfer_config failed the engine's argument validation; "
+                               "the process died at startup — a launch defect, not a boot outcome or a science result")
+        return out
+
     # ---- precedence 4: allocation failures, size-normalized ----
     oom_lines = [l for l in _lines(text)
                  if re.search(r"cudaMalloc failed|out of memory|OOM[ _-]killed|"

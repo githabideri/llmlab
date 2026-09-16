@@ -1,0 +1,4 @@
+llama_model_loader: - init from /mnt/<models>/gguf/q-00001-of-00003.gguf
+0.03.200.100 E ggml_backend_cuda_buffer_type_alloc_buffer: allocating 24224.99 MiB on device 0: cudaMalloc failed: out of memory
+0.03.200.110 E alloc_tensor_range: failed to allocate CUDA0 buffer of size 25401738496
+0.03.200.120 E srv  llama_server: exiting due to model loading error

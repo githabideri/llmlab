@@ -1372,6 +1372,110 @@ def q40_launch_logdir_dead_on_arrival(tmp):
 p0("Q40 launch(): log-dir mkdir in foreground + dead-at-start probe (09-16 run #6: redirect into a missing run dir failed inside the background subshell; the parent reported a ghost pid and the failure surfaced 5 min later as 'sidecar never became ready')", q40_launch_logdir_dead_on_arrival)
 
 
+def q41_final_sci_hash_same_projection(tmp):
+    """09-16 run #7: _final_json recomputed the scientific hash WITHOUT the
+    campaigns payload while freeze.bake computed it WITH it — two different
+    projections can never match, so every payload campaign ended
+    'scientific_hash_moved: true' by construction (the live files were
+    byte-identical all along). The final assertion must use the SAME
+    projection, from LIVE files: untouched payload -> not moved; a mid-run
+    edit of any payload file -> moved (the guard keeps its teeth)."""
+    import json as _json
+    import shutil
+    from benchmarks import spec as specmod
+    from benchmarks import campaign as cam
+    from benchmarks.backends.fixture import FixtureBackend
+    from benchmarks.runner import Runner
+
+    specdir = os.path.join(tmp, "specdir")
+    plansdir = os.path.join(specdir, "plans")
+    os.makedirs(plansdir)
+    spec_path = os.path.join(specdir, "spec.shipped.jsonc")
+    # a minimal but parseable spec (the repo's dogfood spec has a trailing
+    # comma that _strip_jsonc does not accept — not this test's concern)
+    open(spec_path, "w").write(
+        '{"id": "q41-cam", "model": "m", "quant": "q4", '
+        '"workload": {"prompt": "p"}, '
+        '"cells": {"c1": {"launch": {"binary": "true"}, '
+        '"requests": [{"prompt_tokens": 8, "decode": 2}]}}}')
+    open(os.path.join(plansdir, "p1.json"), "w").write('{"seg": 1}')
+    spec_obj = specmod.load_spec(spec_path)
+    payload = cam._campaigns_payload(spec_path)
+    run_dir = os.path.join(tmp, "run")
+    os.makedirs(run_dir)
+    shutil.copy(spec_path, os.path.join(run_dir, "spec.shipped.jsonc"))
+    fz = {
+        "campaign_id": spec_obj.get("id"),
+        "spec_path": spec_path,
+        "scientific_hash": specmod.scientific_hash(spec_obj, payload),
+        "campaigns_payload": dict(sorted(payload.items())),
+    }
+    b = FixtureBackend({"host": {"ssh": "fixture"}}, tmp, run_dir)
+    r = Runner(spec_obj, {"host": {"ssh": "fixture"}}, fz, run_dir, b, tmp)
+    # (a) untouched payload -> the final assertion must NOT flag a move
+    r._final_json("completed", "test", {})
+    f1 = _json.load(open(os.path.join(run_dir, "final.json")))
+    ok_a = f1["scientific_hash_now"] == fz["scientific_hash"] and not f1["scientific_hash_moved"]
+    # (b) mid-run edit of a payload file -> must move (guard keeps its teeth)
+    with open(os.path.join(plansdir, "p1.json"), "a") as f:
+        f.write(" // edited mid-run")
+    r._final_json("completed", "test2", {})
+    f2 = _json.load(open(os.path.join(run_dir, "final.json")))
+    ok_b = f2["scientific_hash_moved"]
+    ok = ok_a and ok_b
+    return ok, f"untouched-not-moved={ok_a} mid-run-edit-moved={ok_b}"
+
+
+p0("Q41 _final_json uses the SAME projection as bake (live spec + live payload): 09-16 run #7 false-positive 'moved' (no-payload vs with-payload) and mid-run payload-edit detection", q41_final_sci_hash_same_projection)
+
+
+def q42_getfile_retry_and_diagnosis(tmp):
+    """09-16 run #7: a40-off's GOOD client.json was lost to one un-retried
+    transient ssh failure (empty error detail — the old get_file swallowed
+    stderr with 2>/dev/null), voiding a cell that had actually run. The new
+    contract: retry with backoff, and the final error must say whether the
+    file exists remotely."""
+    import base64 as _b64
+    from benchmarks.backends.real import RealBackend
+
+    class Flaky(RealBackend):
+        def __init__(self, fail_first_n):
+            self.p = {}
+            self.run_dir = tmp
+            self.name = "local"
+            self._events = []
+            self.calls = 0
+            self.fail_first_n = fail_first_n
+
+        def _ssh(self, where, cmd, timeout=120, stdin=None):
+            self.calls += 1
+            if self.fail_first_n and cmd.startswith("base64 ") and self.calls <= self.fail_first_n:
+                return 255, "", "ssh: connection reset by peer"
+            if cmd.startswith("base64 "):
+                return 0, _b64.b64encode(b"client-payload").decode(), ""
+            if "ABSENT" in cmd:
+                return 0, "ABSENT", ""
+            return 0, "", ""
+
+    # (a) two transient failures, then success -> the file is retrieved
+    a = Flaky(fail_first_n=2)
+    dst = os.path.join(tmp, "in.json")
+    a.get_file("/remote/client.json", dst)
+    ok_a = open(dst).read() == "client-payload" and a.calls >= 3
+    # (b) persistent failure -> retry budget exhausted, and the error tells
+    # us the remote file state (the old version said nothing at all)
+    b = Flaky(fail_first_n=99)
+    try:
+        b.get_file("/remote/client.json", os.path.join(tmp, "in2.json"))
+        ok_b = False
+    except OSError as e:
+        ok_b = "after 3 attempts" in str(e) and ("ABSENT" in str(e) or "EXISTS" in str(e))
+    return ok_a and ok_b, f"transient-recovered={ok_a} persistent-diagnosed={ok_b}"
+
+
+p0("Q42 get_file retries transient ssh failures (run #7: one lost fetch voided a good cell) and the final error reports the remote file state (the old version's 2>/dev/null made every failure an empty string)", q42_getfile_retry_and_diagnosis)
+
+
 # ------------------------------------------------- Q30-Q33: the workload contract
 def _cell_declared(tokens, min_wall=30.0):
     return {"cell": "c", "requests": [{"prompt_tokens": tokens, "decode": 128}],

@@ -64,6 +64,7 @@ CLASS_TO_VERDICT = {
     "HTTP_EMPTY_200": HARNESS_FAILURE,
     "SSE_MALFORMED": HARNESS_FAILURE,
     "SSE_NO_USAGE": HARNESS_FAILURE,
+    "KV_CONFIG_INVALID": HARNESS_FAILURE,   # launch-config defect (09-16 run #7)
     "TOKEN_MISMATCH": INVALID,
     # the LMCache classes are evidence-based (the client declares them from
     # the store/retrieval logs); None = "documented-negative-oriented": they

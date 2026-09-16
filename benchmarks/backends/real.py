@@ -70,12 +70,29 @@ class RealBackend:
             raise OSError(f"put_file failed for {remote_path}: {err[:200]}")
 
     def get_file(self, remote_path, local_path, where="target"):
+        """b64 over ssh. 09-16 run #7: one transient ssh loss during a
+        high-churn window killed the fetch of a GOOD client.json (the file
+        was on target the whole time) and voided the cell — a single
+        un-retried transport call must not have science-grade consequences.
+        Retry with backoff; the old `2>/dev/null` made every failure an
+        empty string, so the final error now also probes the remote file."""
         os.makedirs(os.path.dirname(local_path) or ".", exist_ok=True)
-        rc, out, err = self._ssh(where, f"base64 {shlex.quote(remote_path)} 2>/dev/null")
-        if rc != 0:
-            raise OSError(f"get_file failed for {remote_path}: {err[:200]}")
-        with open(local_path, "wb") as f:
-            f.write(base64.b64decode(out))
+        last = ""
+        for attempt in (1, 2, 3):
+            rc, out, err = self._ssh(where, f"base64 {shlex.quote(remote_path)}")
+            if rc == 0:
+                with open(local_path, "wb") as f:
+                    f.write(base64.b64decode(out))
+                return
+            last = f"rc={rc} err={err[:200]}"
+            if attempt < 3:
+                time.sleep(5)
+        prc, pout, perr = self._ssh(
+            where, f"[ -f {shlex.quote(remote_path)} ] && "
+                  f"echo EXISTS-$(stat -c %s {shlex.quote(remote_path)}) || echo ABSENT")
+        raise OSError(
+            f"get_file failed for {remote_path} after 3 attempts ({last}); "
+            f"remote probe: {(pout or perr).strip()[:120]}")
 
     def write_script(self, path, content, where="target"):
         self.put_file(self._materialize(content), path, where)

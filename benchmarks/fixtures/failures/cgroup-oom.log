@@ -1,0 +1,2 @@
+[312055.4] Memory cgroup out of memory: Killed process 48211 (llama-gguf) total-vm:269045248kB, anon-rss:268000256kB, file-rss:0kB, shmem-rss:0kB, UID:100000 PID:48211
+[312055.4] oom_reaper: reaped process 48211 (llama-gguf), now anon-rss:0kB, file-rss:0kB, shmem-rss:0kB
