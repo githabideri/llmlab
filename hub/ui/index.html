@@ -337,6 +337,8 @@ function rateLine(m) {
   if (!m.loaded) return "—";
   const vllm = m.kind === "vllm";
   const parts = [];
+  if (m.stalled)
+    parts.push(`<span class="warn" title="GPU is busy but the engine's token counters have not moved for 30+ s — the rates are stale (D-CFR counter-freeze); the mux watchdog restarts the engine, the next request reloads it">⚠ counters stalled</span>`);
   if (m.tgen != null)
     parts.push(`<b title="aggregate generation throughput, average over the last 2 s poll">${fmt(m.tgen, 1)} t/s</b>`);
   if (m.tpp != null)

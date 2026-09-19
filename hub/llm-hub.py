@@ -360,6 +360,7 @@ class Server:
         self.last_err = None
         self._lock = threading.Lock()      # guards .models (poller writes, API reads)
         self._counters = {}                # (mid, key) -> rate state
+        self._rawgen = {}                  # mid -> (tokens_predicted_total, ts last moved)
         self._spec_ts = {}                 # mid -> last spec-activity ts
         # rolling 5-min windows: deque of (ts, buckets, counters)
         self._winbuf = collections.deque(maxlen=WIN_SAMPLES)
@@ -658,7 +659,7 @@ class Server:
                     st.update({"tgen": None, "tpp": None, "spec_accept": None,
                                "cache_hit": None, "n_proc": None,
                                "n_deferred": None, "busy_slots": None,
-                               "metrics_ok": False})
+                               "stalled": False, "metrics_ok": False})
                     continue
                 # parser-compat probe: the two counters every hub rate
                 # depends on. False = backend reachable but counter names broke
@@ -671,6 +672,22 @@ class Server:
                 st["tpp"] = self._rate(
                     mid, "prompt", get_metric(p, "prompt_tokens_total"), now,
                     gauge=get_metric(p, "prompt_tokens_seconds"))
+                # stall detection: some builds (observed on the ISTA D-CFR
+                # dev branch) FREEZE their per-token counters mid-session while
+                # the slot keeps decoding — generation continues but every
+                # counter-fed number goes stale and the rates below silently
+                # vanish. GPU busy + generation counter not moving = stalled:
+                # surface it explicitly instead of a blank "active" row.
+                raw = get_metric(p, "tokens_predicted_total")
+                if raw is not None:
+                    rg = self._rawgen.get(mid)
+                    if rg is None or raw != rg[0]:
+                        self._rawgen[mid] = (raw, now)
+                rg = self._rawgen.get(mid)
+                gpumax = max((g.get("util_pct") or 0) for g in self.gpus) \
+                    if self.gpus else 0.0
+                st["stalled"] = bool(
+                    rg is not None and now - rg[1] > 30 and gpumax > 10)
                 a = get_metric(p, "spec_decode_num_accepted_tokens_total")
                 d = get_metric(p, "spec_decode_num_draft_tokens_total")
                 if a is not None and d is not None:
