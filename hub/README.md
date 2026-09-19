@@ -81,11 +81,18 @@ States are derived per model (node state is the worst across its models):
 ### Metric semantics
 
 - **Throughput rates** (generation and prompt-processing) come from counter
-  deltas. On llama.cpp the generation rate is measured against the child
-  process's own generation clock (`Δtokens_predicted /
-  Δtokens_predicted_seconds`), so it is physically bounded and immune to
-  poll-gap artifacts; vLLM counters are process-lifetime cumulative, so
-  wall-clock deltas are used.
+  deltas. On llama.cpp both rates are measured against the child process's
+  own clocks (`Δtokens_predicted / Δtokens_predicted_seconds` for
+  generation, `Δprompt_tokens / Δprompt_seconds` for prefill), so they are
+  physically bounded and immune to poll-gap artifacts — a big prefill that
+  lands inside one poll interval divides by its real processing time, not
+  by the poll gap. `prompt_tokens_total` EXCLUDES cached tokens on every
+  source the hub trusts (the engine's own metrics; mux-synthesized bodies
+  are held to the same contract), so prompt-cache hits cannot inflate pp/s;
+  the cached share is tracked separately (`prompt_tokens_cached_total`,
+  feeding the 5-min cache-hit gauge). vLLM counters are process-lifetime
+  cumulative, so wall-clock deltas are used (see the vLLM `pp/s` bullet for
+  its cache handling).
 - Rates decay to "no data" 30 s after the counter **last moved** — idle is
   shown as no value, not as a stale number. This applies to every rate,
   including vLLM prompt throughput.

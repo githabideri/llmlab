@@ -669,9 +669,20 @@ class Server:
                 st["tgen"] = self._rate(
                     mid, "gen", get_metric(p, "tokens_predicted_total"), now,
                     secs=get_metric(p, "tokens_predicted_seconds_total"))
+                # tpp: prompt_tokens_total EXCLUDES cached tokens on every
+                # honest source (mainline engine; mux v2.3 synthesis) — the
+                # cached share lives in prompt_tokens_cached_total. Rate it on
+                # the child's own prompt clock (prompt-seconds total; builds
+                # disagree on the name) so a big prefill landing inside one
+                # poll interval divides by its real processing time, not the
+                # 2 s poll gap (the ~16,500 "pp/s" artifact behind the 2026-09-19
+                # big-prompt misreading; same child-clock principle as
+                # tgen and as the vLLM computed-prefill fix).
+                tpp_secs = (get_metric(p, "prompt_tokens_seconds_total")
+                            or get_metric(p, "prompt_seconds_total"))
                 st["tpp"] = self._rate(
                     mid, "prompt", get_metric(p, "prompt_tokens_total"), now,
-                    gauge=get_metric(p, "prompt_tokens_seconds"))
+                    secs=tpp_secs, gauge=get_metric(p, "prompt_tokens_seconds"))
                 # stall detection: some builds (observed on the ISTA D-CFR
                 # dev branch) FREEZE their per-token counters mid-session while
                 # the slot keeps decoding — generation continues but every
@@ -731,6 +742,15 @@ class Server:
     # -- gpu sidecar ---------------------------------------------------------
     def poll_gpus(self, now):
         if not self.sidecar_url:
+            # No sidecar configured for this server. A non-gpu-only server (a real
+            # llama.cpp/vLLM box) with no sidecar has NO live GPU source, so any
+            # gpus it carries (e.g. restored from the boot snapshot) can never be
+            # refreshed. Flag them stale instead of silently re-presenting a frozen
+            # value as fresh telemetry with gpus_stale=0 — the failure that hid a
+            # flat GPU line for a whole day. gpu-only servers are defined by their
+            # sidecar, so there is nothing to mark if they have none.
+            if self.kind != "gpu-only" and self.gpus and not self.gpus_stale:
+                self.gpus_stale = True
             return
         status, body = http_json(self.sidecar_url, timeout=SIDECAR_TIMEOUT)
         data = None
@@ -1069,13 +1089,20 @@ def prom_text():
             L.append(f'hub_server_gpu_count{{server="{s.name}"}} {len(s.gpus)}')
             L.append(f'hub_server_gpus_stale{{server="{s.name}"}} '
                      f"{1.0 if s.gpus_stale else 0.0}")
-        for g in s.gpus:
-            gl = f'{{server="{s.name}",gpu="{g.get("name", "")[:40]}",idx="{g.get("index", "")}"}}'
-            _g(L, "hub_gpu_utilization_pct", gl, g.get('util_pct'))
-            _g(L, "hub_gpu_memory_used_mib", gl, g.get('mem_used_mib'))
-            _g(L, "hub_gpu_memory_total_mib", gl, g.get('mem_total_mib'))
-            _g(L, "hub_gpu_temp_c", gl, g.get('temp_c'))
-            _g(L, "hub_gpu_power_w", gl, g.get('power_w'))
+        # Honest stale/absent: while the sidecar is unreachable (host off / down
+        # / wedge), the last sample is FROZEN, not live. Emit the per-GPU point
+        # gauges only while fresh; when stale, drop them (a Grafana gap = "no
+        # observation") and let hub_server_gpus_stale carry the meaning. A
+        # frozen value must never masquerade as a current reading — the failure
+        # behind the 2026-09-19 flat-GPU incident. (idle != 0; absent == no data.)
+        if s.gpus and not s.gpus_stale:
+            for g in s.gpus:
+                gl = f'{{server="{s.name}",gpu="{g.get("name", "")[:40]}",idx="{g.get("index", "")}"}}'
+                _g(L, "hub_gpu_utilization_pct", gl, g.get('util_pct'))
+                _g(L, "hub_gpu_memory_used_mib", gl, g.get('mem_used_mib'))
+                _g(L, "hub_gpu_memory_total_mib", gl, g.get('mem_total_mib'))
+                _g(L, "hub_gpu_temp_c", gl, g.get('temp_c'))
+                _g(L, "hub_gpu_power_w", gl, g.get('power_w'))
         for m in s.models.values():
             ml = f'{{server="{s.name}",model="{m["id"]}"}}'
             L.append(f"hub_model_loaded{ml} {1.0 if m.get('loaded') else 0.0}")
