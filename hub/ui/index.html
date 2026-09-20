@@ -634,8 +634,10 @@ async function act(server, model, action) {
   try {
     const r = await api("/models/" + action, "POST", { server, model });
     const okc = r.upstream_status >= 200 && r.upstream_status < 300;
-    notify(`${action} ${model} on ${server}: ` +
-           (okc ? "ok" : "upstream HTTP " + r.upstream_status), !okc);
+    const verdict = okc
+      ? (r.upstream_status === 202 ? "accepted — state follows" : "ok")
+      : "upstream HTTP " + r.upstream_status;
+    notify(`${action} ${model} on ${server}: ` + verdict, !okc);
     setTimeout(refresh, 800);
   } catch (e) {
     if (e.unauthorized) showAuth();
