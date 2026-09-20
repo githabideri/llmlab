@@ -141,7 +141,7 @@ States are derived per model (node state is the worst across its models):
 | `GET /api/servers` | token/cookie | full fleet JSON (UI + agents) |
 | `GET /api/models` | token/cookie | flat model list with server attribution (agents) |
 | `GET /api/vision/route` | token/cookie | advisor: best vision endpoint for an upcoming multimodal request (read-only) |
-| `POST /api/models/load` | token/cookie | `{server, model}` → proxies to router |
+| `POST /api/models/load` | token/cookie | `{server, model}` → fires upstream `POST /models/load`; waits 2 s for a verdict (reports the 200/4xx as-is) and otherwise answers 202 `accepted` — the action runs upstream, state polling is authoritative |
 | `POST /api/models/unload` | token/cookie | same, unload |
 | `POST /auth` | Bearer master token | exchange token for 7-day session cookie |
 | `GET /auth` | token/cookie | convenience: is my session valid? |

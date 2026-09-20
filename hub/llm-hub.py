@@ -70,6 +70,7 @@ RING_SECONDS = 30 * 60              # sparkline ring retention
 SNAPSHOT_EVERY = 60                 # seconds between state snapshots
 OFFLINE_AFTER = 15                  # consecutive failed polls (30 s) before "offline"
 HTTP_TIMEOUT = 4                    # per upstream fetch
+CONTROL_VERDICT_S = 2.0             # how long to wait for a load/unload verdict
 SIDECAR_TIMEOUT = 7                 # sidecar runs nvidia-smi (~1 s), allow margin
 RATE_DECAY = 30                     # measured rates decay to idle after this
 LAT_WINDOW = int(os.environ.get("LLM_HUB_LAT_WINDOW", "300"))
@@ -157,6 +158,44 @@ def http_json(url, timeout=HTTP_TIMEOUT):
 
 def http_post_json(url, obj, timeout=HTTP_TIMEOUT):
     return _http("POST", url, timeout, obj)
+
+
+def _control_post(url, obj):
+    """Fire a control POST (model load/unload) and wait up to
+    CONTROL_VERDICT_S for the upstream's verdict. Fast upstreams (the
+    router's /models/load|unload handlers) answer in milliseconds; their
+    200/4xx is reported as-is. Orchestration frontends that block during
+    an exclusive-GPU switch (e.g. a mux that unloads the other backend
+    and waits for VRAM) never answer within the budget: the request has
+    already been sent and the action runs upstream, so return 202 and
+    let state polling be authoritative instead of dying on the client
+    timeout. (0, None) = upstream unreachable."""
+    p = urllib.parse.urlsplit(url)
+    host = p.hostname
+    port = p.port or (443 if p.scheme == "https" else 80)
+    path = p.path or "/"
+    if p.query:
+        path += "?" + p.query
+    conn = (http.client.HTTPSConnection(host, port, timeout=CONTROL_VERDICT_S)
+            if p.scheme == "https" else
+            http.client.HTTPConnection(host, port, timeout=CONTROL_VERDICT_S))
+    try:
+        conn.connect()
+    except (TimeoutError, OSError):
+        return 0, None   # upstream unreachable: the action did not run
+    try:
+        conn.request("POST", path, body=json.dumps(obj).encode(),
+                     headers={"Content-Type": "application/json"})
+    except OSError:
+        return 0, None   # request not even delivered: the action did not run
+    try:
+        r = conn.getresponse()
+        return r.status, r.read().decode("utf-8", "replace")
+    except (TimeoutError, http.client.HTTPException, OSError):
+        return 202, ("no verdict within %.0f s; action runs upstream — "
+                     "state polling is authoritative" % CONTROL_VERDICT_S)
+    finally:
+        conn.close()
 
 
 def parse_prom(text):
@@ -891,7 +930,7 @@ def _vision_policy():
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server_version = "llm-hub/1.3"
+    server_version = "llm-hub/1.4"
 
     def _send(self, code, body, ctype="application/json", extra=None):
         if isinstance(body, (dict, list)):
@@ -1038,12 +1077,19 @@ class Handler(BaseHTTPRequestHandler):
             if not model:
                 return self._send(400, {"error": "missing model"})
             endpoint = "load" if path.endswith("/load") else "unload"
-            # the router parses "model" for BOTH load and unload
-            status, resp = http_post_json(
-                f"{s.url}/models/{endpoint}", {"model": model})
+            # Control actions get their own short verdict budget: fast
+            # upstreams report their 200/4xx, slow ones (orchestrated
+            # switches) are acknowledged with 202 and the state poller
+            # shows the result. An unreachable upstream is a clean 502,
+            # never a crashed handler.
+            status, resp = _control_post(f"{s.url}/models/{endpoint}",
+                                         {"model": model})
             self._audit(f"model {endpoint}", f"{server_name}/{model}", status)
             return self._send(status if status else 502,
-                              {"upstream_status": status, "response": resp[:500]})
+                              {"upstream_status": status,
+                               "response": (resp[:500]
+                                            if isinstance(resp, (bytes, str))
+                                            else None)})
         self._send(404, {"error": "not found"})
 
     def _ui(self, rel, ctype):
