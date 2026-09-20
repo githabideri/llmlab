@@ -17,6 +17,7 @@ Status: **primary** · **multi-slot + vision** · **on-demand**. Every other car
 
 - [Qwen3.8-27B (dual RTX 3090)](qwen3.8-27b-rtx3090.md) — **primary** — vLLM 0.28.0 TP2, MTP k=3, fp8 KV, 256K, vision, 8192 batched tokens (profile promoted 2026-09-10), port 8080 + 6 ctx-budget aliases (2026-09-16) — since 2026-09-08
 - [Qwen3.6-35B-A3B](qwen3.6-35b-a3b.md) — **multi-slot + vision** — interim host: single-3060 secondary box (Q4_K_XL MTP variant, 128K) since 2026-09-08, when its dual-3060 home on the primary box was dismantled; also served by the single-3060 backup box in its backup window ([2026-06-30 report](../reports/2026-06-30-qwen3.6-35b-a3b-mtp-single-3060.md))
+- [Qwen3.8-Flash-Next (Qwen4Exp)](qwen3.8-flash-next.md) — **on-demand** — the 125B/6B-active MoE on the single-3060 backup box (nightly window): UD-Q2_K_XL + 64-slot MoE hot cache, 64K, text-only, ~14.5 t/s — since 2026-09-20 ([report](../reports/2026-09-20-flash-next-single-3060-moe-cache-backup.md))
 - ~~[Qwen3.8-27B-Uncensored (Dual RTX 3060)](legacy/qwen3.8-27b-uncensored-dual3060.md)~~ — **no longer served 2026-09-08** — its dual-3060 home was dismantled for the second 3090; card moved to [legacy](legacy/)
 
 Every other card in this directory is a **historic test record** — a frozen point-in-time snapshot that is deliberately not maintained.

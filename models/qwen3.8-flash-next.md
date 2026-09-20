@@ -1,12 +1,24 @@
-# Qwen3.8-Flash-Next (Qwen4Exp) on 3× Consumer GPUs
+# Qwen3.8-Flash-Next (Qwen4Exp)
 
 **Model:** Qwen3.8-Flash-Next — "Qwen4Exp" MoE: 125 B total, ~6 B active per token, 48 layers, plus a 51 B-parameter per-layer lookup table (PLE; `per_layer_token_embd.weight`) that is streamed per-token from host memory  
 **Tested Quantization:** Unsloth `UD-Q2_K_XL` (3-shard GGUF, 78.9 GB) + `mtp-…-shared-Q8_0` draft (2.8 GB). GGUF **v3** header format — only llama.cpp at/after PR #27742 (`6c84c7d5`) can load it.  
-**Hardware:** GPU server, 3 cards: RTX 3060 12 GB (chipset, PCIe 4.0 x4), RTX 3060 12 GB (CPU, x8), RTX 3090 24 GB (CPU, PCIe 4.0 x8 in the 3-GPU config)  
-**Runtime:** llama.cpp master `b81c99b4` (fitter auto-placement), PR #28136 build retained for direct-read PLE  
-**Status:** ⚠️ **Tested, NOT in production** — the config uses all three GPUs, which collides with the 3090's production vLLM service. Frozen test record; see the campaign report for the full numbers.
+**Status:** ✅ **Served on demand** on the backup/inference box (single 3060, 40 GB RAM) since 2026-09-20 — see [Single-3060 config (live)](#single-3060-config-live-on-demand-since-2026-09-20) below. The three-GPU config below remains a **frozen test record** (it collides with the 3090's production vLLM service).
 
 ---
+
+## Single-3060 config (live, on-demand, since 2026-09-20)
+
+**Hardware:** backup/inference box — i3-9100 (4C/4T, DDR4-2400 2-ch ≈ 38 GB/s), RTX 3060 12 GB, 40 GB RAM. **Engine:** codacus llama.cpp fork `27c54b4b` (base `b10818`). **Config:** CPU experts + **64-slot MoE hot cache** (profile: 12 traces → 307,776 access rows) + 64K ctx (the card's ceiling at this slot count; 128K won't load, 80 slots OOM on long-prompt prefill) + `-t 4` (one thread per core), no MTP (measured neutral on this CPU-bound card).
+
+**Measured:** **14.3–14.9 t/s decode** warm (vs 10.7 no-cache on this box; the video reference: 24.4 on a 5600X/61 GB), **48–53 t/s** at 9.6K-token prefill (40 GB-RAM tier, no cliff), GPU 48 W in decode (≈0.09 Wh/1K tokens GPU-only). First load ~1–2 min (81.7 GB from NVMe); the first minutes after a 35B↔125B mux switch run 5–9 t/s until the PLE/expert page cache re-fills. Text-only (no vision). On-demand only: takes the whole 12 GB card; the box's model-mux handles the exclusive switch with the resident 35B.
+
+Full numbers, cell matrix, and the OOM/crash findings: [`reports/2026-09-20-flash-next-single-3060-moe-cache-backup.md`](../reports/2026-09-20-flash-next-single-3060-moe-cache-backup.md). The fork's hot-cache path is not bit-identical to cache-off under greedy decoding (see the 2026-09-13 single-3090 report).
+
+---
+
+## Three-GPU campaign (frozen record)
+
+**Hardware:** GPU server, 3 cards: RTX 3060 12 GB (chipset, PCIe 4.0 x4), RTX 3060 12 GB (CPU, x8), RTX 3090 24 GB (CPU, PCIe 4.0 x8 in the 3-GPU config). **Runtime:** llama.cpp master `b81c99b4` (fitter auto-placement), PR #28136 build retained for direct-read PLE.
 
 ## Quick Facts
 
@@ -23,7 +35,7 @@
 
 ---
 
-## Config (fitter auto-placement — the only working path on this build)
+## Config — fitter auto-placement (the only working path on the `b81c99b4` build)
 
 **KV Cache:** q8_0 / q8_0 · **Batch:** `-b 4096 -ub 1024` · **Threads:** 6 / batch 12 · single slot
 
