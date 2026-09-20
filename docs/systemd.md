@@ -4,6 +4,7 @@
 - `vllm-dual.service` — Qwen3.8-27B, **vLLM 0.28.0 tensor-parallel 2** (production since 2026-09-08, port 8080 since 2026-09-16, both RTX 3090s)
 - `gpu-power-limits.service` — 250 W per 3090 (default via `GPU_POWER_LIMIT_W`; was 220 W single-card / 115 W 3060s)
 - `llama-server.service` — Qwen3.6-35B-A3B MTP, llama.cpp, backup box (port 8080)
+- `llama-qfn.service` — Qwen3.8-Flash-Next (Qwen4Exp 125B) MoE hot-cache, llama.cpp fork, backup box (port 8091, on-demand load) — since 2026-09-20
 - `llama-qwen3.8-27b.service` — Qwen3.8-27B, llama.cpp (**disabled, kept on disk** as validated rollback)
 - plus historic units (BeeLlama DFlash, old longctx/reference configs)
 
@@ -206,6 +207,44 @@ WantedBy=multi-user.target
 ```
 
 **VRAM:** ~11.7 GiB idle / ~11.8 peak at 128K (`-ub 2048` since 2026-08-28; ~430 MiB headroom) | **CPU RAM:** ~15–18 GiB of the LXC limit (host has 48 GB)
+
+### Qwen3.8-Flash-Next / Qwen4Exp MoE hot-cache (Port 8091, RTX 3060, backup box, on-demand) — since 2026-09-20
+
+**Host:** backup / inference box (LXC on a Proxmox host)
+**Service:** `llama-qfn.service`
+**Unit:** `/etc/systemd/system/llama-qfn.service`
+**Status:** ✅ Active (enabled; auto-starts the empty router at boot; the model loads on demand)
+**Model:** Qwen3.8-Flash-Next UD-Q2_K_XL (3-shard GGUF, 78.9 GB) — 125 B MoE / ~6 B active + 51 B PLE table streamed from host memory
+**GPU:** RTX 3060 12GB, CUDA 13.1, codacus llama.cpp fork `27c54b4b` (base `b10818`) — the stock build predates `qwen4exp` support
+**Config:** CPU experts (`--n-cpu-moe 99`) + **64-slot MoE hot cache** (profile-driven; ~5.5 GB VRAM) + q8_0 KV + 64K ctx + `-t 4` (one thread per physical core), no MTP (measured neutral on this CPU-bound card). 80 slots decode faster but OOM on long-prompt prefill; 128K ctx won't load at 64 slots.
+**Measured:** ~14.3–14.9 t/s decode warm, 48–53 t/s at 9.6K-token prefill (40 GB-RAM tier), GPU 48 W in decode. First load ~1–2 min; first minutes after a 35B↔125B mux switch run 5–9 t/s until the PLE/expert page cache re-fills.
+**Switching:** the box's model-mux (port 8081) owns exclusive-GPU access: loading QFN evicts the resident 35B and vice versa (~60–120 s round trip). The router uses `--moe-cache-profile /mnt/models/qfn-profile/q2-merged.csv` (307,776 expert-access rows, 12 traces) + `--moe-cache-slots 64` on the CLI; placement flags live in the preset INI (`/mnt/models/qwen38-qfn-preset.ini`).
+**RAM:** the LXC soft limit is 40 GB (bumped from 32 on 2026-09-20; the video's "full-speed prompt reading" tier — 20 GB shows a prefill cliff).
+
+```ini
+[Unit]
+Description=llama.cpp Qwen3.8-Flash-Next (Qwen4Exp 125B, MoE hot-cache, RTX 3060, on-demand)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/llama.cpp-codacus
+Environment=CUDA_DEVICE_ORDER=PCI_BUS_ID
+ExecStart=/opt/llama.cpp-codacus/build-fable/bin/llama-server \
+  --port 8091 --host 0.0.0.0 \
+  --moe-cache-profile /mnt/models/qfn-profile/q2-merged.csv \
+  --moe-cache-slots 64 \
+  --models-max 1 --model-preset-path /mnt/models/qwen38-qfn-preset.ini
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**VRAM:** 11.4 GiB with model loaded (64K ctx) / ~1 MiB router-only. **CPU RAM:** the 81.7 GB working set leans on the 40 GB page cache (≈29 GB of it held at steady state).
 
 ### BeeLlama Qwen3.6-27B (Historic — replaced 2026-08-15)
 

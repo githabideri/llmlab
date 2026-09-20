@@ -12,6 +12,7 @@ The primary box runs **2× RTX 3090 24 GB (48 GB)** on an **AMD Ryzen 5 5600X**,
 |-------|-------|-----|---------|---------|
 | [Qwen3.8-27B](models/qwen3.8-27b-rtx3090.md) | W4A16-AutoRound | 2× RTX 3090 (vLLM TP2) | 256K | vLLM 0.28.0, MTP k=3, fp8 KV, 8192 batched, vision, 6 ctx aliases — since 2026-09-08 (port 8080 since 2026-09-16) |
 | [Qwen3.6-35B-A3B](models/qwen3.6-35b-a3b.md) | Q4_K_XL (interim) | 1× RTX 3060 (secondary box) | 128K | llama.cpp + MTP + vision — interim since the 3060 pair left the primary box 2026-09-08 |
+| [Qwen3.8-Flash-Next (Qwen4Exp)](models/qwen3.8-flash-next.md) | UD-Q2_K_XL + 64-slot MoE cache | 1× RTX 3060 (backup box, nightly window) | 64K | on-demand 125B/6B-active via the box's model-mux, ~14.5 t/s, text-only — since 2026-09-20 |
 
 The quants are the highest-quality that still leave 100K+ context headroom; each model card shows the full comparison with exact sizes. The 35B's home on the primary box (dual-3060 router, which also carried an abliterated Qwen3.8-27B on demand) was dismantled 2026-09-08 in favour of the second 3090 — see [models/legacy](models/legacy/) for that card. Per-model write-ups and every model tested live in [models/](models/README.md).
 
