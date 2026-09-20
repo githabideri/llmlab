@@ -412,9 +412,14 @@ class Server:
     # -- sparkline ----------------------------------------------------------
     def ring_push(self, tgen, gpu, ttft_p95_ms):
         now = time.time()
-        self.ring.append((now, tgen, gpu, ttft_p95_ms))
-        while self.ring and now - self.ring[0][0] > RING_SECONDS:
-            self.ring.popleft()
+        # the poller is the only writer, but api() reads the ring from
+        # handler threads — hold the lock so a mutation can never land
+        # mid-iteration (deque raises RuntimeError on that; the poller
+        # never holds the lock when it gets here, so no deadlock)
+        with self._lock:
+            self.ring.append((now, tgen, gpu, ttft_p95_ms))
+            while self.ring and now - self.ring[0][0] > RING_SECONDS:
+                self.ring.popleft()
 
     # -- rate computation (ported from v1 — child-clock, idle decay) --------
     def _rate(self, mid, key, value, now, secs=None, gauge=None):
@@ -829,7 +834,10 @@ class Server:
                 m = dict(st)
                 m["stale"] = not self.online
                 models.append(m)
-        spark = [[int(t), g, u, l] for (t, g, u, l) in self.ring]
+            # under the same lock: the poller's ring_push must not mutate
+            # while we iterate (deque raises RuntimeError on concurrent
+            # mutation; a handler thread used to 502 /metrics on that)
+            spark = [[int(t), g, u, l] for (t, g, u, l) in self.ring]
         return {
             "name": self.name, "kind": self.kind, "url": self.url,
             "description": self.desc, "online": self.online,
@@ -930,7 +938,7 @@ def _vision_policy():
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server_version = "llm-hub/1.4"
+    server_version = "llm-hub/1.5"
 
     def _send(self, code, body, ctype="application/json", extra=None):
         if isinstance(body, (dict, list)):
