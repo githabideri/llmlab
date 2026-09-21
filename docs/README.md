@@ -20,3 +20,19 @@ Methodology and reference — the repo's only **maintained** documentation surfa
 | [legacy/ik-llama.cpp-features](legacy/ik-llama.cpp-features.md) | ik_llama.cpp CPU fork features — never in production here | Frozen |
 
 Frozen docs are kept for reference and deliberately not updated; a banner at the top of each says what superseded it.
+
+## Fact ownership (where each mutable thing lives)
+
+Docs rot when a *mutable* fact is described in more than one place — a 2026-09 power-limit change sat stale in six of them for two weeks, and a port move in three. The rule: **one owner per fact class; everything else links.** The sanctioned mirrors are the index tables (top README "Currently serving", `models/README.md`, the `hardware/README.md` index row) — a mirror row is updated **in the same commit as the source change**, never as an afterthought.
+
+| Fact class | Owner |
+|---|---|
+| Box & physical (CPU, RAM, GPU lineup, PCIe, **power limits**, reliability) | [hardware/<box>.md](hardware/README.md) profiles — index row mirrors the current lineup only |
+| Model serving (quant, backend, ctx, **port/endpoint**, status, **measured performance**) | the [model card](../models/README.md) — its **changelog is the decision log**; volatile values it doesn't own are pointers, not copies |
+| Unit mechanics (flags, env, paths) | [systemd](systemd.md) — current values it doesn't own (power limits) are pointers to the hardware profile |
+| Layout (which box runs which service) | [architecture](architecture.md) — shape only, no numbers (ports are serving facts owned by the cards; profile tables mirror them) |
+| Day-to-day ops (commands, symptom → fix) | [runbook](runbook.md) |
+| Methodology (bench method, KV math, placement, thinking policy) | the other docs here |
+| Frozen evidence (campaigns, incidents) | [reports/](../reports/README.md) — never rewritten; supersede-append only |
+
+**Verify volatile values before writing them.** Before a doc claims watts, a port, a GPU lineup, or a t/s figure, check it live: `nvidia-smi` (limits/temps), `systemctl`/`curl` (units/ports), the llm-hub or a quick request (served-model numbers). Out-of-band changes (the 250→220 W drop happened outside any doc) are exactly how the multi-copy staleness is born; a 30-second check is the fix.

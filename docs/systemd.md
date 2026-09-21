@@ -2,7 +2,7 @@
 
 **Services (current):**
 - `vllm-dual.service` — Qwen3.8-27B, **vLLM 0.28.0 tensor-parallel 2** (production since 2026-09-08, port 8080 since 2026-09-16, both RTX 3090s)
-- `gpu-power-limits.service` — 220 W per 3090 (interim since 2026-09-21: GPU 1 overheating, thermal service pending; was 250 W from 2026-09-08, 220 W single-card before that / 115 W 3060s). Default via `GPU_POWER_LIMIT_W`.
+- `gpu-power-limits.service` — sets the per-card power caps (default via `GPU_POWER_LIMIT_W`; current values + history: [hardware/gpu-server.md](hardware/gpu-server.md))
 - `llama-server.service` — Qwen3.6-35B-A3B MTP, llama.cpp, backup box (port 8080)
 - `llama-qfn.service` — Qwen3.8-Flash-Next (Qwen4Exp 125B) MoE hot-cache, llama.cpp fork, backup box (port 8091, on-demand load) — since 2026-09-20
 - `llama-dcfr.service` — Qwen3.8-27B 3-bit (ISTA GSQ-RCO) with MTP, D-CFR-patched llama.cpp, **both 3060 boxes** (port 8090, on-demand) — since 2026-09-19
@@ -28,7 +28,7 @@
 
 **Eviction telemetry (on since 2026-09-16):** vLLM 0.28.0 exposes the prefix-cache eviction histograms (`vllm:kv_block_lifetime_seconds`, `..._idle_before_evict_seconds`, `..._reuse_gap_seconds`) behind the startup flags `--kv-cache-metrics --kv-cache-metrics-sample 0.1` (sampled; default 0.01, we run 10 %). No runtime toggle, so enabling takes one cold restart (3 min 25 s in practice) and drops the in-GPU prefix cache; the idempotent launch-dir script applies it (edit + restart + verify, documented rollback) and is re-runnable. The histograms register at boot and fill only while blocks are evicted (`_count` increments per evicted block; the reuse gap stays 0 until an evicted block is re-requested) — the formerly silent LRU is now measurable. First live data minutes after the 09-16 restart: 3 evictions recorded; prefix-cache hit rate back to ~55 % of queries within minutes.
 
-KV pool: **710,402 tokens** (897 GPU blocks, block size 832 — the 0.28.0 hybrid-SSM block arithmetic; the 776,928 logged at the 09-08 cutover used 1024-token blocks, same bytes) → ≈ 2.71× the 262,144 max as concurrency headroom. Thinking is **on by default per request** — non-reasoning consumers should pass `enable_thinking: false` (same behaviour as the old production). Power: **220 W/card, interim since 2026-09-21** (GPU 1 running hot — 81 °C idle vs 57 °C on the new card; thermal paste + pad service pending). 250 W was the 2026-09-08 setting (+6.2–6.5% prefill at equal stability) and is the documented target again after the repaste; 220 W was the pre-cutover single-card setting.
+KV pool: **710,402 tokens** (897 GPU blocks, block size 832 — the 0.28.0 hybrid-SSM block arithmetic; the 776,928 logged at the 09-08 cutover used 1024-token blocks, same bytes) → ≈ 2.71× the 262,144 max as concurrency headroom. Thinking is **on by default per request** — non-reasoning consumers should pass `enable_thinking: false` (same behaviour as the old production). Power: set by `gpu-power-limits.service`, not this unit — current value and history in [hardware/gpu-server.md](hardware/gpu-server.md).
 
 <details><summary>Historic: single-3090 vLLM 0.27.1 unit (pre-2026-09-08, kept for rollback)</summary>
 
