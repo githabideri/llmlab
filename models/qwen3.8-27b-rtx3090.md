@@ -4,7 +4,7 @@
 **Tested Quantization:** W4A16-AutoRound (vLLM production), Q4_K_M (llama.cpp baseline/rollback), UD-Q4_K_XL (tested, heavier)  
 **Hardware:** 2× RTX 3090 24 GB — vLLM tensor-parallel 2 since 2026-09-08 (single-3090 vLLM until then; single-3090 llama.cpp kept as dormant rollback)  
 **Runtime:** vLLM 0.28.0 (production since 2026-09-08); 0.27.1 until then; llama.cpp 5f754ea retained as validated fallback  
-**Status:** ✅ Production — vLLM TP2 (W4A16-AutoRound, MTP k=3, fp8 KV, 262,144 ctx, vision, 250 W/card); the single-3090 llama.cpp Q4_K_M+MTP config below remains the documented rollback  
+**Status:** ✅ Production — vLLM TP2 (W4A16-AutoRound, MTP k=3, fp8 KV, 262,144 ctx, vision, **220 W/card** — interim since 2026-09-21, GPU 1 overheating, thermal service pending); the single-3090 llama.cpp Q4_K_M+MTP config below remains the documented rollback  
 **Multimodal:** ✅ vLLM vision (weight-sharded vision tower, +0.86 GB across the pair) + llama.cpp fallback (mmproj BF16 on CPU via `--no-mmproj-offload`)  
 **Supersedes:** Qwen3.6-27B BeeLlama deployment (see [`qwen3.6-27b-rtx3090.md`](qwen3.6-27b-rtx3090.md))
 
@@ -22,6 +22,22 @@
 | **Multimodal** | vLLM vision (weight-sharded across the pair) since 2026-09-08; llama.cpp fallback: mmproj BF16 ~0.9 GB CPU-resident |
 | **Speculative Decoding** | MTP (draft-mtp, n-max 2, p-min 0.4) — no separate draft model |
 | **Full-attention layers** | 17 of 66 (rest are SSM/hybrid) |
+
+## Production performance (vLLM TP2 — measured)
+
+**tgen (median of 3, cold unique-nonce prompts, [2026-09-10/11 campaigns](../reports/2026-09-11-dual3090-v2-operating-envelope.md)):**
+
+| Workload | tgen |
+|---|---|
+| 2K → 1024 | **151.1 t/s** (IQR 8.6) |
+| 16K → 1024, live endpoint | **147.8 t/s** (IQR 1.1) |
+| 87K / 175K single-stream | 134 / 108 t/s |
+
+**pp (prompt processing):** up to **~1,050 tok/s** cold on 16K prompts (live endpoint, measured 2026-09-21: 968.8 tok/s). Prefix-cache re-sends run far faster than cold (32K: 36.5 s cold → 1.22 s on a spaced re-send, ~30×) — those numbers are a cache-hit regime, not prefill speed.
+
+**Live fleet (llm-hub, 7-day averages over active requests):** ~61 t/s tgen — real agent traffic with long contexts and thinking on; expectedly below the cold medians above. A single 3090 runs the same workload at 149.8 t/s — the second card is load-bearing for the KV pool/concurrency/vision envelope, not for text-decode speed (see the 09-11 report).
+
+The llama.cpp baseline below is what the cutover replaced: the same model went from **~35 t/s to ~150 t/s** — the clearest single-model arc in this lab.
 
 ---
 
@@ -96,6 +112,9 @@ The upstream `f8f0a47a` "quantized-KV flash-attention scratch blowup" does **not
 ---
 
 ## Changelog
+
+### 2026-09-21: Power limit 250 → 220 W (interim — GPU 1 running hot)
+- GPU 1 (the original 3090) reads **81 °C at idle** (new card: 57 °C) at ~195 W drawn. `gpu-power-limits.service` reverted both cards to **220 W** until the card gets thermal service (paste + pads). 250 W (the 2026-09-08 setting, +6.2–6.5% prefill at equal stability) is the documented target again after the repaste. No performance claim at 220 W yet — the campaign numbers above were taken at 250 W; expect a few percent of prefill back after the repaste.
 
 ### 2026-09-16: Endpoint port 8082 → 8080, ctx-budget aliases added (undocumented drift made official)
 - The serving endpoint moved 8082 → **8080** via an undocumented `Environment=PORT=8080` systemd drop-in (created 2026-09-15) — port 8082 was being taken by a host-local service. The move had no decision behind it and left every consumer that still said 8082 (the hub, the Prometheus scrape job, two agent clients) broken. On 2026-09-16 the port was made **officially 8080** and drift-proof: start-script default 8080, unit drop-in pins `PORT=8080`, unit description updated, all consumers re-pointed.
