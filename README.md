@@ -8,7 +8,7 @@ The primary box runs **2× RTX 3090 24 GB (48 GB)** on an **AMD Ryzen 5 5600X**,
 
 ## Currently serving
 
-| Model | Quant | GPU | Numbers (ctx — tgen · pp) | Notes |
+| Model | Quant | GPU | Numbers | Notes |
 |-------|-------|-----|---------|---------|
 | [Qwen3.8-27B](models/qwen3.8-27b-rtx3090.md) | W4A16-AutoRound | 2× RTX 3090 (vLLM TP2) | 256K — **~148–151 t/s tgen** · up to **~1,050 t/s pp** (cold 16K) | vLLM 0.28.0, MTP k=3, fp8 KV, 8192 batched, vision, 6 ctx aliases — since 2026-09-08 (port 8080 since 2026-09-16) |
 | [Qwen3.6-35B-A3B](models/qwen3.6-35b-a3b.md) | Q4_K_XL (interim) | 1× RTX 3060 (secondary box) | 128K — **~28–39 t/s tgen** · **~630–780 t/s pp** | llama.cpp + MTP + vision — interim since the 3060 pair left the primary box 2026-09-08 |
