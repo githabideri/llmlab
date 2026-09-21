@@ -11,6 +11,7 @@ Methodology and reference — the repo's only **maintained** documentation surfa
 | [multi-gpu-model-placement](multi-gpu-model-placement.md) | Placement strategy: fitter vs manual, layer/tensor/row, heterogeneous balancing, expert spill, PCIe validation (renamed from multi-gpu-tensor-split, 2026-09) | Active |
 | [kv-cache-sizing](kv-cache-sizing.md) | KV memory math per architecture; quant tradeoffs | Active |
 | [thinking-policy](thinking-policy.md) | When to enable/limit/disable reasoning in serving | Active |
+| [decision-classifiers](decision-classifiers.md) | One-pass 421M decision classifiers (Laya/Jev class): design rules, confidence regimes, tier placement, calibration & fine-tune protocol | Active |
 | [cutover-checklist](cutover-checklist.md) | Reusable model/runtime swap checklist | Active |
 | [forensics-runbook](forensics-runbook.md) | Crash/freeze evidence collection (intentionally generic) | Active |
 | [llama-cpp-grammar-workaround](llama-cpp-grammar-workaround.md) | Build-specific grammar repetition-threshold fix | Reference |
@@ -33,6 +34,7 @@ Docs rot when a *mutable* fact is described in more than one place — a 2026-09
 | Layout (which box runs which service) | [architecture](architecture.md) — shape only, no numbers (ports are serving facts owned by the cards; profile tables mirror them) |
 | Day-to-day ops (commands, symptom → fix) | [runbook](runbook.md) |
 | Methodology (bench method, KV math, placement, thinking policy) | the other docs here |
+| One-pass decision classifiers (Laya/Jev class: design rules, confidence regimes, calibration protocol) | [decision-classifiers](decision-classifiers.md) |
 | Frozen evidence (campaigns, incidents) | [reports/](../reports/README.md) — never rewritten; supersede-append only |
 
 **Verify volatile values before writing them.** Before a doc claims watts, a port, a GPU lineup, or a t/s figure, check it live: `nvidia-smi` (limits/temps), `systemctl`/`curl` (units/ports), the llm-hub or a quick request (served-model numbers). Out-of-band changes (the 250→220 W drop happened outside any doc) are exactly how the multi-copy staleness is born; a 30-second check is the fix.
