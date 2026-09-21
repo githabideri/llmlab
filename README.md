@@ -8,12 +8,14 @@ The primary box runs **2× RTX 3090 24 GB (48 GB)** on an **AMD Ryzen 5 5600X**,
 
 ## Currently serving
 
-| Model | Quant | GPU | Context | Backend |
+| Model | Quant | GPU | Numbers (ctx — tgen · pp) | Notes |
 |-------|-------|-----|---------|---------|
-| [Qwen3.8-27B](models/qwen3.8-27b-rtx3090.md) | W4A16-AutoRound | 2× RTX 3090 (vLLM TP2) | 256K | vLLM 0.28.0, MTP k=3, fp8 KV, 8192 batched, vision, 6 ctx aliases — **~148–151 t/s tgen · up to ~1,050 t/s pp (cold 16K)** — since 2026-09-08 (port 8080 since 2026-09-16) |
-| [Qwen3.6-35B-A3B](models/qwen3.6-35b-a3b.md) | Q4_K_XL (interim) | 1× RTX 3060 (secondary box) | 128K | llama.cpp + MTP + vision — **~28–39 t/s tgen · ~630–780 t/s pp** — interim since the 3060 pair left the primary box 2026-09-08 |
-| [Qwen3.8-27B (3-bit)](models/qwen3.8-27b-gsqrco-single3060.md) | IQ3_XXS (ISTA GSQ-RCO) | 1× RTX 3060 (secondary box + backup box) | 64K | llama.cpp D-CFR build + MTP, on-demand via each box's model-mux — **~25–29 t/s tgen · ~300–425 t/s pp** — since 2026-09-19 ([report](reports/2026-09-18-ista-3bit-27b-single-3060.md)) |
-| [Qwen3.8-Flash-Next (Qwen4Exp)](models/qwen3.8-flash-next.md) | UD-Q2_K_XL + 64-slot MoE cache | 1× RTX 3060 (backup box, nightly window) | 64K | on-demand 125B/6B-active via the box's model-mux, text-only — **~14.5 t/s tgen · 48–53 t/s pp** — since 2026-09-20 |
+| [Qwen3.8-27B](models/qwen3.8-27b-rtx3090.md) | W4A16-AutoRound | 2× RTX 3090 (vLLM TP2) | 256K — **~148–151 t/s tgen** · up to **~1,050 t/s pp** (cold 16K) | vLLM 0.28.0, MTP k=3, fp8 KV, 8192 batched, vision, 6 ctx aliases — since 2026-09-08 (port 8080 since 2026-09-16) |
+| [Qwen3.6-35B-A3B](models/qwen3.6-35b-a3b.md) | Q4_K_XL (interim) | 1× RTX 3060 (secondary box) | 128K — **~28–39 t/s tgen** · **~630–780 t/s pp** | llama.cpp + MTP + vision — interim since the 3060 pair left the primary box 2026-09-08 |
+| [Qwen3.8-27B (3-bit)](models/qwen3.8-27b-gsqrco-single3060.md) | IQ3_XXS (ISTA GSQ-RCO) | 1× RTX 3060 (secondary box + backup box) | 64K — **~25–29 t/s tgen** · **~300–425 t/s pp** | llama.cpp D-CFR build + MTP, on-demand via each box's model-mux — since 2026-09-19 ([report](reports/2026-09-18-ista-3bit-27b-single-3060.md)) |
+| [Qwen3.8-Flash-Next (Qwen4Exp)](models/qwen3.8-flash-next.md) | UD-Q2_K_XL + 64-slot MoE cache | 1× RTX 3060 (backup box, nightly window) | 64K — **~14.5 t/s tgen** · **48–53 t/s pp** | on-demand 125B/6B-active via the box's model-mux, text-only — since 2026-09-20 |
+
+*Numbers are measured (tgen = generation tokens/s, pp = prompt processing), with the test conditions in the cell — the model card carries the full matrix and provenance. The table is a mirror: when a card changes, its row changes in the same commit.*
 
 The quants trade quality against context headroom; on the 12 GB boxes that trade is a 3-bit quant for 64K context. Each model card shows the full comparison with exact sizes. The 35B's home on the primary box (dual-3060 router, which also carried an abliterated Qwen3.8-27B on demand) was dismantled 2026-09-08 in favour of the second 3090 — see [models/legacy](models/legacy/) for that card. Per-model write-ups and every model tested live in [models/](models/README.md).
 
@@ -51,19 +53,20 @@ Numbers here come from both controlled benchmarks and live serving. Placement wo
 - **`--parallel N` shrinks compute buffers.** More slots mean smaller per-slot compute buffers, which frees VRAM for KV cache — but per-slot context shrinks proportionally.
 - **Hybrid models use almost no KV cache.** Qwen3.6-35B-A3B has 40 layers but only 10 full-attention; the rest are linear attention with zero KV cache, so 128K context uses under 1 GB at q8_0/q4_0 ([per-model math](docs/kv-cache-sizing.md)).
 - **Ubatch is often an untuned knob** — raising `-ub` toward the VRAM limit gave +20–24% prompt processing on CPU-offloaded MoE with no generation penalty ([2026-08-28](reports/2026-08-28-llama-cpp-ubatch-moe-single-gpu.md)).
-- **Throughput degrades as context fills** — and differently by architecture:
+- **Throughput degrades as context fills — and differently by architecture:**
 
-| Arch | @0 | @16K | @32K | @64K | @64K drop |
+| Arch (model, card) | @2K | @16K | @32K | @64K | drop 16K→64K |
 |------|----|------|------|------|-----------|
 | Mamba-2 (Nemotron) | 96 | 85 | 72 | 55 | −42% |
 | MLA (GLM) | 71 | 54 | 45 | 33 | −53% |
-| GQA (Qwen3) | 99 | 39 | 24 | 13 | −87% |
+| GQA (Qwen3, 2026-03 era) | 99 | 39 | 24 | 13 | −87% |
+| **Hybrid SSM (Qwen3.8-27B, 3-bit, 1× 3060)** | — | ~30 | ~29 | ~27 | **−10%** |
 
-Mamba-2 holds up on its constant-time-attention promise; traditional GQA falls off a cliff. Real serving also runs 28–36% slower than `llama-bench` under load, and one long session recovered ~2× after context compaction.
+Mamba-2 held up on its constant-time-attention promise; traditional GQA fell off a cliff. And the current Qwen generation is hybrid — Qwen3.8 has 17 of 66 layers as full attention, the rest SSM — so the models this fleet actually serves sit on the *flat* side of this chart: 3-bit + MTP on one 12 GB 3060 holds ~29 t/s from 16K through 48K and only drops to ~27 at 64K ([2026-09-18 campaign](reports/2026-09-18-ista-3bit-27b-single-3060.md)); on the dual-3090 vLLM the same model runs 151 → 148 → 134 → 108 t/s across 2K → 16K → 87K → 175K ([2026-09-10/11](reports/2026-09-11-dual3090-v2-operating-envelope.md)). The GQA cliff is a non-architecture for this fleet now. Real serving also runs 28–36% slower than `llama-bench` under load, and one long session recovered ~2× after context compaction.
 
 ### Serving & speculation
 
-- **The dense 27B went from ~35 t/s to 96–118 t/s on one 3090** — the clearest single-model arc in this lab. Qwen3.8-27B cut over on stock llama.cpp (Q4_K_M + MTP) at 34.7–37 tok/s sustained; the move to vLLM with the W4A16-AutoRound quant, MTP k=3, and fp8 KV took decode to 96–118 tok/s (prefill up to ~1,050 tok/s, 3/3 needles at ~155K). Qwen3.8-27B holds the primary slot because it was the best available model at its 2026-08 cutover; the 35B-A3B keeps the multi-slot and vision cases ([model card](models/qwen3.8-27b-rtx3090.md)).
+- **The dense 27B went from ~35 t/s to 96–118 t/s on one 3090, and ~150 t/s on the pair** — the clearest single-model arc in this lab. Qwen3.8-27B cut over on stock llama.cpp (Q4_K_M + MTP) at 34.7–37 tok/s sustained; the move to vLLM with the W4A16-AutoRound quant, MTP k=3, and fp8 KV took decode to 96–118 tok/s (prefill up to ~1,050 tok/s, 3/3 needles at ~155K). It has been the primary dense model ever since; the 35B-A3B moved off the primary box to the secondary 3060 as an interim when the 3060 pair was dismantled 2026-09-08 (its multi-slot dual-3060 home is gone with it), and the 27B additionally serves the two 3060 boxes as the on-demand 3-bit model ([model cards](models/qwen3.8-27b-rtx3090.md), [3-bit card](models/qwen3.8-27b-gsqrco-single3060.md)).
 - **MTP draft depth tops out at 2–3** — deeper drafts cost VRAM without measurable gain on 12 GB cards ([2026-08-27](reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md)).
 - **Two 3060s serve a 27B dense model at ~80% of 3090 speed for the same wall power** — but only as a single-user node: the KV pool (126K tokens) fits 1.9× a 64K context, and 4× 16K contexts collapse per-request decode to ~16 t/s ([2026-08-30](reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)).
 - **One 12 GB 3060 serves a 27B dense at 25–29 t/s, 64K context, at 3-bit** — ISTA GSQ-RCO IQ3_XXS + the model's native MTP head, with a small D-CFR patch that drops the MTP draft's redundant recurrent-state copies so 64K fits (without it the production build tops out at 48K; 98K is the no-MTP ceiling). The sampling regime measurably moves MTP acceptance (84% → 60%), and a 5-item battery separated the 3-bit (all pass) from its 2-bit sibling (code + fact-check fail) — which is why the 3-bit is the shipped on-demand 27B ([2026-09-18](reports/2026-09-18-ista-3bit-27b-single-3060.md)).

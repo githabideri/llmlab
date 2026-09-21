@@ -25,7 +25,7 @@
 
 | GPU | Workload | Port |
 |-----|----------|------|
-| 2× RTX 3090 (TP2) | Qwen3.8-27B — vLLM 0.28.0 (W4A16-AutoRound, MTP k=3, 262K fp8 KV, vision), **220 W/card** (interim — see reliability note), one dedicated LXC seeing both cards | 8080 |
+| 2× RTX 3090 (TP2) | Qwen3.8-27B — vLLM 0.28.0, one dedicated LXC seeing both cards (config, power, numbers: [model card](../../models/qwen3.8-27b-rtx3090.md)) | 8080 |
 
 Both cards are CPU-direct Gen4 x8 and share one vLLM engine (tensor-parallel 2); there is no NVLink on this board, so TP collectives run over PCIe (NCCL). The freed chipset slot de-congested the chipset uplink that used to be shared with the model SSD. The former dual-3060 llama.cpp unit (35B + on-demand 27B-Uncensored) was dismantled with the cards — its consumer fleet moved to the secondary/backup boxes; the box's remaining llama.cpp unit is the dormant 27B rollback. The dual-3090 benchmark campaign landed 2026-09-10/11 ([reports](../../reports/)); the 35B interim home is the secondary box (see its [card](../../models/qwen3.6-35b-a3b.md)).
 
