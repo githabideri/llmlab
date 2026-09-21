@@ -5,6 +5,8 @@
 - `gpu-power-limits.service` — 250 W per 3090 (default via `GPU_POWER_LIMIT_W`; was 220 W single-card / 115 W 3060s)
 - `llama-server.service` — Qwen3.6-35B-A3B MTP, llama.cpp, backup box (port 8080)
 - `llama-qfn.service` — Qwen3.8-Flash-Next (Qwen4Exp 125B) MoE hot-cache, llama.cpp fork, backup box (port 8091, on-demand load) — since 2026-09-20
+- `llama-dcfr.service` — Qwen3.8-27B 3-bit (ISTA GSQ-RCO) with MTP, D-CFR-patched llama.cpp, **both 3060 boxes** (port 8090, on-demand) — since 2026-09-19
+- `llama-mux.service` — per-box model-mux (stdlib Python, port 8081) — exclusive-GPU switching + telemetry authority for the 27B, both 3060 boxes — since 2026-09-19
 - `llama-qwen3.8-27b.service` — Qwen3.8-27B, llama.cpp (**disabled, kept on disk** as validated rollback)
 - plus historic units (BeeLlama DFlash, old longctx/reference configs)
 
@@ -207,6 +209,78 @@ WantedBy=multi-user.target
 ```
 
 **VRAM:** ~11.7 GiB idle / ~11.8 peak at 128K (`-ub 2048` since 2026-08-28; ~430 MiB headroom) | **CPU RAM:** ~15–18 GiB of the LXC limit (host has 48 GB)
+
+**Update (2026-09-04 / 2026-09-19 — router mode):** the unit now runs the llama.cpp **router** instead of a single model: `--models-preset <box-preset-ini> --models-max 1 --no-models-autoload` (same shape on the secondary GPU server's clone of this box). The preset's resident section is the 35B above (`load-on-startup`); on-demand sections are loaded with `POST /models/load` and evict each other (one model in VRAM at a time). Since 2026-09-19 the per-box entry point is the **model-mux on port 8081** (below), which owns the 35B ↔ 27B exclusive switch; the INI above is the pre-router shape, kept as the flag reference.
+
+### Qwen3.8-27B 3-bit D-CFR (Port 8090, RTX 3060, both 3060 boxes, on-demand) — since 2026-09-19
+
+**Host:** secondary GPU server + backup/inference box (LXC on Proxmox)
+**Service:** `llama-dcfr.service`
+**Unit:** `/etc/systemd/system/llama-dcfr.service`
+**Status:** ✅ Active (enabled; starts an empty router; the model loads on demand — it must not auto-load, it would OOM against the resident 35B)
+**Model:** Qwen3.8-27B-GSQ-RCO-IQ3_XXS-mtp (ISTA DASLab 3-bit GGUF, native MTP head) + mmproj BF16 on CPU
+**GPU:** RTX 3060 12 GB, CUDA 13.1
+**Build:** llama.cpp `925e1179` + the **D-CFR** patch ([GDN transactional replay](https://github.com/kadenball/qwen38-27b-rtx3060-dcfr) — removes the MTP draft's redundant recurrent-state copies, which is what makes 64K fit at 3-bit)
+**Config:** 64K ctx (the MTP ceiling — 67K first-token-OOMs in every variant), MTP n-max 2 (accept ~60%), `-b 256 -ub 128`, q4_0/q4_0 KV, ISTA instruct sampling (0.7/0.80/20/1.5), no-think, single section, `--models-max 1`
+**Measured:** 25–29 t/s decode (22.5–29.8 on the i3-9100 box), prefill ~300–425, 11.7 GB VRAM (577 MiB headroom), vision ~26 t/s
+**27B-only preset** — never add the 35B here: D-CFR costs the MoE ~85% prefill
+
+```ini
+[Unit]
+Description=llama.cpp Qwen3.8-27B 3-bit D-CFR (RTX 3060, 64K ctx, MTP, on-demand)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Environment=LD_LIBRARY_PATH=/usr/local/cuda-13.1/lib64:<dcfr-build>/bin
+Environment=LLAMA_GDN_TRANSACTIONAL_REPLAY=1
+Environment=GGML_OP_OFFLOAD_MIN_BATCH=2
+Environment=CUDA_VISIBLE_DEVICES=0
+ExecStart=<dcfr-build>/bin/llama-server \
+  --models-preset /mnt/models/llama-27b-dcfr-preset.ini \
+  --models-max 1 --no-models-autoload \
+  --device CUDA0 \
+  --host 0.0.0.0 \
+  --port 8090 \
+  --metrics
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Telemetry caveat:** this build's per-token metrics counters freeze while the GPU decodes (only the decode counter moves). The mux (below, v2.2+) is the **telemetry authority** for this model — it synthesizes `/metrics` from the request-level usage data it injects into proxied requests; hub dashboards show mux-derived numbers for the 27B. An idle 8090 router holds no CUDA context, so it can run alongside the 8080 router harmlessly.
+
+### llama-mux (Port 8081, both 3060 boxes) — since 2026-09-19
+
+**Host:** secondary GPU server + backup/inference box
+**Service:** `llama-mux.service` — hand-deployed stdlib-Python script (not in git; any change must be pushed to *both* boxes and md5-compared)
+**Role:** the single endpoint per card, fronting the 8080 router (35B resident + parked sections) and the 8090 D-CFR service (3-bit 64K MTP). The one 12 GB card holds one big model at a time; the mux is what makes the roster honest:
+
+- `GET /v1/models` / `GET /models` list exactly the roster (resident 35B + 3-bit 64K-MTP 27B).
+- `POST /v1/chat/completions` routes by model name and runs `ensure_loaded()` first: unload the other backend's model → poll `nvidia-smi` to <500 MiB → load → poll until genuinely loaded (no more optimistic "success" loads) → proxy (chunked, SSE-safe, streaming). `POST /models/load|unload` is orchestrated the same way. Every switch is logged with VRAM + timing. A switch runs ~30–60 s per direction (v2.4, 2026-09-20, fixed the 27B→35B direction: the v2.3 unload POST had its URL/body arguments swapped and silently assumed success).
+- **v2.2+ telemetry authority** for the 27B (see the caveat above): it injects `stream_options: {include_usage: true}` into every proxied streaming request and synthesizes the D-CFR model's `/metrics` from per-request token counts + the live decode counter; the 35B path stays a pure passthrough. The hub polls `:8081/models` and issues loads/unloads through it (202 "switching" — the mux does not hold the control connection for the whole switch).
+
+```ini
+[Unit]
+Description=llama-mux — per-card model multiplexer (RTX 3060 exclusive switching)
+After=network.target llama-server.service llama-dcfr.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/python3 <mux-script>/llama-mux.py --port 8081
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+> The 125B Flash-Next model (backup box, port 8091) joins the same exclusive regime: a request for it evicts whatever is resident, and vice versa.
 
 ### Qwen3.8-Flash-Next / Qwen4Exp MoE hot-cache (Port 8091, RTX 3060, backup box, on-demand) — since 2026-09-20
 

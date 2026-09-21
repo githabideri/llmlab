@@ -57,6 +57,20 @@ Architecture from [config.json](https://huggingface.co/Qwen/Qwen3.6-27B/blob/mai
 
 **This "dense" model is hybrid too** — 48/64 layers are linear attention with zero KV cache. Still, 16 full_attention layers with 4 KV heads means the cache is 2× the 35B-A3B per layer. On RTX 3090 (24 GB), 160K context at q8_0/q4_0 uses ~3.75 GiB for KV cache alone.
 
+### Qwen3.8-27B (hybrid dense — measured, not derived)
+
+66 layers, **17 full attention** (the rest SSM). The head geometry of this generation isn't published cleanly, so instead of a derived table these are the *measured* costs from the single-3060 3-bit campaign (llama.cpp `925e1179`, q4_0 KV):
+
+| Context (per single context) | Measured KV | Note |
+|---|---|---|
+| 64K | ~0.8 GiB | no-MTP; total VRAM 11.0 GB with the 3-bit weights |
+| 64K + MTP draft | ~1.5 GiB | target **and** draft context are both charged (~12 MiB/token each); D-CFR's patch removes the draft's GDN recurrent-state copies, not this |
+| 98K | ~1.16 GiB | no-MTP; total VRAM 11.7 GB |
+
+So the hybrid's KV is small enough that the 12 GB ceiling is set by *weights + compute buffers + the decode spike*, not by KV size — which is why the no-MTP ceiling (98K) sits only 4K above a context whose KV still fits. The MTP draft context is the one thing the D-CFR patch actually shrinks (see the [campaign report](../reports/2026-09-18-ista-3bit-27b-single-3060.md)).
+
+**q8_0 K-cache does not work on this model in this build** — unlike the "K quant is free" consensus above (measured on GQA models), the q8_0 K quantization pass runs CPU-bound here: 7.6 t/s prefill at 48K with the GPU idle. q4_0/q4_0 is the working KV for the 3060 deployment.
+
 ---
 
 ## Quantization Quality & Speed
@@ -82,7 +96,7 @@ KV cache quantization saves memory but adds per-token dequantization overhead du
 | ~24K | baseline | ~baseline | -5% | Same |
 | ~110K | baseline | -34% | -37% | Same |
 
-- **Prompt processing is unaffected** — all tokens processed in parallel, dequantization cost amortized across the batch.
+- **Prompt processing is unaffected** — all tokens processed in parallel, dequantization cost amortized across the batch. *Exception:* the hybrid-SSM Qwen3.8-27B on the `925e1179` build — its q8_0 K quantization pass is CPU-bound (see the [measured example](#qwen38-27b-hybrid-dense-measured-not-derived)); "unaffected" holds on GQA models, not there.
 - **Decode speed degrades at long context** — each generated token must dequantize the full KV cache. At 110K+, q4_0 is measurably slower.
 - **On high-bandwidth GPUs (RTX 3060+, 360 GB/s GDDR6), the speed tax matters less** than on unified memory (GB10, 273 GB/s LPDDR5X) where bandwidth isn't the bottleneck.
 
