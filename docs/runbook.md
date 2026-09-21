@@ -1,15 +1,15 @@
 # Runbook
 
-## Qwen3.8-27B — Production (Port 8082, dual RTX 3090, TP2)
+## Qwen3.8-27B — Production (Port 8080, dual RTX 3090, TP2)
 
-**Runtime:** vLLM **0.28.0** (W4A16-AutoRound, **tensor-parallel 2**, MTP k=3, fp8 KV, **262K ctx**, vision, 250 W/card, keyless) in a **dedicated LXC** on the GPU server host — unit `vllm-dual.service` inside that LXC.
+**Runtime:** vLLM **0.28.0** (W4A16-AutoRound, **tensor-parallel 2**, MTP k=3, fp8 KV, **262K ctx**, vision, **220 W/card** — interim since 2026-09-21, GPU 1 overheating, see [hardware/gpu-server.md](hardware/gpu-server.md); keyless) in a **dedicated LXC** on the GPU server host — unit `vllm-dual.service` inside that LXC.
 
 ```bash
 # From the Proxmox host (the vLLM LXC):
 pct exec <vllm-lxc-id> -- systemctl status vllm-dual
 pct exec <vllm-lxc-id> -- journalctl -u vllm-dual -f
 # Health (from inside the LXC or over the LAN):
-curl -s http://localhost:8082/health
+curl -s http://localhost:8080/health
 
 # Rollback to the pre-cutover single-3090 vLLM 0.27.1 (disabled unit kept as .bak-*),
 # or to stock llama.cpp (Q4_K_M + native MTP, dormant config) —

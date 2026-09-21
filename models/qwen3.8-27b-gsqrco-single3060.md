@@ -13,7 +13,7 @@
 
 **Config:** 64K ctx (the MTP ceiling), MTP n-max 2 (accept ~60% at ISTA sampling), `-b 256 -ub 128`, **q4_0/q4_0 KV**, mmproj on CPU (`--mmproj-device none`), ISTA instruct sampling (temp 0.7 / top_p 0.80 / top_k 20 / presence 1.5) with no-think (`chat_template_kwargs: {"enable_thinking": false}`), single slot.
 
-**Measured:** **25–29 t/s decode** (22.5–29.8 on the i3-9100 box), prefill ~300–425 tok/s, MTP mean accepted length ~2.2, **11.7 GB VRAM** (577 MiB headroom), vision working at ~26 t/s. No-MTP at 98K: 15.8–19.8 t/s (parked, off-roster). First load is a ~10 GB no-mmap disk read (tens of seconds to a couple of minutes); a mux-triggered 35B↔27B switch runs ~30–60 s per direction.
+**Measured:** **25–29 t/s decode** (22.5–29.8 on the i3-9100 box), prefill ~300–425 tok/s, MTP mean accepted length ~2.2, **11.7 GB VRAM** (577 MiB headroom), vision working at ~26 t/s. No-MTP at 98K: 15.8–19.8 t/s (parked, off-roster). First load is a ~10 GB no-mmap disk read (tens of seconds to a couple of minutes); a mux-triggered 35B↔27B switch runs ~30–60 s per direction. **Live fleet (llm-hub, 7 days after shipping) corroborates the campaign:** ~24–28 t/s on real agent traffic on the secondary box. (The backup box's 7-day average reads lower — 15.6 t/s — from sparse traffic; the mux's synthesized counters are a coarse approximation, so the controlled campaign numbers stay authoritative.)
 
 **Ceilings (measured, 12 GB card, 3-bit):**
 
