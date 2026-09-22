@@ -25,6 +25,7 @@ The quants trade quality against context headroom; on the 12 GB boxes that trade
 
   [![LLM Hub fleet overview: per-GPU state and live model throughput](hub/screenshots/llm-hub-overview-crop.png)](hub/README.md)
 
+- **[openjev/](openjev/README.md)** — live service: local [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev)-compatible one-pass decision endpoint (Laya 421M, CPU) + playground with a design-by-chat prompter — the runnable companion to [decision-classifiers](docs/decision-classifiers.md).
 - **[web/](web/README.md)** — benchmark UI (legacy front-end for the context-ladder harness; current campaigns use per-campaign scripts).
 - **[scripts/](scripts/)** — small tooling (logged `llama-bench`, model-info fetcher); the older context-ladder harness is under `scripts/legacy/`.
 - **[agents/](agents/)** — agent-facing operational tooling (pi-style skills): [campaign-designer](agents/campaign-designer/SKILL.md) — how to *design* measurement campaigns (question → cells → gates → evidence discipline, the platform contract, and the review lessons), subsumed and retired the older `llmlab-bench` skill (its durable methodology lives in the new skill; volatile build tables are deliberately not copied). The operational companion to [docs/benchmarks.md](docs/benchmarks.md).
