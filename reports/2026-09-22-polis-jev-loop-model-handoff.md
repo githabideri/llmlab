@@ -47,3 +47,23 @@ Questions: (a) does the Qwen3.5-VL architecture load and run on a Pascal-era CUD
 - Runner + corpus on the CPU LXC: `/opt/jevab/` (`ab-runner.py`, `corpus/data/`, `weights/`, per-model venvs).
 - Model provenance: the 2026-09-20 "Open Jev Models" roundup (Witteveen) — Laya, NanoJev, Decider, SemIf (ex-OpenJev), Nimble 9B and DiffusionGemma 26B excluded from CPU A/B (too heavy), JevBench at benchmarkheaven.com for external baselines.
 - Polis loop report: `docs/reports/2026-09-22-bot-cargo-and-decision-harness.md` (mod repo).
+
+## Addendum 2026-09-22 evening (supersedes §2 status for Laya; hosting change for §2)
+
+**Laya 421M A/B complete** (41-row merged corpus, 27 mine + 14 harvest):
+top-1 **mine 63.0% / harvest 0.0%** (overall 41.5%), mean p_oracle 0.335
+(mine 0.386, harvest 0.238), Brier 0.641, conf correct 0.481 vs wrong 0.378,
+**10.4 s/question** on the 4-core CPU box. Two independent disqualifiers for
+the live-loop role: (1) domain shift — Laya was trained in our loop on
+mine-format states and has never seen harvest-format ones (0/14, as expected
+for 421M out-of-distribution); (2) latency — 10 s/decision is two orders
+above the loop's 1–2 s cadence. Implication for any general-purpose Jev:
+one classifier per state schema, or training on the merged corpus.
+
+**Hosting change.** Decider 2B and Qwen3.5-4B (SemIf base) do not fit the
+4-core/4G A/B box (bf16 2B ≈ 4G weights alone; 4B ≈ 8G) and Decider's
+gated-delta-net kernels are triton/GPU-only. Both now run on the 2x24G box,
+**CPU bf16** (64G RAM, 8 cores); for Decider the `fla` import is suppressed
+so transformers takes its pure-torch reference GDR path. Same corpus, same
+runner, same metrics; latency is per-box, which is the deployment-relevant
+number. Weights were still downloading at writing time (slow CDN line).
