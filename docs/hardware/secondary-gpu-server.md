@@ -14,9 +14,11 @@
 | RAM | 32 GB (4× 8 GB) |
 | Board | Gigabyte B250-HD3P (ATX, Intel B250) |
 | System disk | 466 GB Samsung 860 EVO 500 GB NVMe (Proxmox 9.2; ~49 G root LV + models LV) |
-| GPU 1 | RTX 3060 12 GB **LHR** — x16 slot, host-side (driver 595.x); power limit at the card default (170 W, no custom limit); idle draw ~15 W; **PCIe link observed running at 2.5 GT/s (Gen1) against an 8 GT/s (Gen2) slot cap** |
+| GPU 1 | RTX 3060 12 GB **LHR** — x16 slot, host-side (driver 595.x); power limit at the card default (170 W, no custom limit); idle draw ~15 W |
 | GPU 2/3 | GTX 1050 2 GB + GT 1030 2 GB (Pascal, CC 6.1) — VFIO-passthrough (pcie=1) to the 4-vCPU / 8 GB VM; `power.draw` not reported by nvidia-smi on these cards (null-tolerant handling, see the WhisperX report) |
 | iGPU | Intel UHD 630 (unused by GPU workloads) |
+
+> **PCIe note:** an idle GPU here reports a Gen1 link (`LnkSta` 2.5 GT/s below `LnkCap`) — normal NVIDIA power management; the link retrains to full speed under load. Not a finding. (The 2 GB Pascal cards in the VM are the separate, documented board-level case — see the WhisperX report.)
 
 ## What's deployed
 

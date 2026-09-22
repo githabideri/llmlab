@@ -16,6 +16,8 @@
 | Backup | nightly source for a Proxmox Backup Server VM (PBS datastore lives on a separate host); the former 4× 16 TB local HDDs are removed |
 | GPU | RTX 3060 12 GB — CPU PCIe x16 |
 
+> **PCIe note:** the idle GPU reports a Gen1 link — normal NVIDIA power management; it retrains to full speed under load (the 2026-06-30 report walked through exactly this). Not a finding.
+
 ## Why it exists
 
 The x16 slot was vacant and a single inference machine is a single point of failure, so the box doubles as a secondary llama.cpp MTP endpoint on the 3060.
