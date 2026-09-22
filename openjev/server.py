@@ -19,7 +19,7 @@ Configuration (env, all optional):
   OPENJEV_DATA             saved-use-case file (default: <this dir>/data/usecases.json)
   OPENJEV_HUB_URL          llm-hub base URL (prompter only; without it /api/agent/* is 503)
   OPENJEV_HUB_TOKEN_FILE   file holding the hub bearer token (default: ~/.llm-hub-token)
-  OPENJEV_HUB_PRIORITY     JSON map server-name -> priority for the prompter picker
+  OPENJEV_HUB_PRIORITY     priority per hub server: compact "name:1,name:2" list (unit-friendly) or JSON map
   OPENJEV_LAN_PREFIXES     comma-separated URL prefixes treated as directly reachable
 """
 import json
@@ -406,12 +406,33 @@ async def bench(request: dict):
 # /api/agent/* routes answer 503 and the UI's prompter panel reports that.
 HUB_URL = os.environ.get("OPENJEV_HUB_URL", "")
 HUB_TOKEN_FILE = Path(os.environ.get("OPENJEV_HUB_TOKEN_FILE", str(Path.home() / ".llm-hub-token")))
-# Display/selection priority per hub server name (lower = preferred): JSON map.
-HUB_PRIORITY = json.loads(os.environ.get("OPENJEV_HUB_PRIORITY", "{}"))
+# Display/selection priority per hub server name (lower = preferred).
+# Compact list "name:1,name:2" (unit-friendly: no quotes, no spaces) or a JSON map.
 # URL prefixes that count as directly reachable from this process (e.g. the
 # local LAN range, when this box can't use Tailscale). Models served only
 # outside these prefixes are shown but disabled. Empty = all http(s) reachable.
 _LAN_PREFIXES = [p for p in os.environ.get("OPENJEV_LAN_PREFIXES", "").split(",") if p]
+
+
+def _parse_priority(spec):
+    spec = (spec or "").strip()
+    if not spec:
+        return {}
+    try:
+        v = json.loads(spec)
+        if isinstance(v, dict):
+            return {str(k): int(x) for k, x in v.items()}
+    except ValueError:
+        pass
+    out = {}
+    for part in spec.split(","):
+        name, _, prio = part.strip().partition(":")
+        if name:
+            out[name] = int(prio or 9)
+    return out
+
+
+HUB_PRIORITY = _parse_priority(os.environ.get("OPENJEV_HUB_PRIORITY", ""))
 
 AGENT_SYSTEM = """You are the openjev prompter: a design assistant for one-pass classifiers.
 The user describes a decision they want to automate; you discuss it with them and, when ready, emit a ready-to-run use case.

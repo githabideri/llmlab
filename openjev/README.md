@@ -57,7 +57,7 @@ gate at all; the regime map and the measured thresholds live in
 | `OPENJEV_DATA` | `<app dir>/data/usecases.json` | Where saved use cases persist |
 | `OPENJEV_HUB_URL` | *(unset → prompter disabled)* | llm-hub base URL (see [../hub](../hub/README.md)); serves the prompter's design models |
 | `OPENJEV_HUB_TOKEN_FILE` | `~/.llm-hub-token` | File with the hub bearer token (chmod 600) |
-| `OPENJEV_HUB_PRIORITY` | `{}` | JSON map server-name → priority for the prompter's model picker (lower = preferred) |
+| `OPENJEV_HUB_PRIORITY` | *(empty)* | Prompter picker priority per hub server: compact list `name:1,name:2` (unit-friendly — no quotes/spaces) or a JSON map |
 | `OPENJEV_LAN_PREFIXES` | *(empty = everything http(s) reachable)* | Comma-separated URL prefixes counted as directly reachable from this process — models outside them (e.g. Tailscale-only, when the host has no TUN) are shown but disabled |
 
 `HF_HUB_OFFLINE=1` on the unit is deliberate: it bounds the cold-boot window
@@ -91,7 +91,7 @@ Environment=HF_HUB_DISABLE_PROGRESS_BARS=1
 Environment=HF_HUB_OFFLINE=1
 # prompter (all optional — without HUB_URL the /api/agent/* routes answer 503)
 Environment=OPENJEV_HUB_URL=http://<hub>:8443
-Environment=OPENJEV_HUB_PRIORITY={"vllm-3090": 1}
+Environment=OPENJEV_HUB_PRIORITY=vllm-3090:1
 # Environment=OPENJEV_LAN_PREFIXES=http://<lan-network>
 ExecStart=/opt/openjev/venv/bin/python /opt/openjev/app/server.py
 Restart=on-failure
