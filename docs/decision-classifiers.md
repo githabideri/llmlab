@@ -4,7 +4,7 @@ Designing, calibrating, and evolving one-pass decision classifiers: 421M-class b
 
 ## What you're programming
 
-The reference implementation here is [Laya 0.1.6](https://huggingface.co/convaiinnovations/laya): ModernBERT-large (395M) + a decision head (2 transformer layers, option-marker scorer, act/escalate head), 421M total, trained with **RLCD** — reinforcement learning against strictly proper scoring rules, so *reporting honest probabilities is the only way to maximise reward*. Self-hosted on a 2-core CPU container in this fleet; one call ≈ 0.5–5 s, batch ≤ 25, no auth (LAN-only).
+The reference implementation here is [Laya 0.1.6](https://huggingface.co/convaiinnovations/laya): ModernBERT-large (395M) + a decision head (2 transformer layers, option-marker scorer, act/escalate head), 421M total, trained with **RLCD** — reinforcement learning against strictly proper scoring rules, so *reporting honest probabilities is the only way to maximise reward*. Self-hosted in this fleet via [openjev/](../openjev/README.md) — a Jev-schema endpoint + playground on a 2-core CPU container (the prompter's system prompt in `openjev/server.py` is an operational distillation of this document); one call ≈ 0.5–5 s, batch ≤ 25, no auth (LAN-only).
 
 - **Hard budget:** 512 tokens per question (state + instructions + options combined). Long documents → pre-extract; the model cannot read a 4k-token ticket.
 - Every question is an independent question about the *same* state, answered in one parallel forward pass. No chaining between questions; a dependent question is a second call.

@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>openjev — calibrated decision bench</title>
+<!--
+  Design brief (2026-09-19, deliberate — unslop-ui discipline: a tell is an
+  unspecified default, not a banned color).
+  Reference:  test instrument / engineering datasheet (Fluke-panel + spec-sheet
+              semantics — the app is a measuring device: state in, calibrated
+              probabilities out). Layout is master-detail: case list left,
+              live workbench right — the editor is always in view, never below
+              the list (v1's scroll-to-edit was a defect).
+  Color:      cool paper neutral + ink + ONE signal amber. No purple/indigo,
+              no gradients, no glow, no shadows, not the cream+serif+sage 2026
+              "tasteful default". Dark scheme is a neutral inversion of the
+              same language (system-dependent via prefers-color-scheme; dark
+              mode itself is not a tell — unprompted glow is).
+  Type:       IBM Plex Sans (text) + IBM Plex Mono (all numbers, labels, code).
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f2f3f0;      /* page — cool neutral, not cream */
+    --panel: #e8eae6;      /* field / selected surfaces */
+    --ink:   #17191b;      /* primary text / rules */
+    --mute:  #5d625e;      /* secondary text */
+    --rule:  #c9ccc7;      /* light rules */
+    --amber: #c25e0f;      /* signal: active, answers, primary action */
+    --amber-hov: #9e4a0b;  /* action hover */
+    --btn-fg: #ffffff;
+    --green: #1e6f42;      /* semantic: act/calibrated ok */
+    --red:   #b3382c;      /* semantic: error */
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    --sans: "IBM Plex Sans", system-ui, sans-serif;
+  }
+  /* dark scheme: system-dependent by default; overridable per-visitor via data-theme */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #141615;
+      --panel: #1e2120;
+      --ink:   #e6e8e4;
+      --mute:  #8b918c;
+      --rule:  #2d312f;
+      --amber: #e07b2d;    /* brighter on dark for contrast — still one hue, no glow */
+      --amber-hov: #f08a3e;
+      --btn-fg: #141615;
+      --green: #58b98a;
+      --red:   #e0655a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #141615;
+    --panel: #1e2120;
+    --ink:   #e6e8e4;
+    --mute:  #8b918c;
+    --rule:  #2d312f;
+    --amber: #e07b2d;
+    --amber-hov: #f08a3e;
+    --btn-fg: #141615;
+    --green: #58b98a;
+    --red:   #e0655a;
+  }
+  #theme-btn { background: none; border: 1px solid var(--mute); border-radius: 0; color: var(--mute);
+               font: 500 11px var(--mono); padding: 4px 10px; cursor: pointer; letter-spacing: 0.04em; }
+  #theme-btn:hover { color: var(--ink); border-color: var(--ink); }
+  #gate { background: none; border: 1px solid var(--mute); border-radius: 0; color: var(--mute);
+          font: 500 11px var(--mono); padding: 3px 6px; cursor: pointer; }
+  .qa.gated .ans { color: var(--mute); }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); }
+  body { margin: 0; color: var(--ink); font: 15px/1.5 var(--sans); }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---- header: nameplate ---- */
+  header { padding: 26px 0 0; }
+  .nameplate { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .nameplate h1 { margin: 0; font: 600 20px/1 var(--mono); letter-spacing: -0.02em; }
+  .nameplate h1 .mark { color: var(--amber); }
+  .nameplate .model { font: 400 12px/1 var(--mono); color: var(--mute); }
+
+  /* ---- status rail: the instrument readout ---- */
+  .rail { display: flex; flex-wrap: wrap; margin-top: 18px; border-top: 2px solid var(--ink);
+          border-bottom: 1px solid var(--rule); }
+  .rail .cell { padding: 10px 20px 10px 0; margin-right: 20px; border-right: 1px solid var(--rule); min-width: 100px; }
+  .rail .cell:last-child { border-right: none; margin-right: 0; }
+  .rail .k { font: 400 10.5px/1 var(--mono); color: var(--mute); text-transform: uppercase; letter-spacing: 0.04em; }
+  .rail .v { font: 600 14px/1.3 var(--mono); margin-top: 4px; }
+  .rail .v.dim { color: var(--mute); font-weight: 400; }
+
+  /* ---- tabs: numbered, ruled, no pills ---- */
+  nav { display: flex; gap: 0; margin-top: 24px; border-bottom: 2px solid var(--ink); }
+  nav button { background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
+               padding: 9px 18px; cursor: pointer; font: 500 13px var(--mono); color: var(--mute); }
+  nav button:hover { color: var(--ink); }
+  nav button.on { color: var(--ink); border-bottom-color: var(--amber); font-weight: 600; }
+  main { padding: 22px 0 70px; }
+  .tab { display: none; }
+  .tab.on { display: block; }
+  h2 { font: 600 13px var(--mono); color: var(--mute); margin: 0 0 14px; }
+  h2 .n { color: var(--amber); }
+
+  /* ---- master-detail: cases left, workbench right (always in view) ---- */
+  .split { display: grid; grid-template-columns: 330px 1fr; gap: 36px; align-items: start; }
+
+  .cases { border-top: 2px solid var(--ink); }
+  .case { display: grid; grid-template-columns: 30px 1fr; gap: 2px 12px; padding: 11px 12px;
+          border-bottom: 1px solid var(--rule); cursor: pointer; }
+  .case:hover { background: var(--panel); }
+  .case.sel { background: var(--panel); box-shadow: inset 3px 0 0 var(--amber); }
+  .case .num { font: 400 11.5px var(--mono); color: var(--mute); padding-top: 2px; grid-column: 1; }
+  .case .name { font: 600 14px/1.3 var(--sans); grid-column: 2; }
+  .case .meta { grid-column: 2; font: 400 11.5px/1.5 var(--mono); color: var(--mute); }
+  .case .meta .sum { font-family: var(--sans); font-size: 12.5px; }
+  .case .meta .sum::before { content: "— "; }
+  .cases .hint { padding: 10px 12px; font: 400 11.5px var(--mono); color: var(--mute);
+                 border-bottom: 1px solid var(--rule); }
+
+  /* ---- workbench ---- */
+  .wb { min-width: 0; }
+  .wb .for { font: 400 12px var(--mono); color: var(--mute); margin-bottom: 10px; }
+  .wb .for b { color: var(--ink); font-weight: 600; }
+  label.f { display: block; font: 500 12px var(--mono); color: var(--ink); margin: 0 0 6px; }
+  textarea { width: 100%; background: var(--panel); border: 1px solid var(--ink); border-radius: 0;
+             padding: 12px; font: 400 13px/1.55 var(--mono); color: var(--ink); resize: vertical; }
+  textarea:focus { outline: 2px solid var(--amber); outline-offset: 0; }
+  .row { display: flex; gap: 14px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+  .btn { background: var(--amber); color: var(--btn-fg); border: 1px solid var(--amber-hov); border-radius: 0;
+         padding: 10px 22px; font: 600 13px var(--mono); cursor: pointer; letter-spacing: 0.02em; }
+  .btn:hover { background: var(--amber-hov); }
+  .btn:disabled { opacity: 0.55; cursor: wait; }
+  .ms { font: 400 12px var(--mono); color: var(--mute); }
+
+  /* ---- results: ruled blocks ---- */
+  .result { margin-top: 22px; }
+  .qa { border-top: 2px solid var(--ink); padding: 13px 0 17px; }
+  .qa + .qa { border-top: 1px solid var(--ink); }
+  .qa .head { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+  .qa .name { font: 600 14px var(--mono); }
+  .tag { font: 500 10.5px var(--mono); border: 1px solid var(--mute); color: var(--mute);
+         padding: 2px 7px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .qa .ans { font: 600 15px var(--mono); color: var(--amber); }
+  .prob { margin-top: 10px; }
+  .prow { display: grid; grid-template-columns: minmax(120px, 240px) 1fr 60px; gap: 10px; align-items: center;
+          font: 400 12.5px var(--mono); padding: 2.5px 0; }
+  .prow .lab { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--mute); }
+  .prow .track { height: 7px; border: 1px solid var(--rule); background: var(--paper); min-width: 0; }
+  .prow .track i { display: block; height: 100%; background: var(--mute); }
+  .prow.top .lab { color: var(--ink); font-weight: 600; }
+  .prow.top .track { border-color: var(--ink); }
+  .prow.top .track i { background: var(--amber); }
+  .prow .pct { text-align: right; color: var(--mute); font-variant-numeric: tabular-nums; }
+  .prow.top .pct { color: var(--ink); font-weight: 600; }
+  .conf { font: 400 11.5px var(--mono); color: var(--mute); margin-top: 8px; }
+  .conf .ok { color: var(--green); }
+  .usage { font: 400 12px var(--mono); color: var(--mute); margin-top: 16px; border-top: 1px solid var(--rule); padding-top: 10px; }
+  .usage b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .err { color: var(--red); font: 500 13px var(--mono); }
+
+  /* ---- freeform + benchmark ---- */
+  .full { max-width: 900px; }
+  .split2 { display: grid; grid-template-columns: minmax(0, 1fr) 480px; gap: 36px; align-items: start; }
+  .prompter { border: 1px solid var(--ink); background: var(--panel); }
+  .prompter h2 { border-bottom: 1px solid var(--rule); margin: 0; padding: 12px 14px; }
+  .pm-model-row { padding: 12px 14px 0; }
+  .pm-model-row select { width: 100%; }
+  .pm-status { font: 400 11px var(--mono); color: var(--mute); margin-top: 6px; }
+  .pm-log { height: 300px; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
+            border-top: 1px solid var(--rule); }
+  .msg { font: 400 12.5px/1.55 var(--mono); padding: 8px 10px; max-width: 96%; }
+  .msg .who { display: block; font-size: 10.5px; color: var(--mute); margin-bottom: 3px; }
+  .msg .body { white-space: pre-wrap; word-break: break-word; }
+  .msg.user { align-self: flex-end; border: 1px solid var(--ink); }
+  .msg.agent { align-self: flex-start; border: 1px solid var(--rule); background: var(--paper); }
+  .msg .body.typing::after { content: "▌"; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .msg .think { color: var(--mute); font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+                 border-left: 1px solid var(--rule); padding-left: 8px; margin-bottom: 6px; max-height: 110px;
+                 overflow: hidden; }
+  .msg .think-label { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 3px; }
+  .pm-input-row { display: flex; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--rule); }
+  #pm-in { flex: 1; min-width: 0; background: var(--paper); border: 1px solid var(--ink); border-radius: 0;
+           padding: 8px 10px; font: 400 12.5px/1.4 var(--mono); color: var(--ink);
+           resize: none; overflow-y: auto; max-height: 120px; }
+  #pm-in:focus { outline: 2px solid var(--amber); }
+  .pm-hint { padding: 0 14px 12px; font: 400 11px/1.6 var(--mono); color: var(--mute); }
+  .pm-hint b { color: var(--ink); }
+  .apply-btn { margin-top: 10px; padding: 6px 12px; font-size: 11.5px; }
+  .selrow { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-end; }
+  .selrow > div label { display: block; font: 500 12px var(--mono); margin-bottom: 6px; }
+  select { background: var(--panel); border: 1px solid var(--ink); border-radius: 0; padding: 8px 12px;
+           font: 400 13px var(--mono); color: var(--ink); }
+  table.bench { border-collapse: collapse; margin-top: 18px; width: 100%; }
+  table.bench th, table.bench td { font: 400 12.5px var(--mono); text-align: left; padding: 7px 14px 7px 0;
+                                   border-bottom: 1px solid var(--rule); font-variant-numeric: tabular-nums; }
+  table.bench th { color: var(--mute); border-bottom: 1px solid var(--ink); }
+  .note { font-size: 13.5px; color: var(--mute); margin-top: 16px; max-width: 760px; }
+  .note code { font: 400 12px var(--mono); background: var(--panel); padding: 1px 4px; }
+
+  footer { border-top: 1px solid var(--rule); margin-top: 30px; padding: 14px 0 40px;
+           font: 400 11.5px/1.7 var(--mono); color: var(--mute); }
+  footer a { color: var(--ink); }
+  footer a:hover { color: var(--amber); }
+
+  .case .del { margin-left: auto; background: none; border: none; color: var(--mute); cursor: pointer;
+                font: 400 11px var(--mono); padding: 2px 4px; }
+  .case .del:hover { color: var(--red); }
+  .group-h { font: 500 11px var(--mono); color: var(--mute); letter-spacing: 0.08em; text-transform: uppercase;
+             padding: 10px 0 4px; border-top: 1px solid var(--rule); }
+
+  @media (max-width: 900px) {
+    .split { grid-template-columns: 1fr; gap: 22px; }
+    .split2 { grid-template-columns: 1fr; gap: 22px; }
+    .cases { max-height: 44vh; overflow-y: auto; }
+    .pm-log { height: 240px; }
+  }
+  @media (min-width: 901px) and (max-width: 1280px) {
+    .split2 { grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="nameplate">
+      <h1><span class="mark">■</span> openjev</h1>
+      <div style="margin-left:auto; display:flex; gap:14px; align-items:baseline">
+        <button id="theme-btn" title="cycle: system → light → dark">theme: auto</button>
+        <select id="gate" title="answers with confidence below this are shown as undetermined (score questions are never gated; note: confidence can only truly gate CONCRETE-OBSERVABLE questions — for comparative questions it is information only, see the decision-classifiers methodology in the llmlab repo)">
+          <option value="0">gate: off</option><option value="40">gate: 40%</option>
+          <option value="50" selected>gate: 50%</option><option value="70">gate: 70%</option>
+        </select>
+        <div class="model">OV-01 · calibrated decision bench · laya 421M / rlcd</div>
+      </div>
+    </div>
+    <div class="rail" id="rail">
+      <div class="cell"><div class="k">model</div><div class="v" id="r-model">—</div></div>
+      <div class="cell"><div class="k">params</div><div class="v" id="r-params">—</div></div>
+      <div class="cell"><div class="k">load</div><div class="v" id="r-load">—</div></div>
+      <div class="cell"><div class="k">state</div><div class="v" id="r-state">booting</div></div>
+      <div class="cell"><div class="k">last call</div><div class="v" id="r-last">—</div></div>
+      <div class="cell"><div class="k">output tokens</div><div class="v">0 <span class="dim">(by construction)</span></div></div>
+      <div class="cell"><div class="k">mode</div><div class="v">cpu · 2c</div></div>
+    </div>
+  </header>
+
+  <nav>
+    <button id="tab-play" class="on" onclick="showTab('play')">01 · use cases</button>
+    <button id="tab-free" onclick="showTab('free')">02 · freeform</button>
+    <button id="tab-bench" onclick="showTab('bench')">03 · benchmark</button>
+  </nav>
+
+  <main>
+    <section id="sec-play" class="tab on">
+      <div class="split">
+        <div>
+          <div class="cases">
+            <div class="hint">pick a case — the editor on the right follows</div>
+            <div id="cases-list" style="border-top:1px solid var(--rule)"></div>
+          </div>
+        </div>
+        <div class="wb" id="wb">
+          <div class="for" id="wb-for">no case selected yet</div>
+          <label class="f" for="state">state</label>
+          <textarea id="state" rows="7" spellcheck="false" placeholder="paste the text the decision is about — an email, ticket, comment, log…"></textarea>
+          <div class="row">
+            <button class="btn" id="run" onclick="runCurrent()">run</button>
+            <button class="btn" id="wsave" onclick="saveCurrentCase()" title="save this case to the catalog (built-in → fork under a new id; saved → update in place)">save</button>
+            <span class="ms" id="lat"></span>
+          </div>
+          <div class="result" id="res"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec-free" class="tab">
+      <div class="split2">
+        <div class="col-editor">
+        <h2><span class="n">02</span> raw jev schema — this is <code style="font-family:var(--mono)">/v1/systemone</code> with a face (or let the prompter write it for you)</h2>
+        <label class="f" for="fstate" style="margin-top:8px">state <span style="color:var(--mute);font-weight:400">— string, json object, or message array</span></label>
+        <textarea id="fstate" rows="3" spellcheck="false">The deploy failed twice and customers are seeing 500s. Can someone look now?</textarea>
+        <label class="f" for="fquestions">questions <span style="color:var(--mute);font-weight:400">— json map of choice / score / noul</span></label>
+        <textarea id="fquestions" rows="14" spellcheck="false">{
+  "urgent": {
+    "type": "noul",
+    "instructions": "Does this need attention right now?"
+  },
+  "area": {
+    "type": "choice",
+    "instructions": "Which system area is affected?",
+    "options": ["frontend", "backend", "infra", "unknown"]
+  },
+  "severity": {
+    "type": "score",
+    "instructions": "Severity of the incident?",
+    "criteria": ["none", "low", "medium", "high", "critical"]
+  }
+}</textarea>
+        <div class="row">
+          <button class="btn" id="frun" onclick="runFree()">run</button>
+          <button class="btn" id="fsave" onclick="saveFreeform()" title="save state + questions to the catalog">save</button>
+          <span class="ms" id="flat"></span>
+        </div>
+        <div class="result" id="fres"></div>
+        <p class="note">Programmatic consumers: <code>POST /v1/systemone</code> with the same json — it speaks the
+        TypeSafe schema at any base url. Bulk: <code>POST /v1/batch</code> <code>{"states": […], "questions": {…}}</code>
+        → per-state answers (cap 25, sequential on CPU). <code>usage.output_tokens</code> is always 0: the model
+        scores options in one pass and never generates text. The <b>gate</b> control in the nameplate treats
+        choice/noul answers below the confidence threshold as undetermined (scores are never gated). Measured
+        caveat: confidence is a real gate for <b>concrete-observable</b> questions ("is a refund explicitly
+        requested?") but not for <b>comparative</b> ones ("does claim A contradict fact B?") — there, treat a
+        confident contradiction as an <i>advisory</i> flag and route the rest to a bigger model. Details in the
+        <a href="https://github.com/githabideri/llmlab/blob/main/docs/decision-classifiers.md">decision-classifiers methodology</a>.</p>
+        </div>
+        <div class="prompter">
+          <h2><span class="n">02b</span> prompter — build a classifier by chat</h2>
+          <div class="pm-model-row">
+            <label class="f" style="margin-bottom:6px">design model (llm-hub)</label>
+            <select id="pm-model"></select>
+            <div class="pm-status" id="pm-status">querying hub…</div>
+          </div>
+          <div class="pm-log" id="pm-log"></div>
+          <div class="pm-input-row">
+            <textarea id="pm-in" rows="1" placeholder="describe the decision you want to automate…" autocomplete="off"></textarea>
+            <button class="btn" id="pm-send">send</button>
+          </div>
+          <div class="pm-hint">Multi-turn: discuss the design, send back what you saw when you ran it, ask for
+          improvements. When the prompter is ready it emits a <b>use case</b> — load it into the editor with the
+          apply button, then hit run.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec-bench" class="tab">
+      <div class="full">
+        <h2><span class="n">03</span> latency vs question count — one prefill, one batched pass</h2>
+        <div class="selrow">
+          <div><label for="bq">questions / request</label>
+            <select id="bq"><option>1</option><option>2</option><option>5</option><option selected>10</option><option>25</option><option>50</option></select></div>
+          <div><label for="br">runs</label>
+            <select id="br"><option>3</option><option selected>7</option><option>15</option></select></div>
+          <button class="btn" id="bbtn" onclick="runBench()">benchmark</button>
+          <span class="ms" id="blat"></span>
+        </div>
+        <div id="bout"></div>
+        <p class="note">On this 2-core CPU box the cost is ~500-600 ms fixed + ~540 ms per question (each question
+        gets its own 512-token encoder slice, so it scales roughly linearly — the "free parallel pass" picture only
+        appears on a GPU, where the same model does ~35 ms per Laya's numbers). If sub-100 ms matters, the move is
+        to a 12 GB GPU card (Laya's own numbers: ~35 ms there), not bigger prompts.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    2-core cpu container · <a href="https://huggingface.co/convaiinnovations/laya">convaiinnovations/laya</a> (apache-2.0, 421m) ·
+    text-only — no vision or audio · methodology: <a href="https://github.com/githabideri/llmlab/blob/main/docs/decision-classifiers.md">decision-classifiers</a> ·
+    ecosystem: <a href="https://huggingface.co/spaces/multimodalart/jev-reproductions-tracker">jev reproductions tracker</a> ·
+    upstream: <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">typesafe jev</a>
+  </footer>
+</div>
+<script>
+const USECASES_URL = "/api/usecases";
+let usecases = [], current = null;
+
+function showTab(t) {
+  for (const n of ["play", "free", "bench"])
+    document.getElementById("sec-" + n).classList.toggle("on", n === t);
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.id === "tab-" + t));
+}
+
+function isNarrow() { return window.matchMedia("(max-width: 900px)").matches; }
+
+async function loadUseCases(keepId) {
+  usecases = await (await fetch(USECASES_URL)).json();
+  const list = document.getElementById("cases-list");
+  list.innerHTML = "";
+  const builtins = usecases.filter(u => u.origin !== "saved");
+  const saveds = usecases.filter(u => u.origin === "saved");
+  let i = 0;
+  for (const u of builtins) list.appendChild(caseRow(u, ++i));
+  if (saveds.length) {
+    const h = document.createElement("div");
+    h.className = "group-h"; h.textContent = "saved";
+    list.appendChild(h);
+    for (const u of saveds) list.appendChild(caseRow(u, "s"));
+  }
+  const first = builtins[0] || usecases[0];
+  if (first) select(keepId && usecases.some(u => u.id === keepId) ? keepId : first.id, !keepId);
+}
+
+function caseRow(u, num) {
+  const qtypes = [...new Set(Object.values(u.questions).map(q => q.type))].join(" · ");
+  const div = document.createElement("div");
+  div.className = "case"; div.id = "case-" + u.id;
+  div.innerHTML =
+    `<span class="num">${typeof num === "number" ? String(num).padStart(2, "0") : "·"}</span>` +
+    `<span class="name">${u.title}${u.origin === "saved" ? " <span class=\"sum\">saved</span>" : ""}</span>` +
+    `<span class="meta">${Object.keys(u.questions).length}q · ${qtypes}<span class="sum">${u.summary || ""}</span></span>` +
+    (u.origin === "saved" ? `<button class="del" title="delete this saved case">✕</button>` : "");
+  div.onclick = () => select(u.id);
+  if (u.origin === "saved")
+    div.querySelector(".del").onclick = (e) => {
+      e.stopPropagation();
+      if (confirm("delete saved case " + u.id + "?")) deleteUseCase(u.id);
+    };
+  return div;
+}
+
+async function deleteUseCase(id) {
+  const r = await fetch("/api/usecases/" + id, { method: "DELETE" });
+  if (r.ok) loadUseCases(current && current.id !== id ? current.id : undefined);
+  else document.getElementById("lat").textContent = "delete failed: " + (await r.text()).slice(0, 80);
+}
+
+async function saveCurrentCase() {
+  if (!current) return;
+  const saved = current.origin === "saved";
+  let id = current.id;
+  if (!saved) {
+    id = prompt("save as id (snake_case) — built-in cases can't be edited in place, this forks it:", current.id + "-custom");
+    if (!id) return;
+  }
+  const body = { id, title: current.title, state: document.getElementById("state").value, questions: current.questions };
+  const r = await fetch("/api/usecases" + (saved ? "/" + id : ""), {
+    method: saved ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+  });
+  document.getElementById("lat").textContent = r.ok ? (saved ? "saved" : "forked as " + id) : "save failed: " + (await r.text()).slice(0, 80);
+  if (r.ok) loadUseCases(id);
+}
+
+async function saveFreeform() {
+  let q;
+  try { q = JSON.parse(document.getElementById("fquestions").value); }
+  catch (e) { document.getElementById("flat").textContent = "not valid json: " + e.message.slice(0, 60); return; }
+  if (typeof q !== "object" || Array.isArray(q) || !Object.keys(q).length) {
+    document.getElementById("flat").textContent = "questions must be a non-empty map"; return;
+  }
+  const id = prompt("save as id (snake_case):", Object.keys(q)[0] + "-case");
+  if (!id) return;
+  const r = await fetch("/api/usecases", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, title: id, summary: "saved from the freeform editor", state: document.getElementById("fstate").value, questions: q })
+  });
+  document.getElementById("flat").textContent = r.ok ? "saved as " + id : "save failed: " + (await r.text()).slice(0, 80);
+  if (r.ok) loadUseCases();
+}
+
+function select(id, first) {
+  current = usecases.find(u => u.id === id);
+  document.querySelectorAll(".case").forEach(c => c.classList.remove("sel"));
+  const el = document.getElementById("case-" + id);
+  if (el) el.classList.add("sel");
+  document.getElementById("state").value = current.state;
+  document.getElementById("wb-for").innerHTML =
+    `case <b>${current.title}</b>${current.origin === "saved" ? " <span class=\"sum\">saved</span>" : ""} — ${Object.keys(current.questions).length} questions, one parallel pass`;
+  const ws = document.getElementById("wsave");
+  if (ws) ws.textContent = current.origin === "saved" ? "update" : "fork";
+  if (!first) {
+    document.getElementById("res").innerHTML = "";
+    document.getElementById("lat").textContent = "";
+    if (isNarrow()) document.getElementById("wb").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function renderAnswers(res, target) {
+  const box = document.getElementById(target);
+  box.innerHTML = "";
+  const answers = res.answers || {};
+  if (!Object.keys(answers).length && (res.error || res.detail)) {
+    const d = document.createElement("div");
+    d.className = "err";
+    d.textContent = typeof (res.detail) === "string" ? res.detail : JSON.stringify(res.detail || res.error);
+    box.appendChild(d);
+    return;
+  }
+  for (const [name, a] of Object.entries(answers)) {
+    const qa = document.createElement("div");
+    const gate = curGate();
+    const gated = a.type !== "score" && a.confidence != null && gate > 0 && a.confidence < gate / 100;
+    qa.className = "qa" + (gated ? " gated" : "");
+    let ans = "";
+    if (a.type === "choice" && a.choice) ans = gated ? "→ undetermined (top: " + a.choice + ")" : "→ " + a.choice;
+    if (a.type === "noul") ans = gated ? "→ undetermined (" + (a.noul * 100).toFixed(0) + "% yes)" : "→ " + (a.noul * 100).toFixed(1) + "% yes";
+    if (a.type === "score" && a.score != null) ans = "→ " + a.score.toFixed(2);
+    qa.innerHTML = `<div class="head"><span class="name">${name}</span><span class="tag">${a.type || "?"}</span><span class="ans">${ans}</span></div>`;
+    let probs = a.probabilities || {};
+    if (a.type === "noul" && !Object.keys(probs).length) probs = { "yes": a.noul, "no": 1 - a.noul };
+    const entries = Object.entries(probs).map(([k, v]) => [k, typeof v === "number" ? v : 0]).sort((x, y) => y[1] - x[1]);
+    if (entries.length) {
+      const top = a.type === "choice" ? a.choice
+        : a.type === "score" ? String(Math.round(a.score))
+        : (a.noul >= 0.5 ? "yes" : "no");
+      const body = document.createElement("div");
+      body.className = "prob";
+      for (const [k, p] of entries) {
+        const lab = (a.legend && a.type === "score") ? (a.legend[k] || k) : k;
+        const row = document.createElement("div");
+        row.className = "prow" + (k === top ? " top" : "");
+        row.innerHTML = `<span class="lab" title="${lab}">${lab}</span>
+          <span class="track"><i style="width:${(p * 100).toFixed(1)}%"></i></span>
+          <span class="pct">${(p * 100).toFixed(1)}%</span>`;
+        body.appendChild(row);
+      }
+      qa.appendChild(body);
+      if (a.confidence != null) {
+        qa.insertAdjacentHTML("beforeend", `<div class="conf">confidence ${(a.confidence * 100).toFixed(0)}%${gated ? " — below the " + gate + "% gate: treat as undetermined" : ""}</div>`);
+      }
+    }
+    box.appendChild(qa);
+  }
+  const u = res.usage || {};
+  if (u) box.insertAdjacentHTML("beforeend",
+    `<div class="usage">usage — input <b>${u.input_tokens ?? 0}</b> tok · output <b>${u.output_tokens ?? 0}</b> tok (no generation)${res.server_ms != null ? " · server <b>" + res.server_ms + " ms</b>" : ""}</div>`);
+}
+
+async function callSystemOne(state, questions) {
+  const t0 = performance.now();
+  const r = await fetch("/v1/systemone", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "openjev", state, questions })
+  });
+  const ms = Math.round(performance.now() - t0);
+  const res = await r.json().catch(() => ({}));
+  if (r.ok && res.usage) setLastCall(res.server_ms ?? ms);
+  return { res, ms, ok: r.ok };
+}
+
+async function setLastCall(ms) {
+  const el = document.getElementById("r-last");
+  if (el) el.textContent = ms + " ms";
+}
+
+async function runCurrent() {
+  if (!current) return;
+  const btn = document.getElementById("run"); btn.disabled = true;
+  document.getElementById("lat").textContent = "one pass…";
+  const { res, ok } = await callSystemOne(document.getElementById("state").value, current.questions);
+  btn.disabled = false;
+  document.getElementById("lat").textContent = ok ? "" : "error";
+  renderAnswers(ok ? res : { error: (typeof res.detail === "string" ? res.detail : "request failed") }, "res");
+}
+
+function tryParse(s) { const t = s.trim(); if (!t.startsWith("{") && !t.startsWith("[")) return s; return JSON.parse(t); }
+
+async function runFree() {
+  const btn = document.getElementById("frun"); btn.disabled = true;
+  document.getElementById("flat").textContent = "one pass…";
+  let state, questions;
+  try {
+    state = tryParse(document.getElementById("fstate").value);
+    questions = tryParse(document.getElementById("fquestions").value);
+  } catch (e) { btn.disabled = false; document.getElementById("flat").textContent = "json error: " + e.message; return; }
+  const { res, ok } = await callSystemOne(state, questions);
+  btn.disabled = false;
+  document.getElementById("flat").textContent = ok ? "" : "error";
+  renderAnswers(ok ? res : { error: (typeof res.detail === "string" ? res.detail : "request failed") }, "fres");
+}
+
+async function runBench() {
+  const btn = document.getElementById("bbtn"); btn.disabled = true;
+  document.getElementById("blat").textContent = "running…";
+  const r = await fetch("/api/bench", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ runs: +document.getElementById("br").value, n_questions: +document.getElementById("bq").value })
+  });
+  const b = await r.json();
+  btn.disabled = false;
+  if (b.model_load_sec) document.getElementById("r-load").textContent = b.model_load_sec + " s";
+  document.getElementById("blat").textContent =
+    `median ${b.median_ms} ms · p95 ${b.p95_ms} ms · min ${b.min_ms} ms · ≈ ${b.per_question_median_ms} ms/question`;
+  document.getElementById("bout").innerHTML = `<table class="bench">
+      <tr><th>run</th>${b.runs.map((_, i) => `<th>run ${i + 1}</th>`).join("")}</tr>
+      <tr><td>ms</td>${b.runs.map(x => `<td>${x}</td>`).join("")}</tr>
+      <tr><td>ms / question</td>${b.runs.map(x => `<td>${(x / b.n_questions).toFixed(0)}</td>`).join("")}</tr>
+    </table>
+    ${b.usage ? `<div class="usage">last usage — input <b>${b.usage.input_tokens}</b> tok · output <b>${b.usage.output_tokens}</b> tok</div>` : ""}`;
+}
+
+async function loadRail() {
+  try {
+    const h = await (await fetch("/api/health")).json();
+    document.getElementById("r-model").textContent = h.model || "—";
+    document.getElementById("r-params").textContent = (h.params_m || "—") + " m";
+    const stateEl = document.getElementById("r-state");
+    stateEl.textContent = h.state === "ready" ? "ready" : "loading…";
+    stateEl.className = "v" + (h.state === "ready" ? "" : " dim");
+    if (h.load_sec != null) document.getElementById("r-load").textContent = h.load_sec + " s";
+    else document.getElementById("r-load").textContent = "…";
+    if (h.last_ms != null) document.getElementById("r-last").textContent = h.last_ms + " ms";
+    if (h.state !== "ready") setTimeout(loadRail, 10000);  // power-on polling
+  } catch (e) { /* rail shows placeholders */ }
+}
+
+/* ---- theme toggle: system → light → dark (persisted; default = system) ---- */
+(function () {
+  const btn = document.getElementById("theme-btn");
+  const order = { null: "light", light: "dark", dark: null };
+  function cur() { return document.documentElement.getAttribute("data-theme") || null; }
+  function apply(t) {
+    if (t) document.documentElement.setAttribute("data-theme", t);
+    else document.documentElement.removeAttribute("data-theme");
+    btn.textContent = "theme: " + (t || "auto");
+    try { localStorage.setItem("openjev-theme", t || ""); } catch (e) {}
+  }
+  try { apply((localStorage.getItem("openjev-theme") || "") || null); } catch (e) { apply(null); }
+  btn.onclick = () => apply(order[cur()]);
+})();
+
+/* ---- confidence gate: treat low-confidence choice/noul answers as undetermined ---- */
+const gateSel = document.getElementById("gate");
+try { const g = localStorage.getItem("openjev-gate"); if (g && ["0", "40", "50", "70"].includes(g)) gateSel.value = g; } catch (e) {}
+gateSel.onchange = () => { try { localStorage.setItem("openjev-gate", gateSel.value); } catch (e) {} };
+function curGate() { return parseInt(gateSel.value || "50", 10); }
+
+/* ---- prompter agent: designs classifiers by chat against llm-hub models ---- */
+const pm = { models: [], hist: [], busy: false };
+
+function pmAdd(role, text) {
+  const log = document.getElementById("pm-log");
+  const el = document.createElement("div");
+  el.className = "msg " + role;
+  el.innerHTML = `<span class="who">${role === "user" ? "you" : "prompter"}</span>` +
+                 `<span class="body${role === "agent" ? " typing" : ""}"></span>`;
+  el.querySelector(".body").textContent = text;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+  return el;
+}
+
+async function loadAgentModels() {
+  const sel = document.getElementById("pm-model");
+  const status = document.getElementById("pm-status");
+  try {
+    const r = await fetch("/api/agent/models");
+    const list = await r.json();
+    if (!Array.isArray(list)) throw new Error(typeof list === "string" ? list : (list.detail || "hub error"));
+    pm.models = list;
+    sel.innerHTML = "";
+    for (const m of list) {
+      const o = document.createElement("option");
+      o.value = m.key;
+      o.textContent = m.label + (m.reachable ? "" : "   [" + m.note + "]");
+      o.disabled = !m.reachable;
+      sel.appendChild(o);
+    }
+    const first = list.find(m => m.reachable);
+    if (first) sel.value = first.key;
+    const n = list.filter(m => m.reachable).length;
+    status.textContent = n ? `${n}/${list.length} reachable now — priority-ordered` : "no models reachable right now";
+  } catch (e) {
+    status.textContent = "hub: " + e.message;
+  }
+}
+
+function pmMaybeApply(el, text) {
+  const m = text.match(/```usecase\s*([\s\S]*?)```/);
+  if (!m) return;
+  const btn = document.createElement("button");
+  btn.className = "btn apply-btn";
+  btn.textContent = "apply → editor";
+  btn.onclick = () => {
+    try {
+      const u = JSON.parse(m[1]);
+      const st = document.getElementById("fstate");
+      const q = document.getElementById("fquestions");
+      st.value = typeof u.state === "string" ? u.state : JSON.stringify(u.state, null, 1);
+      q.value = JSON.stringify(u.questions || {}, null, 1);
+      btn.textContent = "applied ✓";
+      if (window.matchMedia("(max-width: 900px)").matches) st.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (e) { btn.textContent = "json error: " + e.message; }
+  };
+  el.querySelector(".body").appendChild(document.createElement("br"));
+  el.querySelector(".body").appendChild(btn);
+}
+
+async function pmSend() {
+  if (pm.busy) return;
+  const input = document.getElementById("pm-in");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  input.style.height = "auto";
+  pm.hist.push({ role: "user", content: text });
+  pmAdd("user", text);
+  const agentEl = pmAdd("agent", "");
+  const body = agentEl.querySelector(".body");
+  const sendBtn = document.getElementById("pm-send");
+  pm.busy = true;
+  sendBtn.disabled = true;
+  let acc = "", think = "";
+  const thinkEl = document.createElement("div");
+  thinkEl.className = "think";
+  thinkEl.innerHTML = '<span class="think-label">thinking</span>';
+  body.appendChild(thinkEl);
+  try {
+    const key = document.getElementById("pm-model").value;
+    const r = await fetch("/api/agent/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, messages: pm.hist })
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      body.classList.remove("typing");
+      body.textContent = "✗ " + (typeof e.detail === "string" ? e.detail : JSON.stringify(e.detail || e));
+      return;
+    }
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    let finish = null;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const frame = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        for (const line of frame.split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          let d;
+          try { d = JSON.parse(line.slice(6)); } catch (e) { continue; }
+          if (d.r) {  // thinking preview (thinking models)
+            think += d.r;
+            thinkEl.innerHTML = "<span class=\"think-label\">thinking</span>";
+            thinkEl.appendChild(document.createTextNode(think));
+            const log = document.getElementById("pm-log");
+            log.scrollTop = log.scrollHeight;
+          }
+          if (d.t) {
+            acc += d.t;
+            body.textContent = acc;
+            body.appendChild(thinkEl);  // keep the (now collapsed-context) thinking line
+            const log = document.getElementById("pm-log");
+            log.scrollTop = log.scrollHeight;
+          }
+          if (d.err) {
+            body.classList.remove("typing");
+            body.textContent = "✗ upstream: " + d.err;
+            return;
+          }
+          if (d.done) {
+            body.classList.remove("typing");
+            finish = d.finish || null;
+            if (!acc) body.textContent = "(no content — " + (think ? "the model spent the whole budget on internal thinking; see above" : "empty reply") + ")";
+            else if (finish === "length") body.textContent = acc + "\n\n[cut off at the token limit — ask for a shorter reply]";
+            pm.hist.push({ role: "assistant", content: acc });
+            pmMaybeApply(agentEl, acc);
+          }
+        }
+      }
+    }
+    if (!acc) { body.classList.remove("typing"); if (!body.textContent) body.textContent = "(no data received)"; }
+  } catch (e) {
+    body.classList.remove("typing");
+    body.textContent = "connection error: " + e.message;
+  } finally {
+    pm.busy = false;
+    sendBtn.disabled = false;
+  }
+}
+document.getElementById("pm-send").onclick = pmSend;
+const pmIn = document.getElementById("pm-in");
+pmIn.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); pmSend(); } });
+pmIn.addEventListener("input", () => { pmIn.style.height = "auto"; pmIn.style.height = Math.min(pmIn.scrollHeight, 120) + "px"; });
+pmAdd("agent", "Design any one-pass classifier with me. Describe the decision (e.g. \"tell me if a news headline is clickbait\") and I'll shape it into a state + typed questions the bench can run, with a ready-to-apply use case. Ask what works and what doesn't on the 421M Laya backend — including when confidence can (and can't) gate an answer — and send back results to iterate.");
+
+loadUseCases();
+loadRail();
+loadAgentModels();
+</script>
+</body>
+</html>

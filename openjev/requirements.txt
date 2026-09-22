@@ -1,0 +1,7 @@
+# CPU box: install the CPU torch wheel FIRST — the default index ships CUDA wheels
+# (~900 MB, useless on a CPU box):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch
+laya>=0.1.6
+fastapi
+uvicorn
