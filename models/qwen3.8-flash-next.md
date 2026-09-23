@@ -14,6 +14,8 @@
 
 Full numbers, cell matrix, and the OOM/crash findings: [`reports/2026-09-20-flash-next-single-3060-moe-cache-backup.md`](../reports/2026-09-20-flash-next-single-3060-moe-cache-backup.md). The fork's hot-cache path is not bit-identical to cache-off under greedy decoding (see the 2026-09-13 single-3090 report).
 
+**Update (2026-09-23):** the pinned ubatch path (`GGML_CUDA_REGISTER_HOST=1`) is **not runnable on this host** — it page-locks mmap'd expert pages, pinning the CT cgroup at ~40 GB against the 40 GiB soft limit and hard-rebooting the 46 GiB no-swap box ([report](../reports/2026-09-23-flash-next-pinned-path-oom-unpinned-ub-sweep.md)). Unpinned quick test: the prod **ub 512** setting (45.8 t/s cold prefill @9.6K) already beats ub 1024 (26.1 t/s) on this box, so there is no ub gain to harvest here; fast-path numbers need a bigger-RAM host.
+
 ---
 
 ## Three-GPU campaign (frozen record)
