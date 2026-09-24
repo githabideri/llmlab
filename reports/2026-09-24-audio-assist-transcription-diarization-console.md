@@ -110,3 +110,42 @@ render any diarization payload in the same JSON shape (8-speaker ceiling).
   WAVs accumulate per job); no cleanup policy yet.
 - No auth — the service is exposed on a private overlay / LAN only, same
   posture as the WhisperX endpoint.
+
+## Addendum (same day): the streaming ASR sibling — Nemotron 3.5 ASR 0.6B
+
+The same release family includes **`nvidia/nemotron-3.5-asr-streaming-0.6b`**:
+a 0.6B FastConformer-RNNT (Parakeet-lineage) **cache-aware streaming ASR**
+model — 40 language locales via language-ID prompt conditioning (English,
+German, Hungarian, …), native punctuation & capitalization, per-token
+durations (word timestamps), runtime-configurable chunk sizes
+80/160/320/560/1120 ms, transformers-native, OpenMDW 1.1. This is the true
+word-level streaming counterpart to the diarization model — the piece
+WhisperX cannot provide.
+
+Measured on the audio box CPU (4-core i3-9100T, fp32, transformers 5.18-dev):
+
+| Mode | Audio | Compute | RTF | Notes |
+|---|---|---|---|---|
+| batch, German | 120 s | 21.5 s | 0.18 (5.6× realtime) | clean, punctuated, dates spelled out |
+| batch, English | 120 s | 19.3 s | 0.17 (5.9×) | clean, punctuated |
+| **streaming, 320 ms chunks** | 120 s | 92.5 s | **0.77 (1.3× realtime)** | 349 chunks; per-chunk compute mean 264 ms / median 249 ms |
+
+Findings:
+
+- **Genuinely streaming** (generator of mel chunks, encoder/decoder cache
+  chaining, one ~340 ms audio step per decode step, per-token durations) —
+  i.e. true word-level low-latency transcription, not batch.
+- **On this CPU it runs ~0.77 RTF at the 320 ms mode** — near, but not
+  comfortably, real-time. Batch is 5–6× real-time, so the model is fully
+  usable on this box for *batch* transcription already. Comfortable
+  real-time streaming wants GPU (the 1050-class would cover it) or int8
+  quantization (an int4 ONNX community build exists).
+- **Quality vs WhisperX** on our samples: comparable. Nemotron gives native
+  punctuation/capitalization and strong German; WhisperX gives word-level
+  timestamps via forced alignment. One RNNT quirk observed: short phrase
+  duplication at chunk boundaries.
+- **Not wired into the console yet.** Decision points: which host runs it
+  (the WhisperX host's GPU is the natural home — headroom to be checked),
+  whether it replaces or complements WhisperX (natural split: streaming ASR
+  for the live console's word stream, WhisperX for batch word timestamps),
+  and the int8 path for CPU real-time.
