@@ -114,3 +114,12 @@ claimed.
 - **Limits:** offline-only as deployed (streaming is a model capability, not
   yet implemented), 8-speaker ceiling, and accuracy is unverified against
   ground truth — treat speaker counts as a strong prior, not a label.
+
+**Addendum (same day, E2E complete):** the cross-site run (web console → overlay
+network → diar box → 27B) passed. Two practical findings: (1) the diar API must
+ffmpeg-decode uploads to 16 kHz WAV first — `transformers.load_audio` (librosa)
+cannot open mp4 without torchcodec; (2) on the 120 s *Futurama* clip the model
+found **4 speakers**, and the 27B's own character↔voice mapping (S1 Zoidberg,
+S2 Leela, S3 Marianne, S4 Bender — the scene's actual four characters) confirms
+the counts are right, not just plausible. German (1954 archival broadcast, 5
+voices) still awaits a human listen; no DER is claimed.
