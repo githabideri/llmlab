@@ -162,3 +162,44 @@ authors' FP8 + CUDA-graph path (their B300 numbers: 3.2 ms p50; on consumer
 hardware expect 10–30 ms). The reflex-layer wiring (Decider Q8 in the
 two-tier loop) is the next experiment; the box choice follows whichever tier
 is measured first.
+
+## Addendum 2026-09-25 (3rd session): deployed on a 12 GB consumer GPU; the reflex measures ~290 ms
+
+**Placement.** The Decider now runs on the **12 GB consumer GPU (RTX 3060) box
+behind the inference hub** — the box's model card, explicitly *not* the 24 GB
+production pair (which serves the 27B vLLM production service) and not the
+second 3060 box (owner's preference). The Q8_0 GGUF sits in that box's shared
+model store; in the model router it is the third model alongside two
+27B/35B models, with automatic load-on-demand and eviction (load ≈ 6 s,
+evict ≈ 4 s — the 2B and the 35B don't both fit the 12 GB card, so they
+alternate). The hub card and its Prometheus series picked the model up without
+any new scrape targets.
+
+**The HTTP readout protocol (the non-obvious part).** On llama.cpp main
+(build 925e1179), the OpenAI `top_logprobs` body key only feeds the *chat*
+path; on `/v1/completions` the raw `n_probs` body key must be sent. With
+`logprobs: true, n_probs: 8192, max_tokens: 1` the server returns the **raw
+full-vocabulary T=1 softmax** for the final slot (partial-sort over the whole
+row, no temperature, no sampler filtering). The Decider's T=1.3 readout is
+recovered exactly from it:
+
+    p_T(i) = p_1(i)^(1/1.3) / Σ_j p_1(j)^(1/1.3)      (over the option letters)
+
+(the partition-function constant cancels in the ratio) — so a stock
+llama.cpp server is a fully faithful Decider endpoint; no custom in-process
+client is needed in production.
+
+**Validation.** The same 41-row corpus re-run over HTTP/CUDA against the
+C-API/CPU Q8 reference: per-row Δp(oracle) 0.001–0.03 (one outlier 0.086, a
+row both runs chose correctly); top-1 identical on all 41 rows;
+conf-correct/conf-wrong 0.861/0.134 (CPU: 0.856/0.141). **Q8 on the GPU is
+the same floor as Q8 on the CPU** — kernel/float noise, not a new variable.
+
+**Latency — the reflex is real.** ~**290 ms per question end-to-end** from a
+LAN client (RTT + ~70–100 ms prefill for the 130-token harness prompt): ~12×
+faster than the 4-core CPU Q8 run and 4× inside the ≪1 s target. The
+remaining work on the two-tier loop is wiring, not science: Decider readout as
+the per-step reflex, the 421M noul as the cheap veto, the 27B as the
+escalation judge. Caveat for anyone replicating on a shared 12 GB card: the
+2B is *exclusive* with the 35B — a request for the other model pays a one-time
+~10–60 s switch.
