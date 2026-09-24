@@ -1,0 +1,367 @@
+{
+ "diar": {
+  "model": "synthetic-sample",
+  "n_speakers": 3,
+  "duration_s": 37.0,
+  "rtfx": 40,
+  "segments": [
+   {
+    "speaker": 0,
+    "start": 1.5,
+    "end": 4.8
+   },
+   {
+    "speaker": 1,
+    "start": 5.0,
+    "end": 8.2
+   },
+   {
+    "speaker": 2,
+    "start": 8.5,
+    "end": 12.0
+   },
+   {
+    "speaker": 1,
+    "start": 12.5,
+    "end": 16.8
+   },
+   {
+    "speaker": 0,
+    "start": 17.0,
+    "end": 21.5
+   },
+   {
+    "speaker": 2,
+    "start": 22.0,
+    "end": 26.0
+   },
+   {
+    "speaker": 0,
+    "start": 27.0,
+    "end": 31.0
+   },
+   {
+    "speaker": 1,
+    "start": 32.0,
+    "end": 36.5
+   }
+  ]
+ },
+ "transcript": {
+  "segments": [
+   {
+    "start": 1.5,
+    "end": 4.8,
+    "words": [
+     {
+      "start": 1.5,
+      "end": 1.72,
+      "word": "So"
+     },
+     {
+      "start": 1.78,
+      "end": 2.0,
+      "word": "what"
+     },
+     {
+      "start": 2.06,
+      "end": 2.28,
+      "word": "happened"
+     },
+     {
+      "start": 2.34,
+      "end": 2.56,
+      "word": "this"
+     },
+     {
+      "start": 2.62,
+      "end": 2.84,
+      "word": "morning"
+     }
+    ]
+   },
+   {
+    "start": 5.0,
+    "end": 8.2,
+    "words": [
+     {
+      "start": 5.0,
+      "end": 5.22,
+      "word": "The"
+     },
+     {
+      "start": 5.28,
+      "end": 5.5,
+      "word": "north"
+     },
+     {
+      "start": 5.56,
+      "end": 5.78,
+      "word": "gate"
+     },
+     {
+      "start": 5.84,
+      "end": 6.06,
+      "word": "was"
+     },
+     {
+      "start": 6.12,
+      "end": 6.34,
+      "word": "still"
+     },
+     {
+      "start": 6.4,
+      "end": 6.62,
+      "word": "locked"
+     }
+    ]
+   },
+   {
+    "start": 8.5,
+    "end": 12.0,
+    "words": [
+     {
+      "start": 8.5,
+      "end": 8.72,
+      "word": "I"
+     },
+     {
+      "start": 8.78,
+      "end": 9.0,
+      "word": "left"
+     },
+     {
+      "start": 9.06,
+      "end": 9.28,
+      "word": "the"
+     },
+     {
+      "start": 9.34,
+      "end": 9.56,
+      "word": "keys"
+     },
+     {
+      "start": 9.62,
+      "end": 9.84,
+      "word": "in"
+     },
+     {
+      "start": 9.9,
+      "end": 10.12,
+      "word": "the"
+     },
+     {
+      "start": 10.18,
+      "end": 10.4,
+      "word": "shed"
+     }
+    ]
+   },
+   {
+    "start": 12.5,
+    "end": 16.8,
+    "words": [
+     {
+      "start": 12.5,
+      "end": 12.72,
+      "word": "Wait"
+     },
+     {
+      "start": 12.78,
+      "end": 13.0,
+      "word": "you"
+     },
+     {
+      "start": 13.06,
+      "end": 13.28,
+      "word": "meant"
+     },
+     {
+      "start": 13.34,
+      "end": 13.56,
+      "word": "the"
+     },
+     {
+      "start": 13.62,
+      "end": 13.84,
+      "word": "old"
+     },
+     {
+      "start": 13.9,
+      "end": 14.12,
+      "word": "shed"
+     },
+     {
+      "start": 14.18,
+      "end": 14.4,
+      "word": "right"
+     }
+    ]
+   },
+   {
+    "start": 17.0,
+    "end": 21.5,
+    "words": [
+     {
+      "start": 17.0,
+      "end": 17.22,
+      "word": "Yes"
+     },
+     {
+      "start": 17.28,
+      "end": 17.5,
+      "word": "and"
+     },
+     {
+      "start": 17.56,
+      "end": 17.78,
+      "word": "it"
+     },
+     {
+      "start": 17.84,
+      "end": 18.06,
+      "word": "rained"
+     },
+     {
+      "start": 18.12,
+      "end": 18.34,
+      "word": "all"
+     },
+     {
+      "start": 18.4,
+      "end": 18.62,
+      "word": "night"
+     }
+    ]
+   },
+   {
+    "start": 22.0,
+    "end": 26.0,
+    "words": [
+     {
+      "start": 22.0,
+      "end": 22.22,
+      "word": "Then"
+     },
+     {
+      "start": 22.28,
+      "end": 22.5,
+      "word": "the"
+     },
+     {
+      "start": 22.56,
+      "end": 22.78,
+      "word": "lantern"
+     },
+     {
+      "start": 22.84,
+      "end": 23.06,
+      "word": "went"
+     },
+     {
+      "start": 23.12,
+      "end": 23.34,
+      "word": "out"
+     },
+     {
+      "start": 23.4,
+      "end": 23.62,
+      "word": "of"
+     },
+     {
+      "start": 23.68,
+      "end": 23.9,
+      "word": "course"
+     }
+    ]
+   },
+   {
+    "start": 27.0,
+    "end": 31.0,
+    "words": [
+     {
+      "start": 27.0,
+      "end": 27.22,
+      "word": "We"
+     },
+     {
+      "start": 27.28,
+      "end": 27.5,
+      "word": "found"
+     },
+     {
+      "start": 27.56,
+      "end": 27.78,
+      "word": "it"
+     },
+     {
+      "start": 27.84,
+      "end": 28.06,
+      "word": "by"
+     },
+     {
+      "start": 28.12,
+      "end": 28.34,
+      "word": "noon"
+     },
+     {
+      "start": 28.4,
+      "end": 28.62,
+      "word": "in"
+     },
+     {
+      "start": 28.68,
+      "end": 28.9,
+      "word": "the"
+     },
+     {
+      "start": 28.96,
+      "end": 29.18,
+      "word": "end"
+     }
+    ]
+   },
+   {
+    "start": 32.0,
+    "end": 36.5,
+    "words": [
+     {
+      "start": 32.0,
+      "end": 32.22,
+      "word": "Right"
+     },
+     {
+      "start": 32.28,
+      "end": 32.5,
+      "word": "so"
+     },
+     {
+      "start": 32.56,
+      "end": 32.78,
+      "word": "we"
+     },
+     {
+      "start": 32.84,
+      "end": 33.06,
+      "word": "know"
+     },
+     {
+      "start": 33.12,
+      "end": 33.34,
+      "word": "the"
+     },
+     {
+      "start": 33.4,
+      "end": 33.62,
+      "word": "whole"
+     },
+     {
+      "start": 33.68,
+      "end": 33.9,
+      "word": "story"
+     }
+    ]
+   }
+  ]
+ }
+}
