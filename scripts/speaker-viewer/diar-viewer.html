@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speaker Viewer — Nemotron-3-Diarization</title>
+<style>
+  :root { --bg:#14161a; --panel:#1e2128; --line:#2c3038; --text:#e8eaf0; --dim:#8b93a7; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font:14px/1.45 system-ui, -apple-system, sans-serif; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 16px; margin: 4px 0 2px; font-weight: 600; }
+  .meta { color: var(--dim); font-size: 12px; margin-bottom: 14px; }
+  .meta b { color: var(--text); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+          padding: 12px 14px; margin-bottom: 14px; }
+  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+             color: var(--dim); margin: 0 0 10px; font-weight: 600; }
+
+  /* ---- speaker lanes ---- */
+  .lanes { position: relative; user-select: none; }
+  .lane { display: flex; align-items: center; height: 24px; margin: 2px 0; cursor: pointer; }
+  .lane-label { width: 52px; flex: none; font-size: 12px; font-weight: 600;
+                display: flex; align-items: center; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .lane-track { position: relative; flex: 1; height: 16px; background: #12141a;
+                border-radius: 4px; overflow: hidden; }
+  .seg { position: absolute; top: 0; bottom: 0; border-radius: 3px; opacity: .92; }
+  .playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff;
+              opacity: .85; pointer-events: none; z-index: 3; }
+  .lane-time { position: relative; height: 18px; margin-top: 6px; font-size: 11px;
+               color: var(--dim); }
+  .lane-time span { position: absolute; transform: translateX(-50%); }
+
+  /* ---- transcript ---- */
+  .tr { display: flex; gap: 8px; margin: 3px 0; align-items: baseline; }
+  .tr .who { flex: none; min-width: 52px; font-size: 12px; font-weight: 700;
+             display: flex; gap: 4px; align-items: center; }
+  .tr .who .tag { padding: 0 5px; border-radius: 4px; font-size: 11px; line-height: 16px; }
+  .tr .t { flex: none; color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .tr .txt { flex: 1; }
+  .tr.overlap .txt::before { content: "⧉"; color: var(--dim); margin-right: 4px; }
+
+  /* ---- audio ---- */
+  audio { width: 100%; margin-top: 10px; }
+  .empty { color: var(--dim); font-style: italic; }
+  footer { color: var(--dim); font-size: 11px; text-align: center; margin-top: 18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="title">Speaker diarization viewer</h1>
+  <div class="meta" id="meta">loading…</div>
+
+  <div class="card">
+    <h2>Speaker activity</h2>
+    <div class="lanes" id="lanes"></div>
+    <audio id="audio" controls preload="metadata"></audio>
+  </div>
+
+  <div class="card" id="tr-card" style="display:none">
+    <h2>Transcript (speaker-tagged)</h2>
+    <div id="transcript"></div>
+  </div>
+
+  <footer>
+    Nemotron-3-Diarization (99.2M, nvidia) — segments at 10 ms grid, threshold 0.5 ·
+    midpoint rule: a line belongs to the speaker(s) active at its word midpoint
+  </footer>
+</div>
+
+<script>
+const PALETTE = ["#e15759","#4e79a7","#f28e2b","#76b7b2","#59a14f","#edc948","#b07aa1","#ff9da7"];
+let DUR = 0, PH = null, MEDIA = null;
+
+const fmt = s => {
+  s = Math.max(0, s);
+  const m = Math.floor(s / 60), ss = (s % 60);
+  return m + ":" + (ss < 10 ? "0" : "") + ss.toFixed(1);
+};
+const css = i => PALETTE[i % PALETTE.length];
+
+/* ---------- core render ---------- */
+function renderDiarViewer(d) {
+  D = d;   // transcript coloring reads D.diar
+  const diar = d.diar || {};
+  const segs = diar.segments || [];
+  DUR = diar.duration_s || (segs.length ? segs[segs.length-1].end : 0) || 1;
+
+  // speakers in order of first appearance (0-based ids → S1-based)
+  const order = [];
+  for (const s of segs) if (!order.includes(s.speaker)) order.push(s.speaker);
+
+  // header
+  $("title").textContent = d.title || "Speaker diarization";
+  $("meta").innerHTML =
+    `<b>${order.length || 0} speakers</b> · ${fmt(DUR)} of audio` +
+    (diar.rtfx ? ` · <b>${diar.rtfx}× realtime</b>` : "") +
+    (d.model ? ` · ${d.model}` : "");
+
+  // lanes
+  const lanes = $("lanes");
+  lanes.innerHTML = "";
+  for (const sp of order) {
+    const lane = document.createElement("div");
+    lane.className = "lane";
+    lane.innerHTML =
+      `<div class="lane-label"><span class="dot" style="background:${css(sp)}"></span>S${sp+1}</div>` +
+      `<div class="lane-track">${segs.filter(s=>s.speaker===sp)
+        .map(s=>`<div class="seg" style="left:${(s.start/DUR)*100}%;`+
+                `width:${Math.max(0.3,(s.end-s.start)/DUR*100)}%;background:${css(sp)}"></div>`)
+        .join("")}</div>`;
+    lane.onclick = e => {
+      if (!MEDIA) return;
+      const r = lane.querySelector(".lane-track").getBoundingClientRect();
+      MEDIA.currentTime = Math.min(DUR, Math.max(0, (e.clientX - r.left) / r.width * DUR));
+      MEDIA.play().catch(()=>{});
+    };
+    lanes.appendChild(lane);
+  }
+  // playhead (spans all lanes)
+  PH = document.createElement("div");
+  PH.className = "playhead";
+  PH.style.left = "calc(52px + (100% - 52px) * 0)";
+  lanes.appendChild(PH);
+  // time axis
+  const t = document.createElement("div");
+  t.className = "lane-time";
+  const n = 6;
+  for (let i = 0; i <= n; i++)
+    t.insertAdjacentHTML("beforeend",
+      `<span style="left:calc(52px + (100% - 52px) * ${i/n})">${fmt(DUR*i/n)}</span>`);
+  lanes.appendChild(t);
+
+  if (d.audioUrl) {
+    MEDIA = $("audio");
+    MEDIA.style.display = "";
+    MEDIA.src = d.audioUrl;
+    MEDIA.addEventListener("timeupdate", () => {
+      PH.style.left = `calc(52px + (100% - 52px) * ${Math.min(1, MEDIA.currentTime / DUR)})`;
+    });
+  } else $("audio").style.display = "none";
+
+  // transcript
+  renderTranscript(d.transcript, order);
+}
+
+function renderTranscript(tr, order) {
+  if (!tr) { $("tr-card").style.display = "none"; return; }
+  $("tr-card").style.display = "";
+  // accept whisperx raw ({transcription:{segments}}) or flat ({segments})
+  let t = tr;
+  if (t && t.transcription) t = t.transcription;
+  let segs = t && t.segments;
+  if (segs && segs.segments) segs = segs.segments;
+  if (!segs) { $("transcript").innerHTML = '<div class="empty">no transcript segments</div>'; return; }
+
+  // diar lookup: who is active at a given midpoint
+  const dsegs = (D.diar && D.diar.segments) || [];
+  const whoAt = mid => dsegs.filter(s => s.start <= mid && mid < s.end).map(s => s.speaker);
+  const haveDiar = dsegs.length > 0;
+
+  const out = [];
+  for (const s of segs) {
+    let words = [];
+    if (s.words && s.words.length)
+      words = s.words.map(w => (w.word||"").trim()).filter(Boolean).join(" ");
+    if (!words) words = (s.text || "").trim();
+    let mid = null;
+    if (s.words && s.words.length) {
+      const w = s.words[Math.floor(s.words.length/2)];
+      mid = (w.start + w.end) / 2;
+    } else mid = (s.start + s.end) / 2;
+    const who = haveDiar ? whoAt(mid) : [];
+    const cls = who.length > 1 ? "overlap" : "";
+    const tags = who.length
+      ? who.map(sp => `<span class="tag" style="background:${css(sp)}33;color:${css(sp)}">S${sp+1}</span>`).join("")
+      : `<span class="tag" style="background:#2c3038;color:#8b93a7">–</span>`;
+    out.push(`<div class="tr ${cls}"><span class="who">${tags}</span>` +
+             `<span class="t">[${fmt(s.start)}]</span><span class="txt">${esc(words)}</span></div>`);
+  }
+  $("transcript").innerHTML = out.join("");
+}
+const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+const $ = id => document.getElementById(id);
+
+/* ---------- standalone entry points ---------- */
+let D = null;
+const getJson = async u => {
+  try { const r = await fetch(u); return r.ok ? r.json() : null; } catch { return null; }
+};
+async function loadFromUrl() {
+  const p = new URLSearchParams(location.search);
+  if (p.get("dataUrl")) {                       // ?dataUrl=<json url>
+    D = await getJson(p.get("dataUrl"));
+    if (D) return renderDiarViewer(D);
+  }
+  if (p.get("file")) {                          // ?file=<name> — samples next to the service
+    const base = `/viewer/data?file=${p.get("file")}.`;
+    D = {
+      diar: await getJson(base + "diar.json"),
+      transcript: await getJson(base + "transcript.json"),
+      audioUrl: `/viewer/audio?file=${p.get("file")}`,
+      title: "Sample: " + p.get("file"),
+      model: "nvidia/Nemotron-3-Diarization",
+    };
+    if (D.diar) return renderDiarViewer(D);
+  }
+  $("meta").innerHTML = '<span class="empty">no data — open with ?file=&lt;sample&gt; or ?dataUrl=&lt;json&gt;</span>';
+}
+window.addEventListener("message", e => {          // embedded (webui iframe)
+  if (e.data && e.data.__diarViewer) renderDiarViewer(e.data);
+});
+loadFromUrl();
+</script>
+</body>
+</html>
