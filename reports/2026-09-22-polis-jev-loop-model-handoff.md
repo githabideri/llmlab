@@ -67,3 +67,46 @@ gated-delta-net kernels are triton/GPU-only. Both now run on the 2x24G box,
 so transformers takes its pure-torch reference GDR path. Same corpus, same
 runner, same metrics; latency is per-box, which is the deployment-relevant
 number. Weights were still downloading at writing time (slow CDN line).
+
+## Addendum 2026-09-24 (supersedes the §2/addendum-09-22 Decider/SemIf hosting and "results pending" status)
+
+**Decider 2B is now the Jev candidate.** Both pending runs completed on a
+dedicated 4-core/16G CPU measurement container (no GPU; the vLLM node stays
+pure production — bench work no longer sits on it; the 2026-09-22/23 attempt
+on it never ran: its weight downloads stalled, and the host was reinstalled
+the next day). Weights live on the host's shared model store, not in the
+container. Same 41-row corpus, same runner and metrics as the Laya run;
+both models ran CPU bf16 on transformers' pure-torch reference
+gated-delta-net path, so the latencies below are reference-path numbers.
+
+| model | top-1 | p(oracle) mean | Brier | p(oracle)>0.5: correct / wrong |
+|---|---|---|---|---|
+| Laya 421M (09-22) | 0.415 | 0.335 | 0.641 | 25/27 · 0/14 |
+| **Decider 2B** | **0.707** | **0.655** | **0.426** | **27/29 · 0/12** |
+| SemIf 4B | 0.463 | 0.000 | 1.000 | 0/19 · 0/22 |
+
+By mission (Decider): mine top-1 0.815, harvest 0.500 (vs Laya's 0.630 / 0.000).
+
+1. **Decider 2B fixes the p-band overlap** that disqualified Laya for the
+   concrete-observable regime (mean p(oracle) 0.870 on correct rows vs 0.136
+   on wrong; the >0.5 split is 27/29 vs 0/12). Its 12 remaining errors are
+   one systematic habit — choosing `goto_base` where the oracle is
+   `goto_target` on travel-phase rows — a single fixable bias, not a
+   capacity wall.
+2. **SemIf 4B is not a measurement.** The letter-slot readout produced a
+   degenerate distribution (p(oracle) exactly 0 on all 41 rows, Brier 1.0,
+   all mass on one argmax action). Most plausibly a harness/model-build
+   mismatch (or bf16-CPU collapse), not "the 4B is bad" — no claim is made
+   about 4B quality. Follow-up: pin the transformers version to the SemIf
+   development era, verify the letter-slot mapping against the model's
+   tokenizer, fp32 probe.
+3. **Latency is the open deployment question.** Reference-path CPU: Decider
+   18.4 s/question on the 4-core box (Laya's 10.4 s from the 09-22 addendum
+   is the same story — choice-type questions on small CPUs; the loop's live
+   noul questions run ~1.1 s on the 2-core reflex box). A per-step reflex
+   needs the fast `fla`/`causal_conv1d` kernels on a GPU or a quantized
+   GGUF on CPU; that campaign is next before the 2B is called "the Jev".
+
+Caveats carried from the 09-22 addendum: oracle labels are coarse by
+design, and this measures choice-type questions only (the live noul gate is
+a different question type).
