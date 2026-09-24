@@ -110,3 +110,55 @@ By mission (Decider): mine top-1 0.815, harvest 0.500 (vs Laya's 0.630 / 0.000).
 Caveats carried from the 09-22 addendum: oracle labels are coarse by
 design, and this measures choice-type questions only (the live noul gate is
 a different question type).
+
+## Addendum 2026-09-24 (second session) — quantization floor measured; first valid 4B
+
+Both open threads from the previous addendum closed on the same 4-core/16G CPU
+measurement container.
+
+**Quantization floor for the Decider 2B readout.** The 2B fine-tune was
+converted to GGUF (llama.cpp, 2026-09-24) and re-scored on the same 41-row
+corpus through the C library: identical prompt construction, full-vocab logit
+row at the answer slot, `softmax(logits/1.3)` over the letter tokens.
+
+| weights | top-1 | p(oracle) mean | Brier | s/question (4-core) |
+|---|---|---|---|---|
+| bf16 torch (reference) | 0.707 | 0.655 | 0.426 | 18.4 |
+| **Q8_0 (2.0 GB)** | **0.707** | **0.658** | **0.420** | **3.6** |
+| Q4_K_M (1.27 GB) | 0.537 | 0.545 | 0.580 | 4.1 |
+
+8-bit is numerically indistinguishable from bf16 on this readout (Δtop-1 = 0,
+Δp(oracle) = +0.002) while running 5.2× faster — the Decider authors'
+"quantization is below evaluation noise" claim holds on CPU at 8-bit, and
+8-bit is therefore the quantization floor. 4-bit visibly degrades this
+fine-grained letter-logit contrast (−17 pp top-1) even though 4-bit is
+harmless for ordinary text generation: this readout is more quantization
+sensitive than generation. One side effect of 8-bit: on the 12
+systematically-wrong rows (the travel-phase `goto_base` bias), the *wrong*
+choice becomes confident (0.75) where bf16 was flat (0.14); top-1 and Brier
+are unchanged, so threshold-on-p(oracle) decisions are unaffected, but
+"confidence in the choice" is not stable across quantizations. Conversion
+gotcha for anyone replicating: the Qwen3.5 GGUF converter assumes MTP draft
+tensors and must be given `--no-mtp` for this MTP-less fine-tune, or it writes
+a phantom 25th block and the file fails to load.
+
+**SemIf 4B: first valid measurement — the previous degeneracy was a runtime
+artifact.** Running the same frozen 4B through its own llama.cpp backend
+(fp32-accumulated decode, not the bf16-torch path that collapsed) gives a
+healthy readout: 99.3 % of the vocabulary softmax mass lands on the four
+letter answer slots, p(oracle) 0.298 (was exactly 0), conf right 0.544 vs
+wrong 0.535. The judgment itself is genuinely weak: top-1 **0.463** (chance
+0.25) and p(oracle) 0.298 — the 4×-parameter frozen base is *below* the 2B
+task-tuned Decider (0.707 / 0.658) on this readout, at 3× the per-question
+CPU latency. The "bigger frozen model" leg of the A/B is now answered with a
+valid measurement: for this narrow one-pass decision, the tuned small model
+wins.
+
+**Deployment outlook.** On the 4-core measurement box, Q8_0 runs 3.6 s per
+question — a 5.2× speedup over the bf16 reference but still short of a
+per-step reflex. The remaining tiers on the menu: a 12-thread desktop CPU
+(expect roughly a further halving) and a 12 GB consumer GPU with the
+authors' FP8 + CUDA-graph path (their B300 numbers: 3.2 ms p50; on consumer
+hardware expect 10–30 ms). The reflex-layer wiring (Decider Q8 in the
+two-tier loop) is the next experiment; the box choice follows whichever tier
+is measured first.
