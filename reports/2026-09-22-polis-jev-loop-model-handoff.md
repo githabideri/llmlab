@@ -587,3 +587,53 @@ softmax, only the weights differ).
    that only fails at *load* time, i.e. after you have trusted the
    converter's success message. Verify the artifact by loading it, not
    by the converter's exit status.
+
+## Addendum 2026-09-25/26 (tenth pass): the fine-tuned reflex generalizes to out-of-vocabulary content — it reads the phase, not the content
+
+1. **OOV generalization test (96 probes + 96-row control).** Two probe
+   families were run through the trained fact channel: (a) novel block
+   ids in the carrying/items lines (six ore types, five tree species,
+   four crops, four seed types, plus wool/feather/flint) under the
+   trained task phrasing, and (b) *natural mission phrasings* ("mine the
+   coal ore, then return to base" instead of the corpus's "mine the
+   marker block, …") combined with the same novel ids — so the task line
+   and the item lines were novel at once. Results on the fine-tuned
+   model: **48/48 and 48/48 top-1, p(oracle) mean 0.9998, min ≥ 0.998**,
+   against the 96/96 val-world control (p min 0.68). The ninth pass's
+   stated risk — "confident guessing outside the learned distribution" —
+   is *not* confirmed for content-level OOV: the model decides from the
+   phase structure of the channel, and the unknown tokens are
+   irrelevant ballast. The residual risk therefore moves to
+   *structurally* novel states (new phase patterns the corpus never
+   expressed) — that is where abstention labels belong in the next
+   corpus. (Naming footnote: in the game's 1.22 asset space, item codes
+   and block codes are separate namespaces; the corpus's "block ids"
+   were channel vocabulary, not game block codes — the facts channel
+   never exposes game codes, which is why the model never needed them.)
+2. **Live natural missions on the 12 GB card (reflex on demand).**
+   Mining against a natural 3×3 stone pocket (the marker embedded in it,
+   12 blocks from base) completed in 3 steps with the injected fault
+   corrected; harvesting a real non-reference crop (rye — which in this
+   game matures at stage 9/9, not 7/7; the first stage-7 run was rejected
+   by the game's own stage gating) completed the full chain
+   harvest → pickup → return → done with **4 of 8 rows pure reflex
+   short-circuits**. Two loop-layer lessons: (a) harvested drops land at
+   the source block and can sit just beyond the agent's 3.0-block pickup
+   reach (3.26 observed) — the executor now approaches the item before
+   picking it up; the durable form is a self-approaching pickup action in
+   the mod itself. (b) mission completion should be derived from a
+   state diff (a new, non-tool item was acquired), never from a
+   hardcoded item code.
+3. **Measurement-protocol note (reproducible, build-specific).**
+   Batched measurement of the 2B readout in this llama.cpp mainline
+   build — fresh per-row prompt fetch immediately followed by the
+   completion, ~0.7 s/row — **deterministically corrupted p(oracle) on
+   exactly 14 of the 96 control rows** (values 1e-6 … 1e-3; top-1
+   unaffected) across five separate batch runs spanning several hours.
+   The same rows, read with *pre-fetched* prompts — through the model
+   router or a dedicated server with the identical model file and flags —
+   returned 0.68–1.0. Toggling the child's prompt cache on/off did not
+   change it. Practical rule adopted: batch measurements use pre-fetched
+   prompts or a dedicated server, and any row with p < 0.001 in a batch
+   is re-read individually before interpretation. Single-shot and
+   seconds-spaced live requests were never affected in either direction.
