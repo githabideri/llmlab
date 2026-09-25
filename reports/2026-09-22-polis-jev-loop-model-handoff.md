@@ -273,3 +273,60 @@ llama.cpp Q8 readout — bit-identical to the batch results, ~3–4 s/row. The
 12 GB GPU card endpoint (addendum 3rd session, ~290 ms/row) is one URL
 change away once the testbed's tailnet node finishes its one-click
 approval; the loop's code is endpoint-agnostic.
+
+## Addendum 2026-09-25 (fifth session, morning): goal-first dominance, granularity, and what the tiers actually do
+
+**Status: measured.** Four more labeled runs this morning (8 in total
+across the overnight + morning sessions, incl. a 24-block fixture — a
+`--dist` parameter now scales the fixture distance for world variety),
+all on the same three-tier loop:
+
+1. **Goal-first is the dominant live pattern, not an exception.** On
+   every 27B contact in the last six runs, the arbiter consumed the
+   fixture in step 1 from the base (one action, 24 blocks of walking
+   included, 25 s wall). Because actions carry their own approach, a
+   multi-phase mission collapses to two steps (act, return) and
+   phase-scoped fault injections often never fire — the phase is
+   skipped. The 27B is the *task*-completing tier: give it a reachable
+   goal and it will do it in one shot.
+2. **Action granularity sets which tier does the work.** With
+   self-approaching (coarse) actions, the small tiers mostly see *veto*
+   opportunities (a proposed skip-goal) and *return/done* confirmations
+   — precisely the decisions the 421M noul question was built for —
+   while goal selection goes to the 27B. The 2B's corpus strength
+   (phase selection, 70.7% top-1) has little live surface on this
+   action set; its live role is the calibrated p(proposal) that feeds
+   the strong-gate. Making the small tiers *drive* would require
+   decomposing actions (goto and mine as separate actions), which
+   trades steps and latency for small-tier utilization. On a
+   ~272-ms 27B endpoint the coarse action set is the better deal.
+3. **The loop's floor is the deterministic policy, not a failure mode.**
+   With both model tiers unreachable (endpoint defaults pointed at
+   unresolvable placeholder hosts — since fixed), the loop ran on
+   policy alone and still completed the mine mission in 5 steps; the
+   give_tool oracle proposal did the tool repair. The model tiers add
+   judgment on top of a policy that already completes missions.
+4. **Thresholds re-derived from the 21 dual-p rows (15 carrying both
+   readings).** The false-yes ceiling (an injected skip-goal the 2B
+   confirmed at p 0.76 while Laya said 0.37-yes, twice) is 0.371; the
+   correct floor is 0.400. The strong-gate threshold now defaults to
+   0.40 (advisory: a thin 0.029 gap on N=15) — short-circuits 9/15
+   rows vs 4/15 at the old 0.6 with zero short-circuit errors, and
+   every observed false consensus still escalates. The Laya yes
+   threshold was likewise set to its 09-22 derived 0.35 (faulty
+   0.29–0.32 vs correct 0.36–0.39) instead of a placeholder.
+5. **Imperative-form tool rules did not change goal-first behavior.**
+   Rewriting the judge's tool rule as a strict decision procedure
+   (check inventory first; no pickaxe ⇒ give_tool, even after a failed
+   mine) was necessary for correctness but the 27B still jumps to the
+   terminal action from base when both facts hold. The rule governs
+   *which* action; it does not re-impose the phase sequence.
+
+**Net picture of the live loop:** a 421M veto net whose rejections are
+informative, a 2B providing the calibrated confirmation that gates
+short-circuits, and a 27B that completes the whole mission when either
+small tier raises doubt. Two of the five original design assumptions
+held (veto quality, healthy new-option generalization); two did not
+(goal-first granularity, live Laya distribution); the design adapted
+by making the 27B the default decision-maker and the small tiers the
+fast, cheap exception handlers.
