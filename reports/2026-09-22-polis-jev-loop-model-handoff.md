@@ -203,3 +203,73 @@ the per-step reflex, the 421M noul as the cheap veto, the 27B as the
 escalation judge. Caveat for anyone replicating on a shared 12 GB card: the
 2B is *exclusive* with the 35B — a request for the other model pays a one-time
 ~10–60 s switch.
+
+## Addendum 2026-09-25 (fourth session, overnight): the three-tier loop runs live
+
+The wiring finished. The Polis testbed game now runs a per-step decision
+loop with three tiers, cheapest first:
+
+    policy proposes an action
+      -> 421M noul pre-filter (anchored yes/no; ~1.4 s on 2 CPU cores)
+             no  -> 27B doubt-arbiter (thinking off, ~270 ms on the GPU pair)
+             yes -> 2B Decider choice readout (p over the action set)
+                    p < tau_dec              -> 27B
+                    p >= tau_dec and noul >= tau_strong -> execute (short-circuit)
+                    p >= tau_dec but noul < tau_strong  -> 27B  (the strong-gate)
+
+**The strong-gate is the interesting addition.** A first live run exposed a
+*consensus hole*: the injected skip-goal fault got noul-yes at 0.37 (over the
+0.35 veto threshold) **and** the Decider's known travel-phase bias at
+p(goto_base)=0.76 — two "no doubt" signals agreeing on a confidently wrong
+action, with the 27B never consulted. Both p's are individually "healthy"
+bands; the failure is that no tier asked the expensive one. Making the 27B
+run on *borderline* consensus (noul < 0.6) as well as on outright doubt
+closes it, at the cost of more 27B calls. The 27B at ~270 ms (thinking off)
+is cheap enough that this is a sensible default; the short-circuit rate is a
+calibration target, not a safety property. This is a general property of
+cascades with independent biases: **gating must be on the evidence of doubt
+in each tier, not on each tier's self-reported confidence.**
+
+**Measured (same fixture as the A/B corpus: mine and harvest missions,
+8-block targets, fault injection at chosen phases):**
+
+| mission | steps | wall | notes |
+|---|---|---|---|
+| harvest | 2 | 16 s | skip-goal fault: 421M no (0.21) -> 27B **jumped straight to `harvest_target`** (the action includes its own approach) -> crop harvested -> goal |
+| mine | 4 | 76 s | travel-skip caught by the 27B after a 0.37-yes/0.76 Decider consensus (the strong-gate's reason for existing); tool-drop fault: 27B repeated the tool-less `mine_target` (failed), the loop re-proposed `give_tool` next step, 27B endorsed it, mine then succeeded |
+| mine (5-option action set) | 2 | 12 s | 27B goal-first again: `mine_target` from base in one action |
+
+**Findings that will outlive this game:**
+
+1. **Goal-first vs phase-first judges.** When an action's execution includes
+   its own approach (goto is part of mine/harvest), the 27B routinely
+   completes a whole multi-phase mission in one action. Phase-relative
+   oracles under-count this; mission completion is the honest metric.
+   A judge that optimizes for the *task* beats one that optimizes for the
+   *phase* whenever the action space permits the shortcut.
+2. **Conditional rules are not substitution rules.** The 27B will endorse a
+   *proposed* `give_tool` action but will not proactively replace a
+   tool-less `mine_target` proposal, even with an explicit "never mine
+   without a pickaxe" instruction. It follows conditional instructions
+   about the *proposed* action, not counterfactual substitution. Reword
+   judge rules in the substitution form ("no pickaxe in inventory ⇒ answer
+   give_tool") and the correction appears at the same step.
+3. **The 2B generalizes healthily to a new option.** Adding `give_tool`
+   as a fifth letter to the mine action set: p(give_tool) 0.23 (low,
+   uncalibrated — it has no training rows for it) while its trained
+   actions keep 0.90–0.95 confidence. No mass distortion, no degenerate
+   readout. The letter-slot readout is robust to modest action-set
+   growth; the p of the new option is simply an honest "I don't know".
+4. **The 421M's live noul distribution is lower than its corpus band**
+   (0.21–0.48 across these runs vs up to ~0.9 in the offline sets), so the
+   strong-gate sends most steps to the 27B until the threshold is
+   re-derived from labeled rows. The 421M remains what the 09-22 verdict
+   said it is: a conservative net whose *rejections* are informative and
+   whose *acceptances* need a second opinion.
+
+**Interim deployment:** the Decider served these runs from the 4-core CPU
+box (the A/B box) via a thin HTTP wrapper over the validated in-process
+llama.cpp Q8 readout — bit-identical to the batch results, ~3–4 s/row. The
+12 GB GPU card endpoint (addendum 3rd session, ~290 ms/row) is one URL
+change away once the testbed's tailnet node finishes its one-click
+approval; the loop's code is endpoint-agnostic.
