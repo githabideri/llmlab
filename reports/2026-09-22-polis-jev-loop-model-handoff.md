@@ -404,3 +404,78 @@ Net: the 7-option set shipped on the existing 8-bit model (no
 re-train), the loop's pickup phase is live-wired (unexercised so far —
 the fixtures auto-collect or drop nothing), and the fine-tune is
 deferred with the above recipe as the next-attempt contract.
+
+## Addendum 2026-09-25 (seventh pass): threshold stress test on the broad corpus — the gates are load control, not a safety boundary
+
+To re-derive the cascade thresholds on the new (7-option) calibration
+unit, the dual readouts (Laya 421M yes/no + Decider 2B option
+probability) were generated **offline** for 169 labeled (state,
+proposal) pairs: 84 correct-side (proposal = oracle) vs 67 faulty-side
+(26 skip-goal `goto_base`, 46 `give_tool`-while-carrying, 1
+`mine_target`), the 18 build-mission rows excluded (no yes/no question
+defined for them). Result:
+
+- **No threshold separates the two populations on the broad corpus.**
+  Every candidate gate — the 421M's p, the 2B's p(proposal) among
+  421M-passing rows, the 421M's p among doubly-confident rows — has
+  fully overlapping correct/faulty distributions (Youden J 0.17/0.36/
+  0.22, all optimal points with negative margins on both sides).
+- **At the production thresholds the corpus short-circuits 47/151 rows,
+  20 of them faulty** (Wilson 95% upper bound 19.6%). The two leak
+  families are exactly the two known weak points (travel-phase bias;
+  the substitution gap), and the skip-goal family is unreachable by any
+  421M threshold (faulty p up to 0.764 vs correct 0.780).
+
+Decision and principle: **the thresholds stay where they are.** On a
+broad, adversarially-mixed corpus the two small tiers' *consensus is
+not a reliable veto/confirm boundary*; chasing the Youden points would
+only shrink the short-circuit benefit (10/39 correct rows left
+short-circuiting) without finding a real boundary. The cascade's
+division of labor is therefore stated as designed: the thresholds are
+**load control** (which rows may skip the big model), while **safety is
+carried by the big model catching what leaks plus the deterministic
+last-resort repair** that keeps missions completable. The earlier clean
+threshold derivations (09-22, 09-25) were run on *narrow live
+distributions* (policy proposals on active missions) and remain valid
+for that regime; they do not transfer to mixed corpora. The lever for
+the two leak families is the tiers' own discriminative quality
+(corpus world variety, gentle fine-tune), not the thresholds.
+
+**Literature input (collected 2026-09-25), three results with direct
+bearing on this line:**
+
+1. *Probing the Decision Boundaries of In-context Learning in Large
+   Language Models* (Zhao, Nguyen, Grover;
+   https://arxiv.org/abs/2406.11233): in in-context binary
+   classification, "the decision boundaries learned by current LLMs …
+   are often irregular and non-smooth, regardless of linear
+   separability in the underlying task." That is the mechanistic
+   account of the in-context regime's ceiling measured here (the
+   2B's residual 38% grid error is boundary-geometry, not vocabulary):
+   a fine-tune's expected payoff is **boundary smoothing**, and the
+   in-context option list is the provisional regime it will replace.
+2. *Turn Your LLM into a Calibrated Classifier for $2* (Fireworks,
+   https://fireworks.ai/blog/Finetuning-LLMs-as-Classifiers): "the raw
+   next-token probabilities already behave as calibrated class
+   probabilities, even when the number of classes is tiny relative to
+   the vocabulary size" — for non-fine-tuned models, "constrain it to
+   single-token answers via careful prompting … and use logit bias or
+   decoding constraints to suppress non-label tokens." Independent
+   validation of the letter-token readout construction (single letter,
+   subset softmax over the option letters, threshold on the
+   temperature-rescaled p).
+3. *How LoRA Remembers? A Parametric Memory Law for LLM Finetuning*
+   (https://arxiv.org/abs/2605.30260): LoRA memorization follows a
+   power law in effective parameters with a "deterministic phase
+   transition — a prediction probability of p > 0.5 constitutes a
+   sufficient condition for verbatim recall under greedy decoding."
+   That is the collapse measured in the sixth-session fine-tune,
+   formalized: with enough update capacity per row, the target token
+   crosses 0.5 and the update locks in — writing through whatever
+   behaviour the base model had. Operational consequence: for
+   small-corpus decision-model updates, **early-stop on holdout
+   mean-p(oracle) plateau, not on top-1**, since the lock-in begins
+   just as the per-row p crosses 0.5 while top-1 can still look
+   fine. (Companion: "Leaner Training, Lower Leakage",
+   https://arxiv.org/abs/2506.20856 — LoRA remains the right tool;
+   the failure was update magnitude, r16/α/r=2/lr 1e-4/4 epochs.)
