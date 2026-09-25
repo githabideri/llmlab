@@ -479,3 +479,43 @@ bearing on this line:**
    fine. (Companion: "Leaner Training, Lower Leakage",
    https://arxiv.org/abs/2506.20856 — LoRA remains the right tool;
    the failure was update magnitude, r16/α/r=2/lr 1e-4/4 epochs.)
+
+## Addendum 2026-09-25 (eighth pass): state diversity beats epochs — corpus growth moves the base model 10 points; the pickup phase is live; two cascade bugs
+
+Three results from the next block of work:
+
+1. **World-variety corpus growth lifted the base model without any
+   learning.** The labelled corpus went from 123 to **363 rows** by
+   varying what the state text can express without changing its format
+   (distance 3–30 blocks in both axes, carrying sets, ground-item
+   distractors, phase-consistent since/last-action text; 35% of the new
+   rows in the travel phase — the under-represented regime). The
+   *unmodified* production 8-bit model re-measured on the full grid:
+   **top-1 61.8% → 71.9% (261/363)**; the travel family went from the
+   standing 24/30 bias to **84%** (71/85); return 100%; the substitution
+   (B) family stayed at **0/12** — the one residual the in-context
+   regime does not learn and the fine-tune/judge tier is for. For a
+   decision model at this size, the binding constraint on the residual
+   error is the *coverage of the state distribution*, not update
+   capacity: diversity is cheaper than training and moves the same
+   needle.
+2. **The pickup phase is exercised in the live loop.** Mine/harvest
+   drops go to the agent's inventory first (ground overflow is
+   non-deterministic), so the mechanism that makes ground items
+   deterministic is a world event (give + drop an item at the target
+   site after the primary action). First pickup-phase short-circuit of
+   the cascade: the 421M at 0.58 and the 2B at 0.73 both confident,
+   action executed, mission complete in 3 steps.
+3. **Two cascade bugs, both with general lessons.** (a) *Silent tier
+   degradation:* the middle tier was gated on its *fallback* endpoint
+   flag, so the documented fast-path invocation (fast endpoint only)
+   silently ran a two-tier loop that was then measured as if three-tier
+   (null middle-tier readings on every row). A multi-tier cascade must
+   fail loud when a configured tier is absent, and each run record
+   must carry which tiers actually fired. (b) *Executor/judge contract
+   gap:* the judge's rule promises the execution "moves the agent to
+   the target first", but the mine action had no approach step — so a
+   goal-first mine proposed from range failed out-of-range and the
+   loop repeated the identical failing action until the step budget
+   ran out. The executor must implement the approach the judge's rule
+   assumes (added; the mine action now gootos first).
