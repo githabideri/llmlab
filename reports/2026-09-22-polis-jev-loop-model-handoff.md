@@ -519,3 +519,71 @@ Three results from the next block of work:
    loop repeated the identical failing action until the step budget
    ran out. The executor must implement the approach the judge's rule
    assumes (added; the mine action now gootos first).
+
+## Addendum 2026-09-25 (ninth pass): the gentle fine-tune works — and the real finding is what the base model had actually been doing
+
+The deferred gentle fine-tune ran on the 12 GB consumer GPU during a
+maintenance window: LoRA r8/α16 (8.4M params, 0.44% of the 2B), lr 2e-5,
+batch 4 / grad-accum 2, 512 seq, 12-epoch cap with patience-3 early-stop
+on an **external 96-row validation world** (different seed, distance and
+distractor ranges, zero state overlap with the 363-row training corpus).
+The aggressive 6th-pass recipe (r16, lr 1e-4) collapsed; this one
+plateaued exactly where the memory-law tripwire says it should (val
+p_oracle flat from epoch 4 → stop at 6; best epoch 3, val top-1 0.844).
+Deterministic replay reproduced the curve, and the merged adapter was
+re-quantized to 8-bit and A/B-measured against the production 8-bit base
+through the identical readout pipeline (same card, same letter-subset
+softmax, only the weights differ).
+
+| (7-option corpus) | base Q8 | LoRA r8 |
+|---|---|---|
+| validation world, 96 unseen rows | 70/96 (72.9%) | **96/96 (100%)** |
+| training corpus, 363 rows | 262/363 (72.2%) | 362/363 (99.7%) |
+| substitution (B) family, 12 rows | 0/12 | **12/12** |
+| distractor-proposal rows — model follows the *natural but wrong* proposed action | 14/14 val, 55/57 train | **0/14 val, 1/57 train** |
+| p(oracle) on correct rows | 0.71 val / 0.72 train | **≥0.999 / 0.995** |
+
+1. **The base model had mostly been *following the proposal*.** Every
+   corpus row carries a "proposed action" line — in 57 train rows (14 val
+   rows) that proposal is the natural-but-wrong action for the state. The
+   8-bit base model followed it 55/57 times; its measured 72% was
+   therefore mostly "parrot the suggestion, which is usually right," not
+   state-based judgment. The fine-tune inverted the behaviour: it reads
+   the phase/facts line and overrides a wrong proposal (1/57 fall-through)
+   while keeping the right ones. This is the mechanistic ceiling the
+   seventh pass's ICL-boundary literature predicted, made operational:
+   an in-context classifier given a plausible proposal measures
+   *compliance*, and the parameter is only reached when the prompt is
+   ambiguous enough. For any future in-context decision readout: measure
+   the model's behaviour under a *deliberately wrong* proposal before
+   crediting it with judgment, or the compliance rate will be mistaken
+   for accuracy.
+2. **Rule acquisition, not memorization — the external val world is the
+   test that proves it.** Val (100%) ≥ train (99.7%) with zero state
+   overlap and a different generator seed; the one training miss is noise
+   floor. If this had been memorization the val world would show the
+   6th-pass collapse shape (train up, val down). The adoption rule
+   applied exactly as pre-committed: val improves, training does not
+   degrade, live fixture correct → ship. Note the training loss hit
+   0.05 by epoch 3 and said nothing — it is the wrong instrument here;
+   the external val p_oracle plateau was the only early-stop signal
+   worth having.
+3. **Calibration became a step function — inside the learned
+   distribution.** p(oracle) on correct rows went from a flat ~0.71 to
+   ≥0.999 (wrong rows: near 0), so the cascade's tau gates now sit on a
+   sharp cliff instead of a smeared band. The honest corollary: outside
+   the learned distribution (new block types, new mission families) the
+   model will be *confident*, not abstinent — it has no "I don't know"
+   left. The tiered loop's judge + last-resort repair remain the safety
+   net; the next corpus growth should deliberately include
+   out-of-vocabulary states so a *subsequent* fine-tune has an
+   abstention signal to learn from.
+4. **Two merge/conversion footguns, both generic.** (a) A merged HF
+   checkpoint directory that still contains `adapter_config.json` makes
+   transformers re-apply the LoRA on top of the already-merged weights —
+   the conversion "succeeds" and the GGUF loads garbage. (b) Checkpoints
+   with an MTP head need `--no-mtp` at GGUF conversion: without it the
+   extra block produces a `blk.N.attn_norm` mismatch or a corrupted file
+   that only fails at *load* time, i.e. after you have trusted the
+   converter's success message. Verify the artifact by loading it, not
+   by the converter's exit status.
