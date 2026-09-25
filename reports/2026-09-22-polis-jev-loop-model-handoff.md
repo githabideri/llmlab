@@ -254,12 +254,24 @@ in each tier, not on each tier's self-reported confidence.**
    about the *proposed* action, not counterfactual substitution. Reword
    judge rules in the substitution form ("no pickaxe in inventory ⇒ answer
    give_tool") and the correction appears at the same step.
-3. **The 2B generalizes healthily to a new option.** Adding `give_tool`
-   as a fifth letter to the mine action set: p(give_tool) 0.23 (low,
-   uncalibrated — it has no training rows for it) while its trained
-   actions keep 0.90–0.95 confidence. No mass distortion, no degenerate
-   readout. The letter-slot readout is robust to modest action-set
-   growth; the p of the new option is simply an honest "I don't know".
+3. **The 2B generalizes to a new option as a detector, not a
+   selector.** Adding `give_tool` as a fifth letter to the mine action
+   set, measured on a 30-row labeled grid built around the live no-tool
+   states (12 rows with `give_tool` proposed, 12 with a tool-less
+   `mine_target` proposed — the arbiter's own failure mode — and 6
+   with-pickaxe controls): the controls stay at 0.921–0.926 (no
+   5-option drift in the trained readout), and p(`give_tool`) separates
+   cleanly by state — 0.255 (no tool, give_tool proposed), 0.060 (no
+   tool, mine proposed), 0.009 (with tool). But the *choice* is
+   `mine_target` on 30/30: the trained phase action owns the argmax, and
+   the new option only ever receives probability mass. In the loop this
+   is exactly the right shape for a doubt signal — a proposed
+   `give_tool` reads 0.255 < tau_dec, so the cascade escalates to the
+   arbiter (which endorses it: the live self-repair path) — but it means
+   the 2B does not flag the *other* no-tool case (a proposed tool-less
+   mine reads 0.843, "confirmed"): its own tier's failure mode stays
+   with the veto tier and the deterministic last-resort repair. The
+   generated rows are the fine-tune input to close that gap.
 4. **The 421M's live noul distribution is lower than its corpus band**
    (0.21–0.48 across these runs vs up to ~0.9 in the offline sets), so the
    strong-gate sends most steps to the 27B until the threshold is
