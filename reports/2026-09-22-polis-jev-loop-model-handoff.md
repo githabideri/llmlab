@@ -342,3 +342,65 @@ held (veto quality, healthy new-option generalization); two did not
 (goal-first granularity, live Laya distribution); the design adapted
 by making the 27B the default decision-maker and the small tiers the
 fast, cheap exception handlers.
+
+## Addendum 2026-09-25 (sixth session, afternoon): the fine-tune experiment — and why the base model needed less help than expected
+
+The decision loop's action set grew from 5 to 7 options (`pickup_item`
+and `place_block` added; same letter positions per mission), which
+made the pending fine-tune question concrete: should the 2B be
+re-trained to *select* the new options, given the measured
+detector-not-selector gap for the 5th option? The corpus was extended
+to **123 labeled rows** (60 generated grid rows for the two new
+options plus every previously labeled row remapped into the 7-option
+format) and a LoRA attempt was run on a 12 GB consumer GPU during a
+maintenance window. **Result: the fine-tune made things worse, and the
+base model did not need it.**
+
+Measurements (same 123-row grid, 7-option prompt):
+
+| model | top-1 | notes |
+|---|---|---|
+| base checkpoint, bf16 | **76/123 (61.8%)** | unmodified; reads the option list from the prompt |
+| production 8-bit GGUF | **76/123 (61.8%)** | identical per-family to bf16 — 8-bit is quantization-neutral for 7-option selection |
+| LoRA on top (r16/α32, "all-linear", 16.8M trainable = 0.89%, lr 1e-4, 4 epochs on 102 rows, 21 grouped holdout) | **6/21 (29%) on the holdout; flat 19% across all four epochs while train loss fell 0.43 → 0.06** | the adapter degenerated into answering one option (`give_tool`, the largest oracle class) with p ≈ 1.0 on most rows — the base model on the same holdout scored 76% |
+
+Three findings with general value for the decision-classifier line:
+
+1. **Listing an option in the prompt makes a decision-tuned 2B select
+   it.** The 5-option-era grid measured p(give_tool) ≈ 0.26 (A-rows)
+   with argmax on the phase action — read then as "the model detects
+   the state but will not select the option". With the option in a
+   7-option list, the same base model selects it **10/12** on those
+   A-rows (and the 8-bit GGUF matches). The earlier measurement
+   conflated *absence of the option in the prompt* with a selection
+   incapacity; the in-context option list supplies the missing
+   letter-mapping evidence. (The original fine-tune was trained on a
+   smaller option set, so new letters were outside its training
+   distribution — the base weights still carry general
+   letter-to-label composition.)
+2. **Aggressive LoRA on a small corpus collapses the model.** 16.8M
+   free parameters against 102 short rows at lr 1e-4 for 4 epochs is a
+   degenerate regime: the adapter memorized the training rows and
+   overwrote the letter behaviour (one-answer output at p ≈ 1.0),
+   dropping a 76%-base holdout to 29%. Small-corpus updates to a
+   decision model need small r (4-8), low lr (1-3e-5), and
+   early-stopping against a holdout that covers *all* target
+   families — or they should not be done at all.
+3. **The fine-tune timing rule, with evidence.** Fine-tune (last
+   resort, per the design procedure) when the *base* model's in-context
+   behaviour fails a target behaviour on a well-determined labeled
+   set — not preemptively, and never on a corpus smaller than the
+   update's capacity. Here the base model covers the new options
+   adequately when proposed; the residual gaps it does *not* cover are
+   (a) **spontaneous substitution** (0/24: it will not replace a
+   proposed action with the correct different one — a conditional the
+   cascade's upper tier handles by design) and (b) the standing
+   travel-phase bias (24/30 on the mine family). Both are
+   coverage/calibration problems: the corpus should grow (world
+   variety: distances, target types, night/day; missions that produce
+   ground items) before another, gentle training attempt.
+
+Net: the 7-option set shipped on the existing 8-bit model (no
+re-train), the loop's pickup phase is live-wired (unexercised so far —
+the fixtures auto-collect or drop nothing), and the fine-tune is
+deferred with the above recipe as the next-attempt contract.
