@@ -699,6 +699,11 @@ class Server:
             catalog.setdefault(mid, False)
         active = next((mid for mid, l in catalog.items() if l), None)
         with self._lock:
+            # the mux catalog is authoritative: drop entries it no longer
+            # knows (e.g. the "(vllm)" aggregate restored from a previous
+            # plain-vllm config of this server)
+            for mid in [m for m in self.models if m not in catalog]:
+                del self.models[mid]
             for mid, loaded in catalog.items():
                 hint = self.model_hints.get(mid) or {}
                 st = self.models.setdefault(mid, {
