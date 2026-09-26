@@ -473,6 +473,8 @@ class Server:
         try:
             if self.kind == "vllm":
                 self._poll_vllm(now)
+            elif self.kind == "vllm-mux":
+                self._poll_vllmmux(now)
             else:
                 self._poll_router(now)
         except Exception as e:
@@ -490,6 +492,20 @@ class Server:
         status, body = http_json(f"{self.url}/metrics")
         if status != 200 or not body:
             raise RuntimeError(f"/metrics HTTP {status or 'timeout'}")
+        self._apply_vllm_metrics("(vllm)", body, now, self.desc)
+
+    def _apply_vllm_metrics(self, mid, body, now, desc=None):
+        """Parse a vLLM-native /metrics body into per-model entry `mid`.
+        Shared by the `vllm` kind (one aggregate "(vllm)" entry) and the
+        `vllm-mux` kind (attributed to the model whose engine is active —
+        the mux forwards the active engine's native /metrics verbatim).
+        When the attributed mid changes (an engine switch), the rolling
+        window buffer is cleared so 5-min deltas never straddle two
+        engines; per-(mid,key) counter rates re-baseline via _rate's
+        restart detection (value < prev -> clean re-baseline)."""
+        if getattr(self, "_metrics_mid", None) not in (None, mid):
+            self._winbuf.clear()
+        self._metrics_mid = mid
         p = parse_prom(body)
         gen = get_metric(p, "generation_tokens_total", prefixes=("vllm:", "vllm_"))
         # vLLM's prompt_tokens_total counts each request's FULL prompt
@@ -633,15 +649,16 @@ class Server:
             wr = max(wait_reason.items(), key=lambda kv: kv[1])[0]
 
         with self._lock:
-            st = self.models.setdefault("(vllm)", {
-                "id": "(vllm)", "kind": "vllm", "desc": self.desc,
+            st = self.models.setdefault(mid, {
+                "id": mid, "kind": "vllm",
+                "desc": desc if desc is not None else self.desc,
                 "loaded": True,
             })
             st.update({
-                "tgen": self._rate("(vllm)", "gen", gen, now),
+                "tgen": self._rate(mid, "gen", gen, now),
                 # pp = prompt tokens actually computed (see above); same
                 # _rate machinery, monotone input
-                "tpp": self._rate("(vllm)", "prompt", pp, now),
+                "tpp": self._rate(mid, "prompt", pp, now),
                 "spec_accept": None,
                 "req_running": req_running, "req_waiting": req_waiting,
                 "kv_used": kv,
@@ -656,6 +673,61 @@ class Server:
                 "sleep": sleep_state, "wait_reason": wr,
                 "metrics_ok": gen is not None,
             })
+
+    def _poll_vllmmux(self, now):
+        # vllm-mux: one front endpoint (vllm-mux) in front of N vLLM
+        # engines that cannot be resident together. Catalog + load state
+        # come from the mux's synthesized /v1/models (OpenAI-style, with a
+        # status value); engine metrics come from the mux's /metrics
+        # forward — the ACTIVE engine's native vLLM counters, attributed
+        # to the loaded model. The UI renders router-style loaded/idle
+        # chips + load/unload buttons (kind != "vllm") while the per-model
+        # vLLM metrics block still applies (model kind stays "vllm").
+        status, body = http_json(f"{self.url}/v1/models")
+        if status != 200 or not body:
+            raise RuntimeError(f"/v1/models HTTP {status or 'timeout'}")
+        try:
+            listing = json.loads(body).get("data", [])
+        except json.JSONDecodeError:
+            raise RuntimeError("/v1/models bad json")
+        catalog = {}
+        for m in listing:
+            mid = m.get("id")
+            if mid:
+                catalog[mid] = (m.get("status") or {}).get("value") == "loaded"
+        for mid in self.model_hints:     # configured entries stay visible
+            catalog.setdefault(mid, False)
+        active = next((mid for mid, l in catalog.items() if l), None)
+        with self._lock:
+            for mid, loaded in catalog.items():
+                hint = self.model_hints.get(mid) or {}
+                st = self.models.setdefault(mid, {
+                    "id": mid, "kind": "vllm",
+                    "ctx": hint.get("ctx"), "desc": hint.get("desc", ""),
+                })
+                st["loaded"] = loaded
+                if hint.get("ctx"):
+                    st["ctx"] = hint["ctx"]
+                if not loaded:
+                    st.update({"tgen": None, "tpp": None, "spec_accept": None,
+                               "req_running": None, "req_waiting": None,
+                               "kv_used": None, "kv_used_tokens": None,
+                               "kv_pool": None, "kv_peaks": None,
+                               "latency": None, "finish": None, "phase": None,
+                               "cache_hit": None, "preempt_win": None,
+                               "sleep": None, "wait_reason": None,
+                               "metrics_ok": False})
+        if active is None:
+            return                      # all idle: no metrics source
+        status, body = http_json(f"{self.url}/metrics")
+        if status == 200 and body:
+            self._apply_vllm_metrics(
+                active, body, now,
+                (self.model_hints.get(active) or {}).get("desc") or self.desc)
+        else:
+            with self._lock:
+                if active in self.models:
+                    self.models[active]["metrics_ok"] = False
 
     def _poll_router(self, now):
         # fetch first (network, no lock), apply under the lock afterwards so
@@ -1296,7 +1368,7 @@ def restore():
                 # defaults (setdefault never overwrites), which sent the
                 # Prometheus export down the llama branch and hid the
                 # vision advisor's kind. Re-derive from the server kind.
-                m.setdefault("kind", "vllm" if s.kind == "vllm" else "llama.cpp")
+                m.setdefault("kind", "vllm" if s.kind in ("vllm", "vllm-mux") else "llama.cpp")
                 m.setdefault("desc", s.desc)
                 s.models[m["id"]] = m
     except (OSError, json.JSONDecodeError):
@@ -1361,8 +1433,8 @@ def load_config():
         if n in seen:
             errs.append(f"duplicate server name: {n!r}")
         seen.add(n)
-        if c.get("kind") not in ("llama-router", "vllm", "gpu-only"):
-            errs.append(f"{n}: kind must be 'llama-router', 'vllm' or 'gpu-only'")
+        if c.get("kind") not in ("llama-router", "vllm", "vllm-mux", "gpu-only"):
+            errs.append(f"{n}: kind must be 'llama-router', 'vllm', 'vllm-mux' or 'gpu-only'")
         elif c.get("kind") != "gpu-only" and not c.get("url"):
             errs.append(f"{n}: kind '{c.get('kind')}' requires 'url'")
     for sc in CONFIG.get("gpu_sidecars", []):

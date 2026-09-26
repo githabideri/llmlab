@@ -113,6 +113,13 @@ The upstream `f8f0a47a` "quantized-KV flash-attention scratch blowup" does **not
 
 ## Changelog
 
+### 2026-09-26: One-card swappable serving — vllm-mux front, TP1 stopgap engine, 220 W restored
+- The older 3090 (GPU 1) proved **electrically degraded**, not just thermally: under the 180 W stopgap cap it oscillated 300–600 MHz at 79 °C while its serviced twin held 1800 MHz at the same power budget — no cap value fixes that; the card goes for thermal/electrical service.
+- The 180 W stopgap (same day, for the 83 °C SW-thermal derating the newer driver introduced) helped single-stream (ITL 57→41 ms) but made **multi-session** clearly worse (287 ms mean ITL / ~25 t/s at 3 reqs vs ~55–65 t/s at 220 W) — the owner restored **220 W** (the 250 W target stands after the card service).
+- A **TP1 stopgap engine** now runs on the same node: the 0.28.0 head single-user profile on the serviced card (150k fp8 KV, MTP k=3, text-only, served name `qwen3.8-27b`). Mutually exclusive with TP2 — both engines share the serviced GPU, so at most one may boot at a time.
+- Both engines now sit behind a **vllm-mux** on the public endpoint :8080 (the dual engine moved to :8083 behind it): **one hub card, two swappable model groups**, exclusive-GPU switching on demand (the first request for a non-resident engine evicts the other, ~2–4 min load) plus the hub's one-click load/unload (new hub kind `vllm-mux`; the card keeps the vLLM-native metrics of whichever engine is active). A both-services-enabled config crash-looped one LXC boot before the boot state was fixed to dual-only.
+- Card-removal runbook: the LXC stays bootsafe with one GPU — every `/dev/nvidia*` bind entry is `optional`, the failure mode is a *non*-optional entry pointing at a missing device (the 2026-08-04 MIG-cap incident).
+
 ### 2026-09-21: Power limit 250 → 220 W (interim — GPU 1 running hot)
 - GPU 1 (the original 3090) reads **81 °C at idle** (new card: 57 °C) at ~195 W drawn. `gpu-power-limits.service` reverted both cards to **220 W** until the card gets thermal service (paste + pads). 250 W (the 2026-09-08 setting, +6.2–6.5% prefill at equal stability) is the documented target again after the repaste. No performance claim at 220 W yet — the campaign numbers above were taken at 250 W; expect a few percent of prefill back after the repaste.
 
