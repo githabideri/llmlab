@@ -637,3 +637,78 @@ softmax, only the weights differ).
    prompts or a dedicated server, and any row with p < 0.001 in a batch
    is re-read individually before interpretation. Single-shot and
    seconds-spaced live requests were never affected in either direction.
+
+## Addendum 2026-09-26 (11th pass, overnight): the build mission closes the action vocabulary; fine-tune round 2 gives the reflex an honest abstention
+
+1. **The build mission is live; the 7-option vocabulary is closed.**
+   `place_block` became a real action (inventory lookup + approach +
+   place one block). The harness fix: for up/down faces the goto
+   target must be the *air cell beside* the target cell, not the solid
+   surface block beneath it (a goto target inside a solid block yields
+   no path; the place then fails from the spawn as out of range). Also:
+   the game's pathfinder needs a few seconds of warm-up after a game
+   restart — the first action right after boot can silently no-op
+   (settling 1–8 s makes it deterministic). Two live fault-injected
+   runs completed: a travel-skip fault (the 27B missed it once on the
+   *novel* "build" phase wording, the loop re-routed on the following
+   judge calls — the cascade absorbing a structurally novel phase as
+   designed) and a build fault (the bot drops its only block; the loop
+   then chooses `give_tool` at p=0.964 and places successfully).
+
+2. **Fine-tune round 2: the reflex learns to abstain.** Motivation:
+   the round-1 residual risk — outside the learned distribution the
+   model guesses *confidently* (the jev-designer rule for a choice
+   question is an explicit escape option; in this loop the escape is
+   `wait`, which means "escalate to the large model"). The 575-row
+   corpus adds, on top of round 1 and the OOV probes, a build-mission
+   grid (72 rows) and 89 abstention rows (44/45 train/held-out):
+   states where *none* of the 7 actions is right (unmappable goals,
+   stalled loops, contradictory facts), all labeled `wait`. Same
+   gentle recipe (r8/α16, lr 2e-5, patience-3 on the external val):
+   early stop at epoch 6, best epoch 3 — the same shape as round 1.
+
+3. **Three-way A/B (clean protocol, on the 12 GB card): FT-2 is
+   adopted.**
+
+   | slice | base | FT-1 | **FT-2** |
+   |---|---|---|---|
+   | val-world 96: top-1 / mean p / min p | 71 / 0.562 / 0.004 | 96 / 0.9923 / 0.679 | 96 / 0.9956 / **0.883** |
+   | OOV 96: top-1 / mean p | 90 / 0.700 | 96 / 0.9998 | 96 / 0.9996 |
+   | abstain 45: top-1 `wait` / mean p(`wait`) / max-p mean / max-p max | 7 / 0.166 / 0.663 / 0.927 | 13 / 0.284 / **0.967** / **1.000** | **45 / 0.9974 / 0.9974 / 0.9999** |
+
+   No regression anywhere: the val-world floor *rises* (0.679 →
+   0.883), OOV is statistically unchanged. The new capability has
+   exactly the right shape: on the held-out "none of the 7 is right"
+   states FT-2 answers `wait` on all 45 with p ≈ 1.0, and the
+   distribution is *peaked on `wait`* (max-p mean equals p(`wait`)
+   mean) — a confident escalation signal, not a flat shrug. The
+   design justification, in one row: FT-1 answered 71% of those
+   states with a *confident wrong action* (max-p mean 0.967) — a
+   confident wrong reflex passes the small model's yes-gate; only the
+   large model catches it. Round 2 removes most of that exposure at
+   zero cost on the in-distribution slices. Live build on FT-2:
+   complete (7 steps, fault recovered); the build mission's travel
+   rows read borderline (p 0.31–0.33, below the strong gate 0.40) and
+   went to the judge, which confirmed each — the cascade doing its
+   job. The same model's val-world travel rows are 0.99+, so this is
+   a state-text phrasing sensitivity of this mission, not a
+   regression; it is input to the next threshold re-derivation as the
+   labeled set grows.
+
+4. **Operational notes.** (a) The converter moved under us: the card's
+   llama.cpp build advanced between passes, and its
+   `convert_hf_to_gguf.py` now *includes* the family's MTP/NextN
+   tensors by default, which the running server build rejects at load
+   (`check_tensor_dims: tensor 'blk.24.attn_norm.weight' not found`);
+   `--mtp` now means "export the draft head only". The flag that
+   yields a loadable target file is `--no-mtp` in this build (spelled
+   `--no-nextn`). Rule: a converted GGUF is adopted only after a real
+   load through the model switcher — the failure appears in the
+   server journal, never as a converter warning. (b) A nightly
+   val-world canary (clean protocol, pre-committed thresholds,
+   restores the resident 35B) is the drift guard; the runs around the
+   FT-2 cutover came back 96/96 with per-row numbers identical to the
+   batch A/B — the clean protocol is reproducible run-to-run. (c) The
+   card now serves a three-model reflex family: base, FT-1 (round-1
+   A/B reference), FT-2 (deployed default); the resident 35B is
+   restored after every measurement window.
