@@ -684,7 +684,7 @@ async function refresh() {
       let el = [...grid.children].find(e => e.dataset.name === s.name);
       if (!el) { el = card(s); grid.appendChild(el); }
       else el.replaceWith(card(s));
-      drawSpark(s.name, s.spark, s.kind === "vllm",
+      drawSpark(s.name, s.spark, s.kind === "vllm" || s.kind === "vllm-mux",
                 spkHover && spkHover.name === s.name ? spkHover.frac : null);
     });
     grid.dataset.struct = struct;

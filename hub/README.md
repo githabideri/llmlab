@@ -296,6 +296,10 @@ incremented per advisor call, per chosen endpoint).
      "sidecar": "http://host:9421", "description": "…"},
     {"name": "…", "kind": "vllm", "url": "http://host:8080",
      "sidecar": "http://host:9421", "description": "…"},
+    {"name": "…", "kind": "vllm-mux", "url": "http://host:8080",
+     "sidecar": "http://host:9421", "description": "…",
+     "models": {"model-a": {"ctx": 262144, "desc": "…"},
+               "model-b": {"ctx": 150000, "desc": "…"}}},
     {"name": "…", "kind": "gpu-only", "sidecar": "http://host:9421",
      "description": "GPU telemetry only"}
   ]
@@ -303,15 +307,21 @@ incremented per advisor call, per chosen endpoint).
 ```
 
 `kind` is `"llama-router"` (a llama.cpp server exposing the OpenAI-style
-`/v1/models` catalog + per-model `/metrics?model=`), `"vllm"`, or
-`"gpu-only"` (no inference API; online state comes from the sidecar).
+`/v1/models` catalog + per-model `/metrics?model=`), `"vllm"`, `"vllm-mux"`,
+or `"gpu-only"` (no inference API; online state comes from the sidecar).
+`vllm-mux` is a mux front (e.g. vllm-mux) in front of several vLLM engines
+that cannot be resident together: the hub reads the mux's synthesized
+`/v1/models` for the per-model **loaded/idle** state and one-click
+**load/unload** (the mux 202-acks the switch and runs it in the background,
+the state poller shows the result), and attributes the mux's `/metrics`
+forward — the active engine's native vLLM counters — to the loaded model.
 `sidecar` is the per-host `gpu-sidecar` URL (default assumption: same host
 as the server). A `gpu_sidecars` list of `{server, url}` entries may also be
 used; it overrides the per-server keys.
 
 Validation at boot (all errors listed, exit 1): every entry needs a
 unique `name` (names are API selectors and metric labels), `kind` must be
-one of the three values above, non-gpu-only entries need a `url`, and
+one of the values above, non-gpu-only entries need a `url`, and
 each `gpu_sidecars` entry needs a `url` and a `server` that exists in
 `servers`.
 
