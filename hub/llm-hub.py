@@ -695,16 +695,23 @@ class Server:
             mid = m.get("id")
             if mid:
                 catalog[mid] = (m.get("status") or {}).get("value") == "loaded"
-        for mid in self.model_hints:     # configured entries stay visible
-            catalog.setdefault(mid, False)
-        active = next((mid for mid, l in catalog.items() if l), None)
+        # Display is config-driven: ctx aliases of one engine (same
+        # systemd unit, all names loaded together) are not shown as
+        # individually loadable rows — the card shows the switch units
+        # (engine bundle + stopgap). With no hints configured, fall back
+        # to the raw mux catalog. All names of one engine are loaded
+        # together, so the loaded row == the resident engine's row.
+        if self.model_hints:
+            display = {mid: catalog.get(mid, False) for mid in self.model_hints}
+        else:
+            display = dict(catalog)
+        active = next((mid for mid, l in display.items() if l), None)
         with self._lock:
-            # the mux catalog is authoritative: drop entries it no longer
-            # knows (e.g. the "(vllm)" aggregate restored from a previous
-            # plain-vllm config of this server)
-            for mid in [m for m in self.models if m not in catalog]:
+            # drop entries this card doesn't show (e.g. the "(vllm)"
+            # aggregate restored from a previous plain-vllm config)
+            for mid in [m for m in self.models if m not in display]:
                 del self.models[mid]
-            for mid, loaded in catalog.items():
+            for mid, loaded in display.items():
                 hint = self.model_hints.get(mid) or {}
                 st = self.models.setdefault(mid, {
                     "id": mid, "kind": "vllm",
