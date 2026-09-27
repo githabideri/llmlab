@@ -109,7 +109,7 @@ Three compounding factors:
 
 2. **IQ4_XS is not Q2_K.** Despite having full AVX2/AVX-512 kernels, IQ4_XS is a **4.25 bpw** nonlinear lookup-table quant (scale per 32-element sub-block, sign table, lookup grid) — substantially higher bits-per-weight than Q2_K's ~2.56 bpw min+scale format, and computationally more elaborate per element. The higher memory footprint and kernel complexity partially offset the SIMD advantage on this bandwidth-limited DDR4 platform.
 
-3. **The 12 GB VRAM ceiling.** At most 8 of 40 MoE layers fit on GPU (~667 MiB each for the full 512-expert pool). The remaining 32 layers have their resident expert pools on CPU; per token only the 10 routed experts per layer execute, but the 32 × 512 = 16,384 resident matrices must stay page-cache-warm. The old UD model's Q2_K experts ran at 10.7 t/s on CPU; the IQ2_XS mix runs at 5.3. No amount of hot-caching (64–96 slots) covers the full resident pool across 32 CPU layers.
+3. **The 12 GB VRAM ceiling.** At most 8 of 40 MoE layers fit on GPU (~667 MiB each for the full 512-expert pool). The remaining 32 CPU-resident layers expose a 16,384-expert candidate pool; each token accesses only the routed top-10 per layer (320 GEMVs total), and practical performance depends on locality and how much of that routed working set remains resident in the page cache. The old UD model's Q2_K experts ran at 10.7 t/s on CPU; the IQ2_XS mix runs at 5.3. Hot-caching (64–96 slots) can only cover a small fraction of the full pool across 32 CPU layers.
 
 ## What would change the picture
 
