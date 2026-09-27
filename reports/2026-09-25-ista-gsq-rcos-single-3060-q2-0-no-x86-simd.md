@@ -1,4 +1,4 @@
-# ISTA GSQ-RCO Flash-Next on a single 3060: Q2_0 has no x86 SIMD kernel, IQ2_XS halves the gap
+# ISTA GSQ-RCO Flash-Next on a single 3060: Q2_0 falls back to scalar on the i3-9100, IQ2_XS halves the gap
 
 **Date:** 2026-09-25
 **Box:** backup/inference box — Intel i3-9100 (4C/4T, DDR4-2400 2-ch ≈ 38 GB/s), single RTX 3060 12 GB, 40 GB host RAM (LXC), NVMe
@@ -7,15 +7,15 @@
 
 ## Summary
 
-The ISTA GSQ-RCO quantizations use per-tensor Gumbel-Softmax + Riemannian Constrained Optimization to pick the optimal quant type per tensor under a size budget. On x86, this backfires for the Q2_0 variant: **all three routed-expert projections (gate, up, down) are Q2_0**, and `GGML_TYPE_Q2_0` (type 42, PR #24448) has **no x86 SIMD kernel** — only a generic scalar implementation and an ARM NEON variant. The CPU floor collapses from 10.7 t/s (Q2_K) to 2.4 t/s (Q2_0 scalar), a 4.5× gap that no amount of MoE caching can close on a 12 GB card.
+The ISTA GSQ-RCO quantizations use per-tensor Gumbel-Softmax + Riemannian Constrained Optimization to pick the optimal quant type per tensor under a size budget. On this box, this backfires for the Q2_0 variant: **all three routed-expert projections (gate, up, down) are Q2_0**, and `GGML_TYPE_Q2_0` (type 42, PR #24448) has **no optimized x86 vec-dot kernel in the tested codacus build** — it falls back to the generic scalar path. (An upstream ARM NEON kernel exists; an experimental x86 VNNI variant is open as PR #26348, but the i3-9100's Coffee Lake cores lack VNNI instructions.) The CPU floor collapses from 10.7 t/s (Q2_K) to 2.4 t/s (Q2_0 scalar), a 4.5× gap that no amount of MoE caching can close on a 12 GB card.
 
 The IQ2_XS variant is substantially better: only `ffn_down_exps` (the 640-row output projection, locked to Q2_0 by its geometry) remains Q2_0. The gate and up projections (~2/3 of expert FLOPs) are **IQ4_XS** with full AVX2/AVX-512 kernels. This lifts the CPU floor to 5.3 t/s and the best cached config to **7.1–7.3 t/s** — still 2× behind the old UD-Q2_K_XL, but a 1.5× improvement over the Q2_0 variant.
 
 **Verdict for this box:** the old UD-Q2_K_XL remains the best single-3060 model (14.3–14.9 t/s). The ISTA models belong on a machine with enough VRAM for GPU residency (the dual-3090: 37.6–40 GB transformer shard < 48 GB aggregate VRAM), where the x86 kernel gap becomes irrelevant.
 
-## The Q2_0 x86 kernel gap
+## The Q2_0 kernel gap on this box
 
-`GGML_TYPE_Q2_0` was added in llama.cpp PR #24448 with only the generic (C) `ggml_vec_dot_q2_0_q8_0` backend. In the codacus fork (`27c54b4b`, base `b10818`), `arch-fallback.h` maps `ggml_vec_dot_q2_0_q8_0_generic` → `ggml_vec_dot_q2_0_q8_0` for all x86 targets (SSE4, AVX2, AVX-512). The only architecture-specific Q2_0 kernel is in `arch/arm/quants.c` (NEON).
+`GGML_TYPE_Q2_0` was added in llama.cpp PR #24448 with only the generic (C) `ggml_vec_dot_q2_0_q8_0` backend. In the codacus fork (`27c54b4b`, base `b10818`), `arch-fallback.h` maps `ggml_vec_dot_q2_0_q8_0_generic` → `ggml_vec_dot_q2_0_q8_0` for all x86 targets (SSE4, AVX2, AVX-512) — no optimized x86 variant is selected. An architecture-specific NEON kernel exists in `arch/arm/quants.c`; an experimental x86 VNNI implementation is open upstream (PR #26348) but requires AVX-VNNI / AVX-512-VNNI instructions, which the Coffee Lake i3-9100 does not have.
 
 By contrast, `Q2_K` (type 8) has full AVX2/AVX-512 implementations in `arch/x86/quants.c` with maddubs-based dot products. The key structural difference: Q2_K's 2-bit packing uses a **stride-32** layout (each 2-bit set maps to a contiguous 32-value group of Q8_K), enabling a single wide maddubs per set. Q2_0 uses a **stride-4** layout (byte *b* → activation indices `[4b, 4b+1, 4b+2, 4b+3]`), which requires shuffling the activation data before the multiply.
 
@@ -27,9 +27,9 @@ A partial SSE kernel was implemented (appended to `arch/x86/quants.c` in the in-
 
 The RCO allocation files (published in the HF repo under `tensor-allocation/`) show per-tensor types:
 
-| Type | Q2_0 model (1235 tensors) | IQ2_XS model | x86 SIMD? |
+| Type | Q2_0 model (1235 tensors) | IQ2_XS model | Optimized x86 kernel (codacus build)? |
 |---|---:|---:|---|
-| **Q2_0** | **205** (all gate/up/down experts + a few attn) | **54** (ffn_down_exps only) | **No** |
+| **Q2_0** | **205** (all gate/up/down experts + a few attn) | **54** (ffn_down_exps only) | **No** (generic scalar; VNNI PR open but N/A on Coffee Lake) |
 | IQ4_XS | 57 | **182** (gate + up experts) | Yes |
 | Q3_K | 92 | 0 | Yes |
 | IQ4_NL | 8 (PLE) | 37 (PLE) | Yes |
@@ -75,7 +75,7 @@ MoE profiles: Q2_0 traces (82,001 rows, 3 prompt families × 2 × 256 tok) and I
 | 40 | 8 | 4.0–4.1 t/s, 10.0 GB VRAM |
 | 36 / 32 / 30 | 12+ | **CUDA OOM** (12 GB ceiling) |
 
-Each MoE layer costs ~667 MiB on GPU. The 12 GB card fits at most ~8 MoE layers (20% of 40). Even with 8 on GPU, the remaining 32 CPU layers dominate.
+Each MoE layer's full 512-expert pool costs ~667 MiB on GPU. The 12 GB card fits at most ~8 MoE layers (20% of 40). Even with 8 on GPU, the remaining 32 CPU-resident layers dominate (their 10 routed experts per token still execute on the scalar/SSE Q2_0 path).
 
 ### IQ2_XS context sweep (64 slots, IQ2_XS profile)
 
@@ -105,15 +105,15 @@ Both models produce correct, coherent output at all tested speeds.
 
 Three compounding factors:
 
-1. **Q2_0 ffn_down_exps (1/3 of expert FLOPs).** Even in the IQ2_XS model, the 640-row output projection per expert is stuck at Q2_0 (no x86 SIMD). This is the single largest remaining CPU bottleneck. Each of the 512 experts × 40 layers × 10 active = 204,800 down-projection GEMVs per token sequence, all on the scalar/SSE path.
+1. **Q2_0 ffn_down_exps (1/3 of expert FLOPs).** Even in the IQ2_XS model, the 640-row output projection per expert is stuck at Q2_0 (no optimized x86 kernel in the tested build; VNNI PR is N/A on Coffee Lake). This is the single largest remaining CPU bottleneck. Per generated token, 40 MoE layers × 10 routed experts = **400 active down-projection GEMVs** execute on the scalar/SSE path (the 512-expert pool per layer is the candidate set; only the top-10 are selected by the router each token).
 
-2. **IQ4_XS is not Q2_K.** Despite having full AVX2/AVX-512 kernels, IQ4_XS uses a lookup-table format (scale per 32-element sub-block, sign table, lookup grid) that is computationally more elaborate than Q2_K's simpler min+scale format. On the i3-9100's memory-bandwidth-limited DDR4, the higher per-element memory footprint of IQ4_XS (2.3125 bpw vs Q2_K's ~2.56 bpw but with more metadata) partially offsets the SIMD advantage.
+2. **IQ4_XS is not Q2_K.** Despite having full AVX2/AVX-512 kernels, IQ4_XS is a **4.25 bpw** nonlinear lookup-table quant (scale per 32-element sub-block, sign table, lookup grid) — substantially higher bits-per-weight than Q2_K's ~2.56 bpw min+scale format, and computationally more elaborate per element. The higher memory footprint and kernel complexity partially offset the SIMD advantage on this bandwidth-limited DDR4 platform.
 
-3. **The 12 GB VRAM ceiling.** At most 8 of 40 MoE layers fit on GPU (~667 MiB each). The remaining 32 layers run entirely on CPU. The old UD model's Q2_K experts ran at 10.7 t/s on CPU; the IQ2_XS mix runs at 5.3. No amount of hot-caching (64–96 slots) covers 32 × 512 = 16,384 expert matrices.
+3. **The 12 GB VRAM ceiling.** At most 8 of 40 MoE layers fit on GPU (~667 MiB each for the full 512-expert pool). The remaining 32 layers have their resident expert pools on CPU; per token only the 10 routed experts per layer execute, but the 32 × 512 = 16,384 resident matrices must stay page-cache-warm. The old UD model's Q2_K experts ran at 10.7 t/s on CPU; the IQ2_XS mix runs at 5.3. No amount of hot-caching (64–96 slots) covers the full resident pool across 32 CPU layers.
 
 ## What would change the picture
 
-- **A proper AVX2 Q2_0 kernel** (2 blocks per YMM, ~3× over the current SSE): would lift the Q2_0 model from ~5 to ~8 t/s and the IQ2_XS model from ~7 to ~9 t/s. Still not matching Q2_K, but closer.
+- **A proper AVX2 Q2_0 kernel** (2 blocks per YMM, ~3× over the current SSE): would lift the Q2_0 model from ~5 to ~8 t/s and the IQ2_XS model from ~7 to ~9 t/s. Still not matching Q2_K, but closer. (The open upstream VNNI PR #26348 targets a different instruction set and does not apply to this CPU.)
 - **The dual-3090 (48 GB aggregate VRAM):** the 37.6 GB Q2_0 transformer shard (or 40 GB IQ2_XS) fits entirely on GPU with `-ngl 99`. No experts on CPU → the x86 kernel gap is irrelevant. Q2_0 has CUDA MMQ/MMVQ kernels (including Ampere-specific configurations) in this llama.cpp build. This is the intended deployment target.
 - **A surgical hybrid GGUF:** re-encode only the Q2_0 ffn_down_exps tensors (54 in IQ2_XS) to a CPU-friendly format (e.g., Q2_K if the 640-row geometry permits a non-256-block variant), while keeping the rest of ISTA's per-tensor allocation. Would preserve the 68 GB footprint while eliminating the last Q2_0 dependency.
 
