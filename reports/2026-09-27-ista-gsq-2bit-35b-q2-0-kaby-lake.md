@@ -45,7 +45,7 @@ Two notes:
 | i3-9100 (Coffee Lake, no VNNI) | 2.4 t/s (0.3× of Q2_K) | 09-25 codacus-era build — scalar Q2_0 path |
 | i5-7300HQ (Kaby Lake, AVX2) | **4.87 t/s (~0.8× of 4-bit)** | 2026 base — dedicated AVX2 Q2_0 kernel |
 
-The same model, same quant, four months apart: the gap to the 4-bit class shrank from ~3× to ~1.25× purely from kernel coverage. 2-bit MoE is approaching CPU-viability on cheap 4-core hardware.
+The same model and quant, measured two days apart on **two different engine lines** (09-25: the codacus fork, which lacks an AVX2 Q2_0 kernel; 09-27: the 2026 upstream base, which has one): the gap to the 4-bit class shrank from ~3× to ~1.25× purely from x86 kernel coverage across those llama.cpp/fork revisions. 2-bit MoE is approaching CPU-viability on cheap 4-core hardware.
 
 ## Appendix
 
