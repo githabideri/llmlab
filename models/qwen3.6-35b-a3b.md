@@ -15,7 +15,7 @@ The 35B also rides on a **2017 HP OMEN 15** (i5-7300HQ 4C/8T-capable, **SMT fixe
 | Param | Value |
 |-------|-------|
 | Quant | UD-IQ4_XS (17 GB, no mmproj) |
-| Hardware | 1× GTX 1060 6 GB Max-Q (Pascal 6.1, 1,280 cores, 60 W TGP) + i5-7300HQ (4C, **no HT on this unit**) |
+| Hardware | 1× GTX 1060 6 GB Max-Q (Pascal 6.1, 1,280 cores, 60 W TGP) + i5-7300HQ (4C; 8T-capable part, SMT disabled in this unit's firmware) |
 | Context | 128K, q8_0 K/V, single slot, 12 GB host-RAM-resident (24 GB machine) |
 | Placement | `--load-mode none -ngl all -ncmoe 20` — 20 of 40 expert layers on GPU, rest on CPU |
 | Engine | llama.cpp 2026 moe-cache fork: **12-slot expert cache** — the only configuration that makes 128K fast on a 6 GB card (frees ~1 GB of expert weights for the KV buffer); `--decode-overlap --backend-sampling --phase-aware-workspace --moe-early-router`, `-t 4` (one worker per physical core) |
@@ -23,6 +23,8 @@ The 35B also rides on a **2017 HP OMEN 15** (i5-7300HQ 4C/8T-capable, **SMT fixe
 | Measured | **~11.8 t/s decode at 128K** (4.67 GB VRAM) · **~167–186 t/s pp** (512–2048) · decode energy: GPU 30–50 W (38.4 W avg over a 3,000-token run) + CPU package 13.3 W (RAPL package domain) → ~55–70 W at the wall (platform ~10–15 W not directly metered) |
 
 Why it matters: the first 35B-class MoE served on Pascal in the fleet — 580 LTSB driver (last Pascal line) + CUDA 12.9 (last Pascal toolkit) + the 2026 engine, with the `cublasCreate_v2 = 3` crash forensics and the exact flag combination that resolves it ([2026-09-27 report](../reports/2026-09-27-pascal-1060-2026-llama-cpp-35b-128k.md)). Decode sits at the box's ~19–20 GB/s effective DRAM wall (asymmetric 16+8 RAM, single-channel-equivalent — see the profile); a 16+16 upgrade is the standing next step.
+
+**2-bit candidate (evaluated 2026-09-27, Phase 2):** the ISTA GSQ-hybrid 2-bit quant beats this production config on the same card — **18.7 t/s vs 12.7 at both 4K and 128K**, 3.5/4.6 GB vs 4.7/4.9 GB VRAM, 10.6 vs 16.2 GB RSS — with two quality soft-spots (budget-eating runaway thinking on one open factual fixture; one corrupted proper noun). Cutover pending a larger quality battery and the RAM upgrade; details in the [Phase-2 report](../reports/2026-09-27-ista-2bit-expert-residency-pascal-1060-phase2.md).
 
 ### Historic: dual-3060 home (dismantled 2026-09-08 — preserved as the historical config)
 
@@ -99,9 +101,11 @@ Official GPTQ-Int4 on vLLM 0.17.1, `--pipeline-parallel-size 3`, fp8 KV: post-wa
 - DFlash tool-loop write-up: [`2026-06-19`](../reports/2026-06-19-beellama-dflash-cutover.md)
 - 2-bit squeeze onto one 12 GB 3060 (residency proof, decode ladder): [`2026-08-30`](../reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)
 - ISTA 2-bit Q2_0 on Kaby Lake + 6 GB placement floor (Pascal laptop, 2026 base has the AVX2 Q2_0 kernel): [`2026-09-27`](../reports/2026-09-27-ista-gsq-2bit-35b-q2-0-kaby-lake.md)
+- ISTA 2-bit expert-residency Phase 2 on the Pascal laptop (128K + quality battery; 2-bit beats the 4-bit production config by ~47–48%): [`2026-09-27`](../reports/2026-09-27-ista-2bit-expert-residency-pascal-1060-phase2.md)
 
 ## Changelog
 
+- **2026-09-27 (Phase 2):** ISTA GSQ-hybrid 2-bit evaluated on the Pascal laptop (follow-up campaign, production untouched): with the 24-slot hot-expert cache it decodes **18.68 t/s at 4K and 18.65 t/s at 128K vs 12.66/12.62 for the shipping 4-bit config**, using 3.49/4.64 GB vs 4.67/4.88 GB VRAM and 10.6 vs 16.2 GB RSS — the 2-bit's smaller CPU-resident expert mass wins on this DRAM-bandwidth-bound box. Findings: the no-cache server offloader path OOMs the 4-bit model (the hot cache is the 6 GB enabler, not a tuning knob), the cache ignores `--n-cpu-moe`, the linear-attention state is fixed-size (128K adds only the 10 full-attention layers' KV), zero swap, 12 GiB headroom (16 GB projected to fit). Quality: 5/7 objective fixtures identical; two 2-bit soft-spots (runaway thinking eating a 4096 budget on one open factual fixture; "Jan Ingenhouz"). **Decision: 2-bit is the production candidate; cutover gated on a larger quality battery + the RAM upgrade.** Details: [2026-09-27 Phase-2 report](../reports/2026-09-27-ista-2bit-expert-residency-pascal-1060-phase2.md).
 - **2026-09-27:** **Pascal laptop variant added, in production** — UD-IQ4_XS text-only, 128K q8 KV, moe-cache fork (12-slot expert cache + `-ncmoe 20` + `-t 4`, no MTP) on the HP OMEN 15 (GTX 1060 6 GB Max-Q, i5-7300HQ 4C no-HT, 24 GB); ~11.8 t/s decode at 128K, 4.67 GB VRAM; 2026 llama-server in router mode → llm-hub `llama-router` card with one-click load/unload (202-accepted, ~5 min cold load). The 580 LTSB + CUDA 12.9 + 2026-llama.cpp Pascal build story, the `cublasCreate_v2 = 3` crash (config-specific: manual `-ngl` + mmap; resolved by load-mode/ncmoe), the MTP net-loss measurement, and the 12-slot expert cache as the 6 GB/128K enabler are in the [2026-09-27 report](../reports/2026-09-27-pascal-1060-2026-llama-cpp-35b-128k.md). Box facts (incl. the single-channel-equivalent RAM) in the [hardware profile](../docs/hardware/pascal-laptop.md).
 - **2026-02-25/26:** 3.5 initial evaluation; loop-failure finding.
 - **2026-03-03:** 3.5 24 GB text+tools+vision viability (tuned profile); reasoning-loop fix (dropped `--reasoning-format deepseek`).
