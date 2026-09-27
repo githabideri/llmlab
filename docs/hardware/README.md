@@ -8,5 +8,6 @@ Inference machines in the fleet, by role. Each profile covers the physical box �
 | [Backup / inference box](backup-single-3060.md) | Intel i3-9100 (4C) | 1× RTX 3060 (12 GB) | 48 GB | Data backup + llama.cpp endpoint (35B resident, on-demand 27B / 125B via the box's model-mux) | Active |
 | [Laptop](laptop.md) | AMD Ryzen 7 7840U (8C/16T) | Radeon 780M iGPU | 96 GB | Vulkan / iGPU experiments | Active |
 | [Secondary GPU server](secondary-gpu-server.md) | Intel i5-7400 (4C/4T) | 1× RTX 3060 12 GB (host) + GTX 1050 + GT 1030 2 GB (VFIO → 4-vCPU VM) | 32 GB (4×8 GB) | Auxiliary GPU host: host-level llama.cpp 35B endpoint + WhisperX ASR VM | Active |
+| [Pascal laptop](pascal-laptop.md) | Intel i5-7300HQ (4C, no HT) | 1× GTX 1060 6 GB Max-Q (Pascal) | 24 GB (asymmetric 16+8) | 35B 128K endpoint + Pascal test bed (NixOS, AC-only) | Active |
 
 **Secondary GPU server motherboard:** Gigabyte B250-HD3P (ATX, Intel B250).
