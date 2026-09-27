@@ -71,7 +71,7 @@ Explicit-flag mode (build `6c84c7d5`): `--gpu-layers 44 --split-mode layer --ten
 
 ## ISTA GSQ-RCO variants (evaluated 2026-09-25, not deployed)
 
-ISTA-DASLab published per-tensor GSQ-RCO quantizations of this model (Q2_0, IQ2_XS, IQ3_XXS). On the single-3060 backup box the Q2_0 variant is **not viable** (no x86 SIMD kernel for Q2_0 → 2.4 t/s CPU floor) and the IQ2_XS variant reaches **7.1–7.3 t/s** (64-slot cache) — 2× behind the existing UD-Q2_K_XL deployment. The ISTA models' intended target is a machine with enough VRAM for full GPU residency (e.g. dual-3090, 48 GB aggregate). Details: [`reports/2026-09-25-ista-gsq-rcos-single-3060-q2-0-no-x86-simd.md`](../reports/2026-09-25-ista-gsq-rcos-single-3060-q2-0-no-x86-simd.md).
+ISTA-DASLab published per-tensor GSQ-RCO quantizations of this model (Q2_0, IQ2_XS, IQ3_XXS). On the single-3060 backup box the Q2_0 variant is **not viable** (no optimized x86 Q2_0 vec-dot kernel in the tested codacus build; VNNI PR open but N/A on Coffee Lake i3-9100 → 2.4 t/s CPU floor) and the IQ2_XS variant reaches **7.1–7.3 t/s** (64-slot cache) — 2× behind the existing UD-Q2_K_XL deployment. The ISTA models' intended target is a machine with enough VRAM for full GPU residency (e.g. dual-3090, 48 GB aggregate). Details: [`reports/2026-09-25-ista-gsq-rcos-single-3060-q2-0-no-x86-simd.md`](../reports/2026-09-25-ista-gsq-rcos-single-3060-q2-0-no-x86-simd.md).
 
 ## Links
 
