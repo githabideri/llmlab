@@ -1,7 +1,7 @@
 # ISTA 2-bit (GSQ) Qwen3.6-35B-A3B on Kaby Lake: the Q2_0 gate and the 6 GB placement floor
 
 **Date:** 2026-09-27
-**Box:** HP OMEN 15 — i5-7300HQ (4 physical cores, **no Hyper-Threading on this unit**), GTX 1060 6 GB (Pascal), 24 GB DDR4 — [hardware profile](../docs/hardware/pascal-laptop.md)
+**Box:** HP OMEN 15 — i5-7300HQ (4C/4T, no Hyper-Threading; CPUID F6/0x9E/S9), GTX 1060 6 GB (Pascal), 24 GB DDR4 — [hardware profile](../docs/hardware/pascal-laptop.md)
 **Model:** `Qwen3.6-35B-A3B-GSQ-hybrid.gguf` — ISTA-DASLab's 2-bit conversion (GGUF by chtisgit): 11.38 GiB, **routed experts Q2_0** (120 tensors), attention / linear-attention / shared-expert / LM-head **Q8_0** (251 tensors), 61 BF16, 301 F32; MTP head omitted; SHA-256 verified against the published values. Companion to [2026-09-25-ista-gsq-rcos-single-3060-q2-0-no-x86-simd](2026-09-25-ista-gsq-rcos-single-3060-q2-0-no-x86-simd.md) and the [Pascal 128K report](2026-09-27-pascal-1060-2026-llama-cpp-35b-128k.md).
 
 ## Question
@@ -43,7 +43,7 @@ Two notes:
 | CPU (4-core class) | Q2_0 35B all-CPU | Engine era |
 |---|---:|---|
 | i3-9100 (Coffee Lake, no VNNI) | 2.4 t/s (0.3× of Q2_K) | 09-25 codacus-era build — scalar Q2_0 path |
-| i5-7300HQ (Kaby Lake, AVX2) | **4.87 t/s (~0.8× of 4-bit)** | 2026 base — dedicated AVX2 Q2_0 kernel |
+| i5-7300HQ (Kaby Lake, AVX2) | **4.87 t/s (~0.8× of 4-bit)** | 2026 base — dedicated AVX2 Q2_0 kernel (4 threads) |
 
 The same model and quant, measured two days apart on **two different engine lines** (09-25: the codacus fork, which lacks an AVX2 Q2_0 kernel; 09-27: the 2026 upstream base, which has one): the gap to the 4-bit class shrank from ~3× to ~1.25× purely from x86 kernel coverage across those llama.cpp/fork revisions. 2-bit MoE is approaching CPU-viability on cheap 4-core hardware.
 

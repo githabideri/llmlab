@@ -1,7 +1,7 @@
 # ISTA 2-bit expert-residency campaign on the Pascal laptop — Phase 2
 
 **Date:** 2026-09-27
-**Box:** 2017 HP OMEN 15 — i5-7300HQ (4C, SMT firmware-disabled), GTX 1060 6 GB Max-Q (Pascal cc 6.1), 24 GB DDR4 (asymmetric 16+8, effectively single-channel ~19–20 GB/s) — [hardware profile](../docs/hardware/pascal-laptop.md)
+**Box:** 2017 HP OMEN 15 — i5-7300HQ (4C/4T, no Hyper-Threading; CPUID F6/0x9E/S9, uCode 0x84), GTX 1060 6 GB Max-Q (Pascal cc 6.1), 24 GB DDR4 (asymmetric 16+8, effectively single-channel ~19–20 GB/s) — [hardware profile](../docs/hardware/pascal-laptop.md)
 **Models:** Qwen3.6-35B-A3B (MoE, ~3B active) — `UD-IQ4_XS` (17 GB, the current production quant) vs the ISTA `GSQ-hybrid` 2-bit (11.38 GB: routed experts Q2_0, non-expert core Q8_0, MTP heads omitted)
 **Engine:** the MoE-expert-cache fork of the 2026 llama.cpp (Pascal build; 580 LTSB + CUDA 12.9), `--fit off --load-mode none -t 4 -b 2048 -ub 512 -np 1`, q8_0 K/V. Follow-on to the [ISTA Q2_0 gate report](2026-09-27-ista-gsq-2bit-35b-q2-0-kaby-lake.md) and the [Pascal 128K deployment report](2026-09-27-pascal-1060-2026-llama-cpp-35b-128k.md).
 
@@ -74,20 +74,30 @@ The 12-slot cache lifts the same model from 7.67 to 16.77 t/s (+119%); 24 slots 
 
 The 4K→128K delta is identical for both points — it is the q8_0 KV of the 10 full-attention layers; **the linear-attention recurrent state is fixed-size (context-independent)**, so 128K costs no extra state. Both fit with 1.4–1.7 GB headroom; slot-level logs confirm 18.58 t/s steady decode with CUDA-graph reuse.
 
+### Stage D — cache count at 128K (follow-on)
+
+| cache | decode @ 128K (t/s) | VRAM @ 128K (MiB) |
+|---:|---:|---:|
+| 24 | 18.65 | 4,641 |
+| 28 | 19.21–19.41 | 4,883 |
+| 32 | 19.51–19.53 | 4,863 |
+
+All fit at 128K with ~1.2 GB headroom; gains flatten past 24 slots (+3.2% / +1.5% per +4 slots for ~240 MiB each). **24 slots remains the best gain-per-MiB point; 28–32 are diminishing returns.**
+
 ### Host-memory envelope
 
-RSS ≈ 10.6 GB (≈10.4 GB private dirty — the pre-allocated CPU expert buffer), **12 GiB still MemAvailable, swap untouched** (36 MB used, `pswpout` unchanged across all snapshots, including model swaps). **16 GB (8+8) projection:** ~12.5–13.5 GB steady demand → fits with ~2–3 GB margin, workable but no room for a second resident model; 32 GB (16+16) is comfortable and — per the [09-27 report](2026-09-27-pascal-1060-2026-llama-cpp-35b-128k.md) — dual-channel RAM is the single biggest remaining *decode* lever, which the 2-bit model (2.6× less streamed byte count) benefits from proportionally more.
+RSS ≈ 10.6 GB (≈10.4 GB private dirty — the pre-allocated CPU expert buffer), **12 GiB still MemAvailable, swap untouched** (36 MB used, `pswpout` unchanged across all snapshots, including model swaps). **16 GB (8+8):** steady demand ~12.5–13.5 GB fits with ~2–3 GB margin — likely viable (not tested on a real 16 GB stick), but no room for a second resident model; 32 GB (16+16) is comfortable, and dual-channel RAM is the single biggest remaining *decode* lever (per the [09-27 report](2026-09-27-pascal-1060-2026-llama-cpp-35b-128k.md)). The per-token DRAM mass is expert-mass-dominated, and the measured expert byte ratio is ~1.5–1.6× (below) — not a full quant-order gap.
 
 ### Energy
 
-GPU 27–30 W during the 2-bit decode cells (vs 29–30 W for the 4-bit at 4K and ~30 W at 128K); CPU package 13.3 W (RAPL, measured on the 4-bit — the 2-bit streams less, so the CPU side is equal-or-lower). Wall total in the same ~55–70 W band as the 4-bit; the 2-bit's win is tokens-per-second-per-watt, not watts.
+GPU 27–30 W during the 2-bit decode cells (vs 29–30 W for the 4-bit at 4K and ~30 W at 128K); CPU package 13.3 W (RAPL, measured on the 4-bit decode; the 2-bit CPU power is **not measured** — it streams less, so it is expected equal-or-lower). Wall total in the same ~55–70 W band as the 4-bit; the 2-bit's win is tokens-per-second-per-watt, not watts.
 
 ## Metrics — the comparison that matters
 
 | | 4-bit production (IQ4_XS, c12) | 2-bit (GSQ-hybrid, c24) | 2-bit (c12) |
 |---|---:|---:|---:|
 | decode @ 4K (t/s) | 12.66 | **18.68** | 16.86 |
-| decode @ 128K (t/s) | 12.62 | **18.65** | 16.87 |
+| decode @ 128K (t/s) | 12.62 | **18.65** (19.51 @ c32) | 16.87 |
 | VRAM @ 4K / 128K (MiB) | 3,595 / 4,881 | 3,485 / 4,641 | 3,015 / 4,171 |
 | CPU RSS (GiB) | 16.2 | 10.6 | 10.6 |
 | swap activity | 0 | 0 | 0 |
@@ -96,17 +106,19 @@ GPU 27–30 W during the 2-bit decode cells (vs 29–30 W for the 4-bit at 4K an
 
 **Primary (thinking on, 4096 max tokens):** 5 of 7 fixtures pass identically (arithmetic, code, exact-format, long-context, JSON — all correct on both models, including the distractor-date long-context and the strict JSON). The two divergences, both on the 2-bit side:
 
-- *Top-3 lakes by volume:* the 2-bit model's thinking consumed the **entire 4096-token budget** (12.5k characters of reasoning, `finish=length`, zero answer); the 4-bit model's thinking on the same fixture is the same length (12.3k) but still leaves a 605-char answer (correct top-2, wrong third place).
-- *General-knowledge pair:* the 2-bit answers the 1779 photosynthesis-experiment scientist as "**Jan Ingenhouz**" — the name is corrupted (missing final *s*); the 4-bit spells it correctly. The ice-density explanation is correct on both.
+- *Top-3 lakes by volume:* the 2-bit model's thinking consumed the **entire 4096-token budget** (12.5k characters of reasoning, `finish=length`, zero answer) — a clear 2-bit failure mode (budget-eating runaway). The 4-bit model had its own *smaller* miss on the same fixture (correct top-2, wrong third place), so the fixture is hard for both quants — not clean 2-bit-only evidence.
+- *General-knowledge pair:* the 2-bit answers the 1779 photosynthesis-experiment scientist as "**Jan Ingenhouz**" — the name is corrupted (missing final *s*); the 4-bit spells it correctly. The ice-density explanation is correct on both. This is the cleaner 2-bit-specific divergence (a rare proper noun).
+
+(7-fixture battery — a small sample; these results are failure-class signals for the next battery, not a verdict.)
 
 **Supplementary (thinking off, 1024 tokens):** 5/7 clean on both; the lakes question fails in *different* ways per quant (2-bit: right ranking, wrong volumes, self-corrects mid-answer; 4-bit: drops Superior for Malawi). No systematic degradation at the short-answer depth — but the primary regime shows the 2-bit's fragility concentrates exactly where it should: rare proper nouns and stopping-behavior under open-ended factual questions.
 
 ## Conclusion
 
-1. **4K and 128K:** the 2-bit ISTA model beats the 4-bit production config by ~48% and ~47% respectively, with *less* VRAM and ~6 GB less host RAM. On a DRAM-bandwidth-bound box, bytes moved per token is the currency, and 2.6× fewer bytes beats a 0.8× kernel.
+1. **4K and 128K:** the 2-bit ISTA model beats the 4-bit production config by ~48% and ~47% respectively, with *less* VRAM and ~6 GB less host RAM. On a DRAM-bandwidth-bound box, bytes moved per token is the currency. Measured expert mass: IQ4_XS ≈ 15.3 GB (tensor manifest: 40 layers × 381.7 MB) vs ~9.4 GB for the 2-bit CPU-resident experts — a **~1.5–1.6× smaller expert byte ratio** (a 2.6× ratio would be the full Q4→Q2 quant step, not what this hybrid has); the 1.47–1.48× decode speedup tracks it, as expected for bandwidth-bound decode.
 2. **The hot-expert cache is the enabler, not a tuning knob** — on this card the no-cache server path doesn't even load the 4-bit model, and with the cache on `ncmoe` is ignored. The only real cache question is slot count: 24 slots = +11% for 470 MiB.
 3. **Quality:** no degradation on objective/format fixtures; two real 2-bit weaknesses surfaced (budget-eating runaway thinking on one open factual fixture; a corrupted proper noun). Whether those are 2-bit-specific or just this model's long-tail behavior needs a bigger battery — a small-battery result, not a verdict.
-4. **Production candidate:** the 2-bit n28/c24 config (18.65 t/s @128K, 4.64 GB) is the leading candidate for this laptop's serving slot; the 4-bit config stays the fallback until a larger quality battery and the RAM upgrade (dual-channel, which multiplies the 2-bit's advantage) have both landed.
-5. **Highest-value next experiments:** the 16+16 RAM swap re-measured on the 2-bit (the single biggest lever left); a 50–100 item quality battery with the 2-bit's two failure classes as the probe set; Q3-class quant upgrades for the CPU-resident experts.
+4. **Production candidate:** the 2-bit c24 config (18.65 t/s @128K, 4.64 GB; c32: 19.5 t/s, 4.86 GB) is the leading candidate for this laptop's serving slot — and it is already viable on the current 24 GB asymmetric RAM. Cutover is **gated on the larger adversarial quality battery**; the dual-channel RAM swap is a *separate* performance experiment (it would extend the 2-bit's lead, not enable it).
+5. **Highest-value next experiments:** (a) the 50–100 item adversarial quality battery, weighted toward the two failure classes — rare proper nouns and runaway thinking under budget — plus dates, technical nomenclature, multi-hop factual recall, exact structured output, code with subtle invariants, and long-context distractors (composition matters more than raw count); (b) the 16+16 RAM swap re-measured on the 2-bit (the biggest remaining *performance* lever); (c) Q3-class quant upgrades for the CPU-resident experts.
 
 *Raw cells, per-request JSON (engine `timings` + reasoning), placement and memory logs live in the private repo (they carry machine-internal identifiers and are not mirrored here).*
