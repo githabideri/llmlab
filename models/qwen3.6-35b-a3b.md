@@ -10,7 +10,7 @@
 
 ### Pascal laptop variant (in production since 2026-09-27)
 
-The 35B also rides on a **2017 HP OMEN 15** (i5-7300HQ 4C, GTX 1060 6 GB Max-Q, 24 GB) as a headless, text-only, hub-managed 128K endpoint — the lab's Pascal test bed ([hardware profile](../docs/hardware/pascal-laptop.md)). This is the same model file as the 3060's (UD-IQ4_XS) but a different quant family per box: the 3060 runs Q4_K_XL+vision, the laptop runs **UD-IQ4_XS, text-only, no MTP** (MTP measured a net loss on this card: 12.7 → 11.6 t/s at 64K).
+The 35B also rides on a **2017 HP OMEN 15** (i5-7300HQ 4C/8T-capable, **SMT fixed off in this unit's firmware** — CPUID reports the `ht` capability, the machine exposes 4 threads, and `/sys/devices/system/cpu/smt/control` is `notsupported`, i.e. no runtime toggle), GTX 1060 6 GB Max-Q, 24 GB) as a headless, text-only, hub-managed 128K endpoint — the lab's Pascal test bed ([hardware profile](../docs/hardware/pascal-laptop.md)). Same Qwen3.6-35B-A3B base model/family as the 3060's, but a **different GGUF quant per machine**: the 3060 runs Q4_K_XL (+vision, MTP variant), the laptop runs **UD-IQ4_XS, text-only, no MTP** (MTP measured a net loss on this card: 12.7 → 11.6 t/s at 64K).
 
 | Param | Value |
 |-------|-------|
@@ -20,7 +20,7 @@ The 35B also rides on a **2017 HP OMEN 15** (i5-7300HQ 4C, GTX 1060 6 GB Max-Q, 
 | Placement | `--load-mode none -ngl all -ncmoe 20` — 20 of 40 expert layers on GPU, rest on CPU |
 | Engine | llama.cpp 2026 moe-cache fork: **12-slot expert cache** — the only configuration that makes 128K fast on a 6 GB card (frees ~1 GB of expert weights for the KV buffer); `--decode-overlap --backend-sampling --phase-aware-workspace --moe-early-router`, `-t 4` (one worker per physical core) |
 | Serving | 2026 `llama-server` in **router mode** (`--models-preset` INI + `load-on-startup`) → llm-hub `llama-router` card: model row with live rates, one-click load/unload (202-accepted; ~5 min cold load on 4 cores) |
-| Measured | **~11.8 t/s decode at 128K** (4.67 GB VRAM) · **~167–186 t/s pp** (512–2048) · 46–50 W GPU, 38 W CPU package during decode |
+| Measured | **~11.8 t/s decode at 128K** (4.67 GB VRAM) · **~167–186 t/s pp** (512–2048) · decode energy: GPU 30–50 W (38.4 W avg over a 3,000-token run) + CPU package 13.3 W (RAPL package domain) → ~55–70 W at the wall (platform ~10–15 W not directly metered) |
 
 Why it matters: the first 35B-class MoE served on Pascal in the fleet — 580 LTSB driver (last Pascal line) + CUDA 12.9 (last Pascal toolkit) + the 2026 engine, with the `cublasCreate_v2 = 3` crash forensics and the exact flag combination that resolves it ([2026-09-27 report](../reports/2026-09-27-pascal-1060-2026-llama-cpp-35b-128k.md)). Decode sits at the box's ~19–20 GB/s effective DRAM wall (asymmetric 16+8 RAM, single-channel-equivalent — see the profile); a 16+16 upgrade is the standing next step.
 
