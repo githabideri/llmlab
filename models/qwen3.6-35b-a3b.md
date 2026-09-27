@@ -8,6 +8,22 @@
 
 > **Interim (since 2026-09-08):** the dual-3060 home below was dismantled — the 3060 pair left the primary box for a second RTX 3090 (dual-3090 vLLM TP2 for Qwen3.8-27B). The 35B now rides on the **secondary GPU server (i5-7400, single RTX 3060 LHR)** as the `Qwen3.6-35B-A3B-MTP` variant (Q4_K_XL + mmproj, 128K ctx, MTP, vision) — measured **~28–39 t/s tgen / ~630–780 t/s pp at 128K** ([2026-06-30 report](../reports/2026-06-30-qwen3.6-35b-a3b-mtp-single-3060.md) + the 2026-08-28 `-ub 2048` bump) — a shared card with document-AI work, so expect hub-mediated load/unload around those jobs — with the **single-3060 backup box** as the usual window fallback. The dual-3060 config below is preserved as the historical home; the dual-3090 campaign (09-10/11) confirmed the 27B on the 3090 pair, and the 35B stays interim on the secondary box for now.
 
+### Pascal laptop variant (in production since 2026-09-27)
+
+The 35B also rides on a **2017 HP OMEN 15** (i5-7300HQ 4C, GTX 1060 6 GB Max-Q, 24 GB) as a headless, text-only, hub-managed 128K endpoint — the lab's Pascal test bed ([hardware profile](../docs/hardware/pascal-laptop.md)). This is the same model file as the 3060's (UD-IQ4_XS) but a different quant family per box: the 3060 runs Q4_K_XL+vision, the laptop runs **UD-IQ4_XS, text-only, no MTP** (MTP measured a net loss on this card: 12.7 → 11.6 t/s at 64K).
+
+| Param | Value |
+|-------|-------|
+| Quant | UD-IQ4_XS (17 GB, no mmproj) |
+| Hardware | 1× GTX 1060 6 GB Max-Q (Pascal 6.1, 1,280 cores, 60 W TGP) + i5-7300HQ (4C, **no HT on this unit**) |
+| Context | 128K, q8_0 K/V, single slot, 12 GB host-RAM-resident (24 GB machine) |
+| Placement | `--load-mode none -ngl all -ncmoe 20` — 20 of 40 expert layers on GPU, rest on CPU |
+| Engine | llama.cpp 2026 moe-cache fork: **12-slot expert cache** — the only configuration that makes 128K fast on a 6 GB card (frees ~1 GB of expert weights for the KV buffer); `--decode-overlap --backend-sampling --phase-aware-workspace --moe-early-router`, `-t 4` (one worker per physical core) |
+| Serving | 2026 `llama-server` in **router mode** (`--models-preset` INI + `load-on-startup`) → llm-hub `llama-router` card: model row with live rates, one-click load/unload (202-accepted; ~5 min cold load on 4 cores) |
+| Measured | **~11.8 t/s decode at 128K** (4.67 GB VRAM) · **~167–186 t/s pp** (512–2048) · 46–50 W GPU, 38 W CPU package during decode |
+
+Why it matters: the first 35B-class MoE served on Pascal in the fleet — 580 LTSB driver (last Pascal line) + CUDA 12.9 (last Pascal toolkit) + the 2026 engine, with the `cublasCreate_v2 = 3` crash forensics and the exact flag combination that resolves it ([2026-09-27 report](../reports/2026-09-27-pascal-1060-2026-llama-cpp-35b-128k.md)). Decode sits at the box's ~19–20 GB/s effective DRAM wall (asymmetric 16+8 RAM, single-channel-equivalent — see the profile); a 16+16 upgrade is the standing next step.
+
 ### Historic: dual-3060 home (dismantled 2026-09-08 — preserved as the historical config)
 
 The MoE half of the primary GPU server — dual RTX 3060 on a mainline llama.cpp build (`/opt/llama.cpp-mainline`). Verified against the live unit `llama-server-qwen3.6-vision.service` (:8081), 2026-08-27.
@@ -82,9 +98,11 @@ Official GPTQ-Int4 on vLLM 0.17.1, `--pipeline-parallel-size 3`, fp8 KV: post-wa
 - 3.5 24 GB vision retest: [`2026-03-03`](../reports/2026-03-03-qwen3.5-35b-a3b-24gb-vision-retest.md)
 - DFlash tool-loop write-up: [`2026-06-19`](../reports/2026-06-19-beellama-dflash-cutover.md)
 - 2-bit squeeze onto one 12 GB 3060 (residency proof, decode ladder): [`2026-08-30`](../reports/2026-08-30-dual-3060-35b-squeeze-27b-node.md)
+- ISTA 2-bit Q2_0 on Kaby Lake + 6 GB placement floor (Pascal laptop, 2026 base has the AVX2 Q2_0 kernel): [`2026-09-27`](../reports/2026-09-27-ista-gsq-2bit-35b-q2-0-kaby-lake.md)
 
 ## Changelog
 
+- **2026-09-27:** **Pascal laptop variant added, in production** — UD-IQ4_XS text-only, 128K q8 KV, moe-cache fork (12-slot expert cache + `-ncmoe 20` + `-t 4`, no MTP) on the HP OMEN 15 (GTX 1060 6 GB Max-Q, i5-7300HQ 4C no-HT, 24 GB); ~11.8 t/s decode at 128K, 4.67 GB VRAM; 2026 llama-server in router mode → llm-hub `llama-router` card with one-click load/unload (202-accepted, ~5 min cold load). The 580 LTSB + CUDA 12.9 + 2026-llama.cpp Pascal build story, the `cublasCreate_v2 = 3` crash (config-specific: manual `-ngl` + mmap; resolved by load-mode/ncmoe), the MTP net-loss measurement, and the 12-slot expert cache as the 6 GB/128K enabler are in the [2026-09-27 report](../reports/2026-09-27-pascal-1060-2026-llama-cpp-35b-128k.md). Box facts (incl. the single-channel-equivalent RAM) in the [hardware profile](../docs/hardware/pascal-laptop.md).
 - **2026-02-25/26:** 3.5 initial evaluation; loop-failure finding.
 - **2026-03-03:** 3.5 24 GB text+tools+vision viability (tuned profile); reasoning-loop fix (dropped `--reasoning-format deepseek`).
 - **2026-03-04:** 3.5 production performance benchmarked on 3×3060 (36 GB).
