@@ -14,6 +14,7 @@ The primary box runs **2× RTX 3090 24 GB (48 GB)** on an **AMD Ryzen 5 5600X**,
 | [Qwen3.6-35B-A3B](models/qwen3.6-35b-a3b.md) | Q4_K_XL (interim) | 1× RTX 3060 (secondary box) | 128K — **~28–39 t/s tgen** · **~630–780 t/s pp** | llama.cpp + MTP + vision — interim since the 3060 pair left the primary box 2026-09-08 |
 | [Qwen3.8-27B (3-bit)](models/qwen3.8-27b-gsqrco-single3060.md) | IQ3_XXS (ISTA GSQ-RCO) | 1× RTX 3060 (secondary box + backup box) | 64K — **~25–29 t/s tgen** · **~300–425 t/s pp** | llama.cpp D-CFR build + MTP, on-demand via each box's model-mux — since 2026-09-19 ([report](reports/2026-09-18-ista-3bit-27b-single-3060.md)) |
 | [Qwen3.8-Flash-Next (Qwen4Exp)](models/qwen3.8-flash-next.md) | UD-Q2_K_XL + 64-slot MoE cache | 1× RTX 3060 (backup box, nightly window) | 64K — **~14.5 t/s tgen** · **48–53 t/s pp** | on-demand 125B/6B-active via the box's model-mux, text-only — since 2026-09-20 |
+| [Qwen3.6-35B-A3B (2-bit, laptop)](models/qwen3.6-35b-a3b.md) | ISTA GSQ-hybrid 2-bit | 1× GTX 1060 6 GB (Pascal laptop, 580 LTSB) | 96K — **~18–20 t/s tgen** · **~243 t/s pp @16K** | 2026 llama.cpp moe-cache-fork router, 48-slot expert cache, ub1536, q8 KV — the fleet's Pascal node, hub-managed, text-only — Phase-4 cutover 2026-09-28 (was 4-bit 128K ~12 t/s since 09-27) |
 
 *Numbers are measured (tgen = generation tokens/s, pp = prompt processing), with the test conditions in the cell — the model card carries the full matrix and provenance. The table is a mirror: when a card changes, its row changes in the same commit.*
 
