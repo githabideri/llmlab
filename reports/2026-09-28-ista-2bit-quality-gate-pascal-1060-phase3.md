@@ -1,5 +1,5 @@
 # Phase 3 — adversarial quality battery: IQ4_XS vs ISTA GSQ 2-bit, Qwen3.6-35B-A3B on the Pascal 1060 laptop (2026-09-28)
-
+> **Update (2026-09-28, Phase 4):** two items below were re-read. (a) The **"~100–300 MB per-request RAM leak" was an extrapolation, not a measurement** — 6.7 h of 60-second `/proc` sampling on the live production worker shows a byte-stable 15,630 MiB steady state: a one-time ramp, not a leak; the OOM was a RAM-budget problem, structurally fixed by the 2-bit cutover (~10.3 GB steady). (b) The **cutover was executed** (2-bit at 96K) after the agentic tool-calling battery passed 8/8 on both quants. See the [Phase-4 report](2026-09-28-ista-2bit-100k-performance-ceiling-pascal-1060-phase4.md).
 Frozen report. Companion to [`2026-09-27-ista-2bit-expert-residency-pascal-1060-phase2.md`](2026-09-27-ista-2bit-expert-residency-pascal-1060-phase2.md) (performance) and the model card [`models/qwen3.6-35b-a3b.md`](../models/qwen3.6-35b-a3b.md).
 
 ## Question
