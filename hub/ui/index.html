@@ -72,10 +72,12 @@
        overflow-wrap:break-word; }
   /* fixed column budget — content must wrap inside its column, never
      steal width from the others (the old auto layout let the model
-     descriptions squeeze the state/ctx/now columns) */
-  .cg-model { width:30%; } .cg-state { width:13%; }
-  .cg-ctx   { width:8%; }  .cg-now   { width:37%; }
-  .cg-act   { width:12%; }
+     descriptions squeeze the ctx/now columns). The state word and the
+     load/unload button share one column: same fact, two renderings. */
+  .cg-model { width:33%; } .cg-ctx   { width:9%; }
+  .cg-now   { width:42%; } .cg-act   { width:16%; }
+  .mact-in { display:inline-flex; align-items:center; gap:8px;
+             justify-content:flex-end; }
   tr:last-child td { border-bottom:none; }
   .mname { font-weight:600; font-size:13px; cursor:pointer; }
   .mname:hover { color:var(--ok); }
@@ -171,9 +173,9 @@
     .gpu .gstat:last-child { display:none; }   /* temp·W only on wider screens */
     th, td { padding:6px 4px; }
     .cg-ctx { display:none; }                /* ctx is in the model desc line */
-    .cg-model { width:34%; } .cg-state { width:15%; } .cg-now { width:43%; }
-    .cg-act { width:8%; }
-    th:nth-child(3), .mctx { display:none; }
+    .cg-model { width:32%; } .cg-now { width:50%; }
+    .cg-act { width:18%; }
+    th:nth-child(2), .mctx { display:none; }
     .mname { font-size:12px; }
     .mdl { font-size:10px; }
     .btn { padding:5px 9px; }                 /* bigger tap target */
@@ -524,13 +526,12 @@ function card(s) {
                  data-action="${m.loaded ? "unload" : "load"}">${m.loaded ? "unload" : "load"}</button>`
       : "";
     const diag = `<tr class="diagrow" ${expanded.has(key) ? "" : "hidden"}>
-      <td colspan="5">${diagHtml(s, m)}</td></tr>`;
+      <td colspan="4">${diagHtml(s, m)}</td></tr>`;
     return `<tr data-mid="${esc(key)}">
       <td><div class="mname">${esc(m.id)}</div>${note}</td>
-      <td>${state}</td>
       <td class="mctx">${esc(ctxFmt(m.ctx)) || "—"}</td>
       <td class="mnow">${now}</td>
-      <td class="mact">${btns}</td>
+      <td class="mact"><span class="mact-in">${state}${btns}</span></td>
     </tr>` + diag;
   }).join("");
   el.innerHTML = `
@@ -543,10 +544,10 @@ function card(s) {
     ${gpus ? '<div class="label">gpu</div>' : ""}${gpus}
     <div class="label">models</div>
     <table>
-      <colgroup><col class="cg-model"><col class="cg-state"><col class="cg-ctx">
+      <colgroup><col class="cg-model"><col class="cg-ctx">
         <col class="cg-now"><col class="cg-act"></colgroup>
-      <tr><th>model</th><th>state</th><th>ctx</th><th>now</th><th></th></tr>
-      ${rows || (s.models.length === 0 ? '<tr><td colspan="5" class="mdl">no models seen yet</td></tr>' : "")}
+      <tr><th>model</th><th>ctx</th><th>now</th><th>state</th></tr>
+      ${rows || (s.models.length === 0 ? '<tr><td colspan="4" class="mdl">no models seen yet</td></tr>' : "")}
     </table>
     <div class="spark-head"><span class="label">last 30 min</span></div>
     <canvas id="spark-${s.name.replace(/[^a-zA-Z0-9_-]/g, '_')}"

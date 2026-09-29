@@ -421,7 +421,8 @@ long-term trends, scrape `/metrics`.
 
 Snapshot shapes change with code versions. `restore()` therefore normalises
 restored model dicts (`kind` re-derived from the server's kind, `desc`
-backfilled) rather than trusting the stored shape: a v1-era snapshot that
+re-fetched from the current config hint — desc is config-owned metadata, so
+a snapshot must not pin a stale one) rather than trusting the stored shape: a v1-era snapshot that
 lacked `kind` on the vLLM entry once made `setdefault` keep the stale
 dict forever, which silently sent the Prometheus export down the llama.cpp
 branch and hid the whole vLLM series family (`hub_model_kv_*`, preemptions,
