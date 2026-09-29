@@ -389,6 +389,10 @@ class Server:
         self.desc = cfg.get("description", "")
         self.model_hints = cfg.get("models", {})   # per-model ctx/desc hints
         self.sidecar_url = cfg.get("sidecar")     # per-server override
+        # per-model opt-in list: which model ids get the dual-clock stall
+        # predicate (see the stall detection block in poll()). Absent/empty
+        # = classic single-clock behaviour for every model on this server.
+        self.dual_clock_models = cfg.get("dual_clock") or []
         self.models = {}                   # model_id -> state dict
         self.gpus = []
         self.gpus_ts = None
@@ -400,6 +404,7 @@ class Server:
         self._lock = threading.Lock()      # guards .models (poller writes, API reads)
         self._counters = {}                # (mid, key) -> rate state
         self._rawgen = {}                  # mid -> (tokens_predicted_total, ts last moved)
+        self._rawprompt = {}               # mid -> (prompt_tokens_total, ts last moved)
         self._spec_ts = {}                 # mid -> last spec-activity ts
         # rolling 5-min windows: deque of (ts, buckets, counters)
         self._winbuf = collections.deque(maxlen=WIN_SAMPLES)
@@ -811,22 +816,49 @@ class Server:
                 st["tpp"] = self._rate(
                     mid, "prompt", get_metric(p, "prompt_tokens_total"), now,
                     secs=tpp_secs, gauge=get_metric(p, "prompt_tokens_seconds"))
-                # stall detection: some builds (observed on the ISTA D-CFR
-                # dev branch) FREEZE their per-token counters mid-session while
-                # the slot keeps decoding — generation continues but every
-                # counter-fed number goes stale and the rates below silently
-                # vanish. GPU busy + generation counter not moving = stalled:
-                # surface it explicitly instead of a blank "active" row.
+                # stall detection (2 variants, per-model gated by the
+                # server config's "dual_clock" list):
+                # - classic single clock: some builds (observed on the ISTA
+                #   D-CFR dev branch) FREEZE their per-token counters
+                #   mid-session while the slot keeps decoding — generation
+                #   continues but every counter-fed number goes stale and
+                #   the rates below silently vanish. GPU busy + generation
+                #   counter not moving = stalled: surface it explicitly
+                #   instead of a blank "active" row.
+                # - dual clock: llama.cpp engines whose honest metrics the
+                #   hub reads directly. tokens_predicted_total stays flat
+                #   through a prefill BY DESIGN (it counts generated
+                #   tokens), so the single clock false-positived on every
+                #   long prefill (2026-09-29: the expert-pool model's 35K
+                #   token request was flagged "stalled" the whole time its
+                #   prompt was still being processed at full rate). There
+                #   the prompt clock (prompt_tokens_total, which advances
+                #   per prompt ubatch) must also be frozen 30+ s before the
+                #   flag is set.
                 raw = get_metric(p, "tokens_predicted_total")
                 if raw is not None:
                     rg = self._rawgen.get(mid)
                     if rg is None or raw != rg[0]:
                         self._rawgen[mid] = (raw, now)
                 rg = self._rawgen.get(mid)
+                rp = None
+                if mid in self.dual_clock_models:
+                    rawp = get_metric(p, "prompt_tokens_total")
+                    if rawp is not None:
+                        pr = self._rawprompt.get(mid)
+                        if pr is None or rawp != pr[0]:
+                            self._rawprompt[mid] = (rawp, now)
+                        rp = self._rawprompt.get(mid)
                 gpumax = max((g.get("util_pct") or 0) for g in self.gpus) \
                     if self.gpus else 0.0
-                st["stalled"] = bool(
-                    rg is not None and now - rg[1] > 30 and gpumax > 10)
+                if mid in self.dual_clock_models:
+                    st["stalled"] = bool(
+                        rg is not None and now - rg[1] > 30
+                        and rp is not None and now - rp[1] > 30
+                        and gpumax > 10)
+                else:
+                    st["stalled"] = bool(
+                        rg is not None and now - rg[1] > 30 and gpumax > 10)
                 a = get_metric(p, "spec_decode_num_accepted_tokens_total")
                 d = get_metric(p, "spec_decode_num_draft_tokens_total")
                 if a is not None and d is not None:
