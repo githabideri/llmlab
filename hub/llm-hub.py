@@ -662,6 +662,10 @@ class Server:
                 "desc": desc if desc is not None else self.desc,
                 "loaded": True,
             })
+            # config-owned metadata refreshes every poll — a snapshot-restored
+            # dict must not pin a stale desc (llama branch does the same)
+            if desc is not None:
+                st["desc"] = desc
             st.update({
                 "tgen": self._rate(mid, "gen", gen, now),
                 # pp = prompt tokens actually computed (see above); same
@@ -728,6 +732,8 @@ class Server:
                 st["loaded"] = loaded
                 if hint.get("ctx"):
                     st["ctx"] = hint["ctx"]
+                if hint.get("desc"):
+                    st["desc"] = hint["desc"]
                 if not loaded:
                     st.update({"tgen": None, "tpp": None, "spec_accept": None,
                                "req_running": None, "req_waiting": None,
@@ -741,9 +747,11 @@ class Server:
             return                      # all idle: no metrics source
         status, body = http_json(f"{self.url}/metrics")
         if status == 200 and body:
+            # pass only the hint desc (nullable): _apply_vllm_metrics updates
+            # st["desc"] with it, and an absent hint leaves the existing
+            # value (creation default = the server desc) alone
             self._apply_vllm_metrics(
-                active, body, now,
-                (self.model_hints.get(active) or {}).get("desc") or self.desc)
+                active, body, now, (self.model_hints.get(active) or {}).get("desc"))
         else:
             with self._lock:
                 if active in self.models:
@@ -1415,7 +1423,12 @@ def restore():
                 # Prometheus export down the llama branch and hid the
                 # vision advisor's kind. Re-derive from the server kind.
                 m.setdefault("kind", "vllm" if s.kind in ("vllm", "vllm-mux") else "llama.cpp")
-                m.setdefault("desc", s.desc)
+                # desc is config-owned metadata, not a measurement: a hint
+                # change must reach a restored dict (same rule as the pollers'
+                # per-poll refresh), so prefer the current hint over the
+                # stored value.
+                hint = (s.model_hints or {}).get(m["id"]) or {}
+                m["desc"] = hint.get("desc") or m.get("desc") or s.desc
                 s.models[m["id"]] = m
     except (OSError, json.JSONDecodeError):
         pass
