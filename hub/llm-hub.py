@@ -411,18 +411,21 @@ class Server:
         self._kv_hist = collections.deque(maxlen=KV_HIST_MAX)
         # llama.cpp per-model window: mid -> deque of (ts, {cached, new})
         self._wins = {}
-        # sparkline ring: (t, tgen_sum, gpu_max, ttft_p95_ms|None)
+        # sparkline ring: (t, tgen_sum, gpu_max, ttft_p95_ms|None, tpp_sum)
+        # (ttft stays in the ring so the UI tooltip can show it; the graph
+        #  lanes are tok/s, pp/s, gpu% — a 5-min-window percentile made a
+        #  flat, hard-to-read lane, and it is better read on hover)
         self.ring = collections.deque(maxlen=RING_SECONDS // POLL_INTERVAL)
 
     # -- sparkline ----------------------------------------------------------
-    def ring_push(self, tgen, gpu, ttft_p95_ms):
+    def ring_push(self, tgen, gpu, ttft_p95_ms, tpp):
         now = time.time()
         # the poller is the only writer, but api() reads the ring from
         # handler threads — hold the lock so a mutation can never land
         # mid-iteration (deque raises RuntimeError on that; the poller
         # never holds the lock when it gets here, so no deadlock)
         with self._lock:
-            self.ring.append((now, tgen, gpu, ttft_p95_ms))
+            self.ring.append((now, tgen, gpu, ttft_p95_ms, tpp))
             while self.ring and now - self.ring[0][0] > RING_SECONDS:
                 self.ring.popleft()
 
@@ -829,12 +832,11 @@ class Server:
                 #   hub reads directly. tokens_predicted_total stays flat
                 #   through a prefill BY DESIGN (it counts generated
                 #   tokens), so the single clock false-positived on every
-                #   long prefill (2026-09-29: the expert-pool model's 35K
-                #   token request was flagged "stalled" the whole time its
-                #   prompt was still being processed at full rate). There
-                #   the prompt clock (prompt_tokens_total, which advances
-                #   per prompt ubatch) must also be frozen 30+ s before the
-                #   flag is set.
+                #   long prefill (2026-09-29: the QFN 35K-token request was
+                #   flagged "stalled" the whole time its prompt was still
+                #   being processed at full rate). There the prompt clock
+                #   (prompt_tokens_total, which advances per prompt ubatch)
+                #   must also be frozen 30+ s before the flag is set.
                 raw = get_metric(p, "tokens_predicted_total")
                 if raw is not None:
                     rg = self._rawgen.get(mid)
@@ -953,7 +955,7 @@ class Server:
             # under the same lock: the poller's ring_push must not mutate
             # while we iterate (deque raises RuntimeError on concurrent
             # mutation; a handler thread used to 502 /metrics on that)
-            spark = [[int(t), g, u, l] for (t, g, u, l) in self.ring]
+            spark = [[int(t), g, u, l, p] for (t, g, u, l, p) in self.ring]
         return {
             "name": self.name, "kind": self.kind, "url": self.url,
             "description": self.desc, "online": self.online,
@@ -1438,6 +1440,7 @@ def poller():
             except Exception as e:
                 s.last_err = f"poller exception: {e}"[:200]
             tgen_sum = sum(m.get("tgen") or 0 for m in s.models.values())
+            tpp_sum = sum(m.get("tpp") or 0 for m in s.models.values())
             gpu_max = max((g.get("util_pct") or 0) for g in s.gpus) if s.gpus else None
             ttft_p95_ms = None
             for m in s.models.values():
@@ -1445,7 +1448,8 @@ def poller():
                 if ttft.get("p95") is not None:
                     ttft_p95_ms = round(ttft["p95"] * 1000)
                     break
-            s.ring_push(tgen_sum if tgen_sum > 0 else None, gpu_max, ttft_p95_ms)
+            s.ring_push(tgen_sum if tgen_sum > 0 else None, gpu_max,
+                        ttft_p95_ms, tpp_sum if tpp_sum > 0 else None)
         last_tick = time.time()
         if int(last_tick) % SNAPSHOT_EVERY < POLL_INTERVAL:
             snapshot()

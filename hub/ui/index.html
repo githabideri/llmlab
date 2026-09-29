@@ -16,9 +16,9 @@
     --ok:   #71b893;
     --err:  #cf6e62;
     --warn: #cf9d4e;
-    --s1:   #d6d9dc;  /* tokens/s */
-    --s2:   #6b7480;  /* gpu util */
-    --s3:   #cf9d4e;  /* ttft p95 */
+    --s1:   #d6d9dc;  /* tok/s (graph lane 1) */
+    --s4:   #6fa8d0;  /* pp/s  (graph lane 2) */
+    --s2:   #6b7480;  /* gpu % (graph lane 3) */
   }
   * { box-sizing:border-box; margin:0; }
   html { background:var(--bg); }
@@ -64,11 +64,18 @@
   .gpu .gstat { color:var(--dim); text-align:right; white-space:nowrap; }
   .gmiss { color:var(--faint); font-size:12px; }
 
-  table { width:100%; border-collapse:collapse; }
+  table { width:100%; border-collapse:collapse; table-layout:fixed; }
   th { color:var(--faint); font-weight:500; font-size:10px; letter-spacing:.10em;
        text-transform:uppercase; text-align:left; padding:2px 6px 5px;
        border-bottom:1px solid var(--line); white-space:nowrap; }
-  td { padding:7px 6px; border-bottom:1px solid var(--line2); vertical-align:middle; }
+  td { padding:7px 6px; border-bottom:1px solid var(--line2); vertical-align:middle;
+       overflow-wrap:break-word; }
+  /* fixed column budget — content must wrap inside its column, never
+     steal width from the others (the old auto layout let the model
+     descriptions squeeze the state/ctx/now columns) */
+  .cg-model { width:30%; } .cg-state { width:13%; }
+  .cg-ctx   { width:8%; }  .cg-now   { width:37%; }
+  .cg-act   { width:12%; }
   tr:last-child td { border-bottom:none; }
   .mname { font-weight:600; font-size:13px; cursor:pointer; }
   .mname:hover { color:var(--ok); }
@@ -77,12 +84,21 @@
   .ms.loaded { color:var(--ok); }
   .ms.idle   { color:var(--faint); }
   .ms.stale  { color:var(--err); }
-  .mctx { color:var(--dim); }
-  .mrate { text-align:right; color:var(--dim); white-space:normal; word-break:break-word; }
-  th.mrate { white-space:nowrap; }
-  .mrate b { color:var(--text); font-weight:600; }
-  .mrate .warn { color:var(--warn); }
-  .mrate .dim  { color:var(--faint); }
+  .mctx { color:var(--dim); white-space:nowrap; }
+  /* the "now" block: a grid of small label/value cells instead of one
+     long dot-joined string — each metric keeps its own label, nothing
+     reflows into a vertical sliver, warnings sit on their own line */
+  .mnow { display:flex; flex-direction:column; gap:5px; }
+  .mcells { display:flex; flex-wrap:wrap; gap:3px 10px; align-items:baseline; }
+  .mc { white-space:nowrap; font-size:12px; }
+  .mc .ml { color:var(--faint); font-size:10px; letter-spacing:.05em;
+            margin-right:4px; cursor:help; }
+  .mc b { color:var(--text); font-weight:600; }
+  .mc.dim b { color:var(--dim); font-weight:400; }
+  .mwin { color:var(--faint); font-size:10px; white-space:nowrap; }
+  .mchips { display:flex; flex-wrap:wrap; gap:4px; }
+  .mchip { border:1px solid rgba(207,157,78,.45); color:var(--warn); border-radius:3px;
+           padding:1px 6px; font-size:11px; white-space:nowrap; }
   .mact { text-align:right; white-space:nowrap; }
   .btn { border:1px solid var(--line); background:transparent; color:var(--dim);
          border-radius:3px; padding:3px 10px; font:inherit; font-size:11px;
@@ -154,11 +170,14 @@
     .gpu .gname { font-size:10px; }
     .gpu .gstat:last-child { display:none; }   /* temp·W only on wider screens */
     th, td { padding:6px 4px; }
-    th:nth-child(3), .mctx { display:none; }   /* ctx is in the model desc line */
+    .cg-ctx { display:none; }                /* ctx is in the model desc line */
+    .cg-model { width:34%; } .cg-state { width:15%; } .cg-now { width:43%; }
+    .cg-act { width:8%; }
+    th:nth-child(3), .mctx { display:none; }
     .mname { font-size:12px; }
     .mdl { font-size:10px; }
     .btn { padding:5px 9px; }                 /* bigger tap target */
-    .mrate { white-space:normal; }
+    .mc { font-size:11px; }
   }
 </style>
 </head>
@@ -185,7 +204,8 @@
   control = direct HTTP to each server's native API (proxied by the hub on demand) ·
   the hub is observability + UI, never in the inference path ·
   gpu data from per-machine nvidia-smi sidecars · poll 2 s ·
-  hover the 30-min graph for exact values (each lane labels its own 0–max scale) ·
+  hover the 30-min graph for exact values (lanes: tok/s, pp/s, gpu% — each
+  labels its own 0–max scale; ttft p95 shows in the tooltip, vLLM only) ·
   click a model name for diagnostics · source of truth: <code>/api/servers</code>
 </div>
 <div id="toast" class="toast"></div>
@@ -230,6 +250,9 @@ const fmtMs = s => {
   return Math.floor(s / 60) + "m" + Math.round(s % 60) + "s";
 };
 const winLbl = w => !w ? "" : w >= 90 ? Math.round(w / 60) + "m" : Math.round(w) + "s";
+// vLLM in any form (raw service or behind the mux) — the only kind with
+// latency histograms (ttft p95 rides along in the ring for the tooltip)
+const isVllmKind = k => k === "vllm" || k === "vllm-mux";
 // everything from the API/config that lands in innerHTML goes through this
 const esc = s => String(s == null ? "" : s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -332,49 +355,59 @@ function nodeState(s) {
 }
 
 // ---- model row content
-function rateLine(m) {
+// structured "now" block: small label/value cells (each metric keeps its
+// own label) plus a separate warning-chip line. Replaces the old single
+// dot-joined string, which wrapped into an unreadable vertical sliver in
+// the narrow table column and forced the card to a long height.
+function nowBlock(m) {
   if (m.stale) return "";
   if (!m.loaded) return "—";
-  const vllm = m.kind === "vllm";
-  const parts = [];
+  const cell = (label, val, title, cls) =>
+    `<span class="mc${cls ? " " + cls : ""}">` +
+    (label ? `<span class="ml" ${title ? `title="${esc(title)}"` : ""}>${label}</span>` : "") +
+    `<b>${val}</b></span>`;
+  const chip = (txt, title) =>
+    `<span class="mchip"${title ? ` title="${esc(title)}"` : ""}>${esc(txt)}</span>`;
+  const cells = [], chips = [];
   if (m.stalled)
-    parts.push(`<span class="warn" title="GPU is busy but the engine's token counters have not moved for 30+ s — the rates are stale (D-CFR counter-freeze); the mux watchdog restarts the engine, the next request reloads it">⚠ counters stalled</span>`);
+    chips.push(chip("⚠ counters stalled", "GPU is busy but the engine's token counters have not moved for 30+ s — the rates are stale (D-CFR counter-freeze); the mux watchdog restarts the engine, the next request reloads it"));
   if (m.tgen != null)
-    parts.push(`<b title="aggregate generation throughput, average over the last 2 s poll">${fmt(m.tgen, 1)} t/s</b>`);
+    cells.push(cell("t/s", fmt(m.tgen, 1), "aggregate generation throughput, average over the last 2 s poll"));
   if (m.tpp != null)
-    parts.push(`<span title="prompt tokens actually prefilled (prefix-cache hits excluded), 2 s average">${fmt(m.tpp, 0)} pp/s</span>`);
+    cells.push(cell("pp/s", fmt(m.tpp, 0), "prompt tokens actually prefilled (prefix-cache hits excluded), 2 s average"));
   if (m.tgen == null && m.tpp == null && m.req_running > 0)
-    parts.push(`<span class="dim" title="request in flight but no tokens counted in the last 30 s — prefill in progress; rates appear once tokens flow">prefill…</span>`);
-  if (m.spec_accept != null) parts.push(`mtp ${Math.round(m.spec_accept * 100)}%`);
+    cells.push(cell("", "prefill…", "request in flight but no tokens counted in the last 30 s — prefill in progress; rates appear once tokens flow", "dim"));
+  if (m.spec_accept != null)
+    cells.push(cell("mtp", Math.round(m.spec_accept * 100) + "%", "MTP/draft token acceptance rate"));
   const lat = m.latency;
   if (lat) {
-    const seg = [];
     if (lat.ttft && lat.ttft.p95 != null)
-      seg.push(`ttft <span title="time to first token, p50/p95 over the window">${fmtMs(lat.ttft.p50)}/${fmtMs(lat.ttft.p95)}</span>`);
+      cells.push(cell("ttft", fmtMs(lat.ttft.p50) + "/" + fmtMs(lat.ttft.p95), "time to first token, p50/p95 over the window"));
     if (lat.tpot && lat.tpot.p50 != null)
-      seg.push(`tpot <span title="avg time per output token per request over the window (the canonical TPOT); it grows with batch size — token-weighted ITL is in diagnostics">${fmtMs(lat.tpot.p50)}</span>`);
-    if (seg.length) {
-      parts.push(seg.join(" "));
-      parts.push(`<span class="dim" title="trailing window the percentiles cover">[${winLbl(lat.window_s)}]</span>`);
-    }
+      cells.push(cell("tpot", fmtMs(lat.tpot.p50), "avg time per output token per request over the window (the canonical TPOT); it grows with batch size — token-weighted ITL is in diagnostics"));
+    if (lat.window_s)
+      cells.push(`<span class="mwin" title="trailing window the latency/finish/cache figures cover">[${winLbl(lat.window_s)}]</span>`);
   }
   // load signals — only when non-zero
   if (m.req_running != null && (m.req_running > 0 || (m.req_waiting || 0) > 0))
-    parts.push(`<span title="requests the engine is running now; +N waiting">req ${m.req_running}${m.req_waiting ? "+" + m.req_waiting : ""}</span>`);
+    cells.push(cell("req", m.req_running + (m.req_waiting ? "+" + m.req_waiting : ""), "requests the engine is running now; +N waiting"));
   if (m.kv_used != null && m.kv_used >= 0.01)
-    parts.push(`<span title="KV-cache blocks in use (incl. blocks held by the prefix cache), as a fraction of the pool">kv ${Math.round(m.kv_used * 100)}%</span>`);
-  if (m.n_proc != null && m.n_proc > 0) parts.push(`${m.n_proc} proc`);
-  if (m.n_deferred != null && m.n_deferred > 0) parts.push(`${m.n_deferred} defer`);
-  // warnings — only when relevant
+    cells.push(cell("kv", Math.round(m.kv_used * 100) + "%", "KV-cache blocks in use (incl. blocks held by the prefix cache), as a fraction of the pool"));
+  if (m.n_proc != null && m.n_proc > 0) cells.push(cell("proc", m.n_proc));
+  // warnings — only when relevant, on their own line
+  if (m.n_deferred != null && m.n_deferred > 0)
+    chips.push(chip(m.n_deferred + " defer", "requests deferred by the router (queueing/throttling)"));
   if (m.preempt_win != null && m.preempt_win > 0)
-    parts.push(`<span class="warn">preempt +${m.preempt_win}</span>`);
+    chips.push(chip("preempt +" + m.preempt_win, "KV preemptions in the window — requests were evicted and re-prefilled"));
   if (m.finish && m.finish.length > 0)
-    parts.push(`<span class="warn">${m.finish.length} length-limited</span>`);
+    chips.push(chip(m.finish.length + " length-limited", "responses that hit the max-tokens limit before the model produced a stop token (truncated at the cap)"));
   if (m.sleep && m.sleep !== "awake")
-    parts.push(`<span class="warn">sleep:${esc(m.sleep)}</span>`);
+    chips.push(chip("sleep:" + m.sleep));
   if (m.cache_hit != null)
-    parts.push(`<span title="prefix-cache token hit rate over the window">cache ${Math.round(m.cache_hit * 100)}%</span>`);
-  return parts.length ? parts.join(" · ") : "—";
+    cells.push(cell("cache", Math.round(m.cache_hit * 100) + "%", "prefix-cache token hit rate over the window"));
+  if (!cells.length && !chips.length) return "—";
+  return `<div class="mnow">${cells.length ? `<div class="mcells">${cells.join("")}</div>` : ""}` +
+         `${chips.length ? `<div class="mchips">${chips.join("")}</div>` : ""}</div>`;
 }
 
 // expanded diagnostics
@@ -478,7 +511,7 @@ function card(s) {
     : (s.gpus_stale ? '<div class="gmiss">gpu sidecar unreachable / error</div>' : "");
   const rows = s.models.map(m => {
     const key = s.name + "|" + m.id;
-    const rate = rateLine(m);
+    const now = nowBlock(m);
     const state = m.stale ? '<span class="ms stale">stale</span>'
       : `<span class="ms ${m.loaded ? "loaded" : "idle"}">${m.loaded ? "loaded" : "idle"}</span>`;
     const note = (m.desc ? `<div class="mdl">${esc(m.desc)}</div>`
@@ -496,7 +529,7 @@ function card(s) {
       <td><div class="mname">${esc(m.id)}</div>${note}</td>
       <td>${state}</td>
       <td class="mctx">${esc(ctxFmt(m.ctx)) || "—"}</td>
-      <td class="mrate">${rate}</td>
+      <td class="mnow">${now}</td>
       <td class="mact">${btns}</td>
     </tr>` + diag;
   }).join("");
@@ -510,19 +543,23 @@ function card(s) {
     ${gpus ? '<div class="label">gpu</div>' : ""}${gpus}
     <div class="label">models</div>
     <table>
-      <tr><th>model</th><th>state</th><th>ctx</th><th class="mrate">now</th><th></th></tr>
+      <colgroup><col class="cg-model"><col class="cg-state"><col class="cg-ctx">
+        <col class="cg-now"><col class="cg-act"></colgroup>
+      <tr><th>model</th><th>state</th><th>ctx</th><th>now</th><th></th></tr>
       ${rows || (s.models.length === 0 ? '<tr><td colspan="5" class="mdl">no models seen yet</td></tr>' : "")}
     </table>
     <div class="spark-head"><span class="label">last 30 min</span></div>
     <canvas id="spark-${s.name.replace(/[^a-zA-Z0-9_-]/g, '_')}"
-            width="640" height="${isRouter ? 60 : 90}"></canvas>`;
+            width="640" height="90"></canvas>`;
   return el;
 }
 
 // multi-lane sparkline: independently scaled lanes sharing one time axis.
-// vLLM: tokens/s, ttft p95, gpu %. llama.cpp: tokens/s, gpu %.
-// Each lane labels its own scale (0–max) — the three lanes have different
-// units and are scaled independently, so the label is the only y-axis.
+// All kinds: tokens/s, pp/s, gpu%. Each lane labels its own scale
+// (0–max) — the lanes have different units and are scaled independently,
+// so the label is the only y-axis. ttft p95 stays in the ring (p[3]) but
+// has no lane: a 5-min-window percentile sampled every 2 s is step-flat
+// on a 30-min axis and reads better from the hover tooltip.
 // hoverX (0..1) draws a guide + value markers for the tooltip.
 function drawSpark(name, spark, isVllm, hoverX) {
   const c = document.getElementById("spark-" + name.replace(/[^a-zA-Z0-9_-]/g, "_"));
@@ -533,18 +570,12 @@ function drawSpark(name, spark, isVllm, hoverX) {
   if (!spark || spark.length < 2) return;
   const t0 = spark[0][0], t1 = spark[spark.length - 1][0];
   const span = Math.max(1, t1 - t0);
-  const lanes = isVllm
-    ? [ { idx: 1, color: "#d6d9dc", label: "tok/s",
+  const lanes = [ { idx: 1, color: "#d6d9dc", label: "tok/s",
           max: () => Math.max(10, ...spark.map(p => p[1] || 0)) * 1.1,
           scale: v => fmt(v, 0), fmt: v => fmt(v, 1) },
-        { idx: 3, color: "#cf9d4e", label: "ttft p95",
-          max: () => Math.max(0.5, ...spark.map(p => (p[3] || 0) / 1000)) * 1.15,
-          to: v => v / 1000, scale: v => fmtMs(v), fmt: v => fmtMs(v / 1000) },
-        { idx: 2, color: "#6b7480", label: "gpu %",
-          max: () => 100, scale: v => Math.round(v) + "%", fmt: v => Math.round(v) + "%" } ]
-    : [ { idx: 1, color: "#d6d9dc", label: "tok/s",
-          max: () => Math.max(10, ...spark.map(p => p[1] || 0)) * 1.1,
-          scale: v => fmt(v, 0), fmt: v => fmt(v, 1) },
+        { idx: 4, color: "#6fa8d0", label: "pp/s",
+          max: () => Math.max(1, ...spark.map(p => p[4] || 0)) * 1.1,
+          scale: v => fmt(v, 0), fmt: v => fmt(v, 0) },
         { idx: 2, color: "#6b7480", label: "gpu %",
           max: () => 100, scale: v => Math.round(v) + "%", fmt: v => Math.round(v) + "%" } ];
   const n = lanes.length;
@@ -584,7 +615,7 @@ function drawSpark(name, spark, isVllm, hoverX) {
       ctx.fillText(ln.fmt(last[ln.idx]), W - 4, y0 + 13);
     }
   });
-  const allQuiet = !spark.some(p => (p[1] || 0) > 0 || (p[3] || 0) > 0 || (p[2] || 0) > 0);
+  const allQuiet = !spark.some(p => (p[1] || 0) > 0 || (p[3] || 0) > 0 || (p[2] || 0) > 0 || (p[4] || 0) > 0);
   if (allQuiet) {
     ctx.fillStyle = "#5c6168";
     ctx.font = "11px ui-monospace,monospace";
@@ -684,7 +715,7 @@ async function refresh() {
       let el = [...grid.children].find(e => e.dataset.name === s.name);
       if (!el) { el = card(s); grid.appendChild(el); }
       else el.replaceWith(card(s));
-      drawSpark(s.name, s.spark, s.kind === "vllm" || s.kind === "vllm-mux",
+      drawSpark(s.name, s.spark, isVllmKind(s.kind),
                 spkHover && spkHover.name === s.name ? spkHover.frac : null);
     });
     grid.dataset.struct = struct;
@@ -708,7 +739,7 @@ function hideSpk() {
   if (spkHover) {
     const { name } = spkHover;
     spkHover = null;
-    drawSpark(name, lastSpark[name] || null, lastKind[name] === "vllm", null);
+    drawSpark(name, lastSpark[name] || null, isVllmKind(lastKind[name]), null);
   }
 }
 function showSpk(p, isVllm, cx, cy) {
@@ -717,6 +748,7 @@ function showSpk(p, isVllm, cx, cy) {
   const mm = String(ts.getMinutes()).padStart(2, "0");
   const ss = String(ts.getSeconds()).padStart(2, "0");
   const lines = [hh + ":" + mm + ":" + ss, fmt(p[1], 1) + " tok/s"];
+  if (p[4] != null) lines.push(fmt(p[4], 0) + " pp/s");
   if (isVllm) lines.push((p[3] != null ? fmtMs(p[3] / 1000) : "—") + " ttft p95");
   lines.push(Math.round(p[2] || 0) + "% gpu");
   spkTip.textContent = lines.join("\n");
@@ -736,13 +768,13 @@ grid.addEventListener("mousemove", e => {
   const r = c.getBoundingClientRect();
   const frac = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
   spkHover = { name, frac };
-  drawSpark(name, spark, lastKind[name] === "vllm", frac);
+  drawSpark(name, spark, isVllmKind(lastKind[name]), frac);
   const t0 = spark[0][0], t1 = spark[spark.length - 1][0];
   const tt = t0 + frac * (t1 - t0);
   let bi = 0;
   for (let k = 0; k < spark.length; k++)
     if (Math.abs(spark[k][0] - tt) < Math.abs(spark[bi][0] - tt)) bi = k;
-  showSpk(spark[bi], lastKind[name] === "vllm", e.clientX, e.clientY);
+  showSpk(spark[bi], isVllmKind(lastKind[name]), e.clientX, e.clientY);
 });
 grid.addEventListener("mouseleave", hideSpk);
 
