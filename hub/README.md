@@ -61,10 +61,19 @@ Per server, every 2 s:
 - **GPU telemetry**: per-card utilization, VRAM, temperature, and power,
   from the per-host sidecar.
 
-Model rows are collapsible: the collapsed line carries the rate and the key
-load signals; expanding shows the full diagnostics block. Node state is
+Model rows are collapsible: the collapsed row carries a compact grid of the
+key rates and load signals (t/s, pp/s, ttft, tpot, req, kv, cache — each with
+its own label) plus a warning-chip line for the things that need attention
+(length-limited responses, preemptions, deferred requests, stalled counters);
+expanding shows the full diagnostics block. Node state is
 summarized as `offline`, `idle`, `active`, `busy`, or `degraded`; detailed
 diagnostics remain collapsed until needed.
+
+The 30-minute sparkline has three independently scaled lanes — tok/s, pp/s,
+gpu % (each lane labels its own 0–max scale). TTFT p95 is kept in the ring
+data and the hover tooltip (vLLM) rather than a lane: it is a 5-min-window
+percentile sampled every 2 s, so it is step-flat on a 30-min axis and reads
+better as an on-demand exact value.
 
 ### State derivation
 
@@ -404,7 +413,8 @@ the hub does not require Prometheus.
 
 ## State
 
-In-memory: a 30-minute sparkline ring and 5-minute rolling windows per
+In-memory: a 30-minute sparkline ring (one tuple per 2 s poll: t, aggregate
+tok/s, max GPU %, ttft p95 ms, aggregate pp/s) and 5-minute rolling windows per
 server, plus a periodic `snapshot.json` in the state dir (restored on boot
 so the UI isn't blank after a hub restart). No historical storage — for
 long-term trends, scrape `/metrics`.
