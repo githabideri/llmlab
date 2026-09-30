@@ -210,6 +210,16 @@
   alone is not degradation) ·
   <b>cache</b> prefix-cache token hit rate over the [window] ·
   <b>phase</b> (diagnostics) prefill/decode stats from the engine's own per-request clocks ·
+  <b>prompt/s</b> two different quantities share the label: <i>vLLM</i> = computed prompt tokens
+  per <u>wall</u> second over the trailing minute (workload throughput — lumpy arrivals amortized,
+  <u>not</u> the execution speed, which is the headline pp/s); <i>llama.cpp</i> = prompt tokens per the
+  engine's own prompt seconds (child clocks — a defensible speed) ·
+  <b>mtp</b> (diagnostics) spec-decoding draft acceptance over the window: accepted draft tokens /
+  draft tokens, mean acceptance length (1 + accepted/drafts), and per-draft-position acceptance
+  (a position near 0% pays verification cost for nothing — that decides whether k=N is worth it) ·
+  <b>degraded</b> = a consequence, never an outcome: a preemption, a stalled engine, a failed
+  /metrics parse, or queue building against KV ≥90%. A response hitting its token limit and a
+  full KV pool (no queue, no preemption) are normal load — busy, not degraded ·
   <b>prefill Ns…</b> a request is in the PREFILL phase — this vLLM build exposes no
   token counters until first token, so there is no in-flight rate to show; the timer
   and kv/req cells are the live signals
@@ -397,13 +407,13 @@ function nowBlock(m) {
   if (m.tpp != null) {
     // headline performance: vLLM completed-request phase speed (5-min
     // window); llama.cpp child-clock computed-prompt rate. An age tag
-    // appears once the window's last completed prefill is >1 min old, so
-    // a stale figure never masquerades as current.
+    // appears once the window's last prefill MEASUREMENT is >1 min old,
+    // so a stale figure never masquerades as current.
     const v = fmt(m.tpp, 0) +
       (m.kind === "vllm" && m.prefill_speed_age != null && m.prefill_speed_age > 60
         ? ` <span class="dim" style="font-weight:400">· ${Math.round(m.prefill_speed_age)}s</span>` : "");
     cells.push(cell("pp/s", v, m.kind === "vllm"
-      ? "Prefill execution speed: vLLM's computed-KV tokens divided by its PREFILL-phase time over the completed requests in the trailing 5-min window. Cached/transferred prompt tokens excluded. Seconds tag = how long ago the last completed prefill was."
+      ? "Prefill execution speed: vLLM's computed-KV tokens divided by its PREFILL-phase time over the completed requests in the trailing 5-min window. Cached/transferred prompt tokens excluded; independent of when requests arrive. Seconds tag = how long ago the last completed request contributed a prefill measurement (the phase histograms are sampled at request completion, not at first token)."
       : "prompt tokens actually prefilled (prefix-cache hits excluded), rate taken on the engine's own prompt clock — a big prefill landing in one poll divides by its real processing time, not the 2 s poll gap"));
   }
   const lp = m.live_prefill;
@@ -484,15 +494,40 @@ function diagHtml(s, m) {
       if (t.length) bits.push(`<div class="diag-x">phase [${winLbl(ph.window_s)}]: ${esc(t.join(" · "))}</div>`);
     }
     // prompt-work breakdown: what requests asked for vs what the GPU
-    // computed vs what the prefix cache served. On a cache-hot fleet the
-    // total is ~19x the computed share — only `computed` is work.
+    // computed vs what the cache served (local prefix cache + external KV
+    // transfer, which vLLM keeps as separate sources). On a cache-hot fleet
+    // the total is ~19x the computed share — only `computed` is work.
     const pw = m.prompt_work;
     if (pw && pw.window_s && (pw.total > 0 || (pw.computed || 0) > 0)) {
-      const t = [`total ${fmtK(pw.total)}`];
+      const t = [`requested ${fmtK(pw.total)}`];
       if (pw.computed != null) t.push(`computed ${fmtK(pw.computed)}`);
-      if (pw.cached != null)
-        t.push(`cache-served ${fmtK(pw.cached)}${pw.hit_ratio != null ? ` (${Math.round(pw.hit_ratio * 100)}%)` : ""}`);
-      bits.push(`<div class="diag-x" title="The raw prompt-length counter counts each request's FULL prompt (cache hits included); the computed share is the GPU's actual prefill work">prompt work [${winLbl(pw.window_s)}]: ${esc(t.join(" · "))}</div>`);
+      if (pw.served != null)
+        t.push(`cache-served ${fmtK(pw.served)}${pw.hit_ratio != null ? ` (${Math.round(pw.hit_ratio * 100)}%)` : ""}`);
+      if (pw.ext != null && pw.ext > 0) t.push(`ext-kv ${fmtK(pw.ext)}`);
+      bits.push(`<div class="diag-x" title="The raw prompt-length counter counts each request's FULL prompt (cache hits included); the computed share is the GPU's actual prefill work. External KV transfer (LMCache/disaggregated) is tracked separately when present.">prompt work [${winLbl(pw.window_s)}]: ${esc(t.join(" · "))}</div>`);
+    }
+    // spec decoding / MTP over the window (ratios of window deltas, not
+    // lifetime ratios) — the "is k=N still worth it" instrument
+    const sp = m.spec;
+    if (sp && sp.window_s && sp.drafts > 0) {
+      const t = [];
+      if (sp.acceptance != null) t.push(`${Math.round(sp.acceptance * 100)}% accepted`);
+      if (sp.mean_len != null) t.push(`${sp.mean_len} tok/step`);
+      if (sp.pos && Object.keys(sp.pos).length) {
+        const pos = Object.entries(sp.pos).sort((a, b) => a[0] - b[0])
+          .map(([i, v]) => `pos${i} ${Math.round(v * 100)}%`);
+        t.push(pos.join(" "));
+      }
+      bits.push(`<div class="diag-x" title="Spec decoding (MTP) over the window: acceptance = accepted draft tokens / draft tokens; mean length = 1 + accepted/drafts (the +1 is the bonus token); per-draft-position acceptance decides whether k=N is worth it">mtp [${winLbl(sp.window_s)}]: ${esc(t.join(" · "))}</div>`);
+    }
+    // request shape over the window — context for the latency numbers:
+    // a TTFT p95 jump means different things at 4K vs 45K average input
+    const rs = m.req_shape;
+    if (rs && rs.window_s && rs.n > 0) {
+      const t = [];
+      if (rs.avg_in != null) t.push(`in ${fmtK(rs.avg_in)}`);
+      if (rs.avg_out != null) t.push(`out ${fmtK(rs.avg_out)}`);
+      bits.push(`<div class="diag-x" title="Mean prompt / generation length of completed requests in the window (vLLM request histograms) — the context that makes the latency numbers interpretable">req shape [${winLbl(rs.window_s)}]: ${esc(t.join(" · "))} (n ${rs.n})</div>`);
     }
     // KV pool: current occupancy (with a glance bar) + recent peaks. The
     // pool is sized by VRAM (~2.7x max ctx on the dual-3090), so a low idle
@@ -510,6 +545,13 @@ function diagHtml(s, m) {
       else if (pct != null) cur.push(`${pct}%`);
       if (pool.max_concurrency)
         cur.push(`max ~${pool.max_concurrency} full-ctx concurrent`);
+      const cfg = [];
+      if (pool.block_size) cfg.push(`block ${pool.block_size}`);
+      if (pool.kv_dtype) cfg.push(`${pool.kv_dtype} KV`);
+      if (pool.offload && pool.offload !== "None") cfg.push(`offload ${pool.offload}`);
+      if (pool.sliding_window) cfg.push(`SW ${fmtK(pool.sliding_window)}`);
+      if (cfg.length)
+        bits.push(`<div class="diag-x" title="KV cache configuration from vLLM's cache_config_info">kv config: ${esc(cfg.join(" · "))}</div>`);
       if (cur.length)
         bits.push(`<div class="diag-x"><span title="KV blocks in use now (incl. blocks held by the prefix cache) over the pool">kv pool now: ${esc(cur.join(" · "))}</span> ${bar}</div>`);
       const pk = m.kv_peaks || {};

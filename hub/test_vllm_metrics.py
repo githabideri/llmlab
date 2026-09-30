@@ -154,19 +154,45 @@ class TestVllmMetrics(unittest.TestCase):
         self.assertAlmostEqual(st["tpp"], 1500 / 1.2, delta=1)
 
     def test_d_counter_reset(self):
-        """spec §16D: engine restart mid-window -> no spike, no negative rate."""
+        """The gap the first round missed (feedback item 2): a vLLM process
+        restart with the SAME model ID. Before the fix, only the 1-min
+        computed ring noticed the counter decrease — the 5-min window kept
+        the pre-restart phase sums (900 s / 1.1M KV tokens) as baselines, so
+        the speed would be wrong or blank until they aged out. The old
+        version of this test had ZERO phase data pre-restart, which is why
+        it passed despite the gap. Now: on any core-counter reset, ALL
+        engine-derived rolling state clears (as on a mux engine switch)."""
         s = srv()
         t = 1000.0
-        s._apply_vllm_metrics("(vllm)", vbody(lc=2_000_000), t)
-        s._apply_vllm_metrics("(vllm)", vbody(lc=10_000, pf_n=1, pf_sum=2.0,
-                                              pk_n=1, pk_sum=500), t + 2)
+        # pre-restart: live phase stats (11 completed requests: 900 s
+        # prefill phase, 1.1M KV-computed tokens), 2M computed prompt tokens
+        s._apply_vllm_metrics("(vllm)",
+            vbody(lc=2_000_000, pf_n=10, pf_sum=900.0, pk_n=10, pk_sum=1_100_000,
+                  gen=5000, ttft_n=10, ttft_sum=30.0), t)
+        s._apply_vllm_metrics("(vllm)",
+            vbody(lc=2_000_500, pf_n=11, pf_sum=904.0, pk_n=11, pk_sum=1_105_000,
+                  gen=5200, ttft_n=11, ttft_sum=32.0), t + 2)
         st = s.models["(vllm)"]
-        # 1-min ring must have been cleared (single sample again)
-        self.assertIsNone(st["pp_tput_1m"])
-        # the performance figure comes from the phase histograms, which
-        # survived the restart
-        self.assertAlmostEqual(st["tpp"], 500 / 2.0, delta=1)
+        self.assertAlmostEqual(st["tpp"], 5000 / 4.0, delta=1)  # healthy world
+        # RESTART: every vLLM counter drops to a fresh engine's small values
+        s._apply_vllm_metrics("(vllm)",
+            vbody(lc=10_000, pf_n=1, pf_sum=4.0, pk_n=1, pk_sum=5_000,
+                  gen=150, ttft_n=1, ttft_sum=3.8), t + 4)
+        st = s.models["(vllm)"]
         self.assertEqual(st["prompt_tokens_computed_raw"], 10_000)
+        self.assertIsNone(st["pp_tput_1m"], "1-min ring must re-baseline")
+        self.assertIsNone(st["tpp"], "no speed from a straddled window")
+        self.assertIsNone(st["phase"], "window cleared until a fresh pair exists")
+        self.assertIsNone(st["prefill_speed_age"], "no pre-restart age")
+        self.assertIsNone(st["live_prefill"])
+        # post-restart: two samples of the NEW world -> clean ratio only
+        s._apply_vllm_metrics("(vllm)",
+            vbody(lc=20_000, pf_n=2, pf_sum=8.0, pk_n=2, pk_sum=10_000,
+                  gen=300, ttft_n=2, ttft_sum=7.0), t + 6)
+        st = s.models["(vllm)"]
+        self.assertAlmostEqual(st["tpp"], (10_000 - 5_000) / (8.0 - 4.0), delta=1)
+        self.assertEqual(st["tpp"], 1250)
+        self.assertGreater(st["tgen"], 0)          # rate re-baselined, not negative
 
     def test_e_mux_engine_switch(self):
         """spec §16E: switching the active model re-baselines every window."""
@@ -299,8 +325,9 @@ class TestVllmMetrics(unittest.TestCase):
             r"hub_model_prompt_compute_throughput_tokens_per_second\{[^}]*\} ([0-9.]+)",
             txt2).group(1))
         self.assertAlmostEqual(tput, 50.0, delta=1)
-        # the retired gauge must not come back for vLLM models
-        self.assertNotIn("hub_model_prompt_tokens_per_second", txt2)
+        # the retired gauge must not come back as a vLLM SERIES (the static
+        # TYPE/HELP header may mention the name — metadata, not a series)
+        self.assertNotIn("hub_model_prompt_tokens_per_second{", txt2)
         self.assertNotIn("hub_model_prefill_avg_seconds", txt2)
         v1 = float(re.search(r"hub_model_prompt_tokens_computed_total\{[^}]*\} ([0-9.]+)", txt1).group(1))
         v2 = float(re.search(r"hub_model_prompt_tokens_computed_total\{[^}]*\} ([0-9.]+)", txt2).group(1))
@@ -312,6 +339,99 @@ class TestVllmMetrics(unittest.TestCase):
         v3 = float(re.search(r"hub_model_prompt_tokens_computed_total\{[^}]*\} ([0-9.]+)", txt3).group(1))
         self.assertLess(v3, v2)
 
+    def test_k_mtp_window_ratios(self):
+        """feedback item 6/7: MTP acceptance + mean acceptance length from
+        WINDOW deltas (not lifetime ratios), incl. per-draft-position."""
+        def mtp(drafts, dt, acc, p0, p1, p2):
+            return vbody() + (
+                f'\nvllm:spec_decode_num_drafts_total{{engine="0",model_name="{M}"}} {drafts}'
+                f'\nvllm:spec_decode_num_draft_tokens_total{{engine="0",model_name="{M}"}} {dt}'
+                f'\nvllm:spec_decode_num_accepted_tokens_total{{engine="0",model_name="{M}"}} {acc}'
+                f'\nvllm:spec_decode_num_accepted_tokens_per_pos_total{{engine="0",model_name="{M}",position="0"}} {p0}'
+                f'\nvllm:spec_decode_num_accepted_tokens_per_pos_total{{engine="0",model_name="{M}",position="1"}} {p1}'
+                f'\nvllm:spec_decode_num_accepted_tokens_per_pos_total{{engine="0",model_name="{M}",position="2"}} {p2}')
+        s = srv()
+        t = 1000.0
+        s._apply_vllm_metrics("(vllm)", mtp(1000, 3000, 1800, 700, 600, 500), t)
+        self.assertIsNone(s.models["(vllm)"]["spec"])       # window needs 2
+        s._apply_vllm_metrics("(vllm)", mtp(1100, 3300, 1980, 770, 660, 550), t + 30)
+        sp = s.models["(vllm)"]["spec"]
+        self.assertEqual(sp["drafts"], 100)
+        self.assertAlmostEqual(sp["acceptance"], 180 / 300, places=3)
+        self.assertAlmostEqual(sp["mean_len"], 1 + 180 / 100, places=2)
+        self.assertEqual(sp["pos"], {"0": 0.7, "1": 0.6, "2": 0.5})
+        self.assertAlmostEqual(s.models["(vllm)"]["spec_accept"], 0.6, places=3)
+
+    def test_k2_mtp_absent_is_none(self):
+        s = srv()                                  # vbody has no spec counters
+        s._apply_vllm_metrics("(vllm)", vbody(), 1000.0)
+        s._apply_vllm_metrics("(vllm)", vbody(gen=10), 1002.0)
+        self.assertIsNone(s.models["(vllm)"]["spec"])
+
+    def test_l_request_shape(self):
+        """feedback item 8: mean prompt/generation length of completed
+        requests over the window (context for the latency numbers)."""
+        def shape(text, rp, rg, rc):
+            return text + (
+                f'\nvllm:request_prompt_tokens_sum{{engine="0",model_name="{M}"}} {rp}'
+                f'\nvllm:request_generation_tokens_sum{{engine="0",model_name="{M}"}} {rg}'
+                f'\nvllm:request_prompt_tokens_count{{engine="0",model_name="{M}"}} {rc}')
+        s = srv()
+        s._apply_vllm_metrics("(vllm)", shape(vbody(), 40000, 4000, 5), 1000.0)
+        s._apply_vllm_metrics("(vllm)", shape(vbody(), 46200, 4900, 10), 1030.0)
+        rs = s.models["(vllm)"]["req_shape"]
+        self.assertEqual(rs["n"], 5)
+        self.assertEqual(rs["avg_in"], 1240)          # 6200/5
+        self.assertEqual(rs["avg_out"], 180)         # 900/5
+
+    def test_m_external_kv_in_prompt_work(self):
+        """feedback item 5: external KV transfer (LMCache/disaggregated)
+        is modelled separately from the local prefix cache."""
+        def ext(body, v):
+            return body.replace('source="external_kv_transfer"} 0.0',
+                                f'source="external_kv_transfer"}} {v}')
+        s = srv()
+        s._apply_vllm_metrics("(vllm)",
+            ext(vbody(lc=1000, lh=8000, pt=10000), "0.0"), 1000.0)
+        s._apply_vllm_metrics("(vllm)",
+            ext(vbody(lc=1400, lh=10800, pt=13000), "800.0"), 1030.0)
+        pw = s.models["(vllm)"]["prompt_work"]
+        self.assertEqual(pw["total"], 3000)
+        self.assertEqual(pw["computed"], 400)
+        self.assertEqual(pw["cached"], 2800)      # local only
+        self.assertEqual(pw["ext"], 800)
+        self.assertEqual(pw["served"], 3600)      # local + external
+
+    def test_n_prometheus_type_help_and_new_series(self):
+        """feedback item 6: the exposition declares TYPE/HELP for every
+        series; items 7/8: the spec + request-shape gauges are exported."""
+        def mtp(drafts, dt, acc, rp, rg, rc):
+            return vbody() + (
+                f'\nvllm:spec_decode_num_drafts_total{{engine="0",model_name="{M}"}} {drafts}'
+                f'\nvllm:spec_decode_num_draft_tokens_total{{engine="0",model_name="{M}"}} {dt}'
+                f'\nvllm:spec_decode_num_accepted_tokens_total{{engine="0",model_name="{M}"}} {acc}'
+                f'\nvllm:request_prompt_tokens_sum{{engine="0",model_name="{M}"}} {rp}'
+                f'\nvllm:request_generation_tokens_sum{{engine="0",model_name="{M}"}} {rg}'
+                f'\nvllm:request_prompt_tokens_count{{engine="0",model_name="{M}"}} {rc}')
+        s = srv()
+        hub.SERVERS[:] = [s]
+        s._apply_vllm_metrics("(vllm)", mtp(100, 300, 180, 40000, 900, 8), 1000.0)
+        s._apply_vllm_metrics("(vllm)", mtp(110, 330, 198, 45000, 1800, 10), 1030.0)
+        txt = hub.prom_text()
+        for name in ("hub_model_prompt_tokens_computed_total",
+                     "hub_model_prompt_compute_throughput_tokens_per_second",
+                     "hub_model_spec_acceptance", "hub_model_spec_accept_length",
+                     "hub_model_prompt_tokens_mean", "hub_model_generation_tokens_mean"):
+            self.assertIn(f"# TYPE {name} ", txt)
+            self.assertIn(f"# HELP {name} ", txt)
+        self.assertIn("# TYPE hub_model_prompt_tokens_computed_total counter", txt)
+        self.assertIn("# TYPE hub_model_tokens_per_second gauge", txt)
+        self.assertIn('hub_model_spec_acceptance{server="t",model="(vllm)"} 0.6', txt)
+        self.assertIn('hub_model_spec_accept_length{server="t",model="(vllm)"} 2.8', txt)
+        self.assertIn('hub_model_prompt_tokens_mean{server="t",model="(vllm)"} 2500', txt)
+        self.assertIn('hub_model_generation_tokens_mean{server="t",model="(vllm)"} 450', txt)
+        hub.SERVERS[:] = []
+
     def test_llama_branch_unchanged(self):
         """the llama.cpp model keeps the old gauge name (its rate is a
         child-clock rate — the semantics were already correct)."""
@@ -322,7 +442,9 @@ class TestVllmMetrics(unittest.TestCase):
         st.update({"tgen": 10.0, "tpp": 500.0})
         txt = hub.prom_text()
         self.assertIn("hub_model_prompt_tokens_per_second", txt)
-        self.assertNotIn("hub_model_prompt_tokens_computed_total", txt)
+        # no vLLM-only SERIES for a llama.cpp model (the static TYPE/HELP
+        # header may mention the name — that is metadata, not a series)
+        self.assertNotIn("hub_model_prompt_tokens_computed_total{", txt)
 
 
 # ---------------------------------------------------------------------------
@@ -388,6 +510,12 @@ def test_ui_state_matrix():
     for line in out.stdout.strip().splitlines():
         r = json.loads(line)
         assert r["s"] == r["w"], f'{r["n"]}: got {r["s"]}, want {r["w"]}'
+
+    # the legend documents the two-quantity split and the new diagnostics
+    page = open(os.path.join(HERE, "ui", "index.html"), encoding="utf-8").read()
+    assert "amortized" in page                       # prompt/s split wording
+    assert "mtp [" in page and "req shape [" in page
+    assert "a consequence, never an outcome" in page
 
 
 if __name__ == "__main__":

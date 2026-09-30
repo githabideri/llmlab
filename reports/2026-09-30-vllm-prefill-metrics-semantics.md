@@ -156,3 +156,77 @@ preemption, missing phase histograms, and the Prometheus surface
   max-tokens completion with no degraded inputs; the counter monotone
   across scrapes; the 33K-token probe request: 1,186 t/s phase vs 1,181
   t/s wall.
+
+## Addendum (same day, after external review): the restart-window bug, the recording-rule split, MTP and request shape
+
+An external review of this change (ChatGPT, forwarding the commits) confirmed
+the core semantics and found one real bug plus a batch of follow-ups, all
+fixed the same day:
+
+**1. Restart-state bug (the one that mattered).** The counter-reset
+detection re-baselined the 1-min computed-token ring, but on an engine
+process restart *with the same model ID* the 5-minute window (phase
+histograms), the live-prefill detection and the phase age were **not**
+cleared — pre-restart phase sums would have sat as window baselines until
+they aged out. The first round's reset test passed only because its
+pre-restart sample carried zero phase data (exactly the gap). Now any core
+counter decrease clears all engine-derived rolling state (as a mux engine
+switch does) and re-baselines on the restart sample; the test now uses a
+live pre-restart world (900 s / 1.1M KV-computed) and asserts the
+post-restart window is the clean world-only ratio (5,000 KV / 4 s =
+1,250 t/s, no straddle).
+
+**2. The recording rule is split.** `homelab:llm_prompt_per_second` joined
+llama.cpp's *execution speed* with vLLM's *wall-clock work rate* under one
+name — the very mixing this fix exists to end. It is retired in favour of
+`homelab:llm_prefill_speed_tokens_per_second` (vLLM phase clocks; llama.cpp
+absent by design — it has no phase histograms) and
+`homelab:llm_prompt_compute_throughput_tokens_per_second` (one quantity:
+tokens per wall second, child-clock for llama.cpp, 5-min `rate()` of the
+computed counter for vLLM). Dashboard: the old panel became "Prompt compute
+(tok/s, wall)"; the new "Prefill execution speed (tok/s)" panel sits above
+it. Metrics catalog and agent query guide updated.
+
+**3. Wording tightened.** The 1-min gauge no longer claims "true average
+work rate" — it *amortizes lumpy counter updates over a stable wall-clock
+interval to represent operational prompt-compute throughput* (a 33K-token
+prefill arriving as one 28 s lump reads ~553 t/s there while its phase
+speed is ~1,186 — the two stay apart on purpose). The prefill-speed age
+tag is labelled "how long ago the last completed request contributed a
+prefill measurement" (the histograms are sampled at request completion,
+not TTFT — which this report's probe established).
+
+**4. External KV transfer modelled.** The prompt-work split is now
+requested / computed / local-cache-served / **external KV transfer**
+(`prompt_tokens_by_source{source="external_kv_transfer"}`; zero on the
+current build, present for LMCache/disaggregated serving), with the
+cache-served figure as local+external.
+
+**5. Prometheus contract.** The `/metrics` exposition now declares `# HELP`
+/ `# TYPE` for every series (static header); the counter-ness of
+`hub_model_prompt_tokens_computed_total` is stated, not implied by the
+suffix.
+
+**6. MTP telemetry (the one vllm-monitor idea worth adopting).** The
+engine's official counters (`spec_decode_num_{drafts,draft_tokens,
+accepted_tokens}_total`, per-draft-position) are reduced over the window:
+acceptance = accepted/draft tokens, mean acceptance length =
+`1 + accepted/drafts` (the +1 is the bonus token vLLM documents), and
+per-draft-position acceptance. Card: `mtp [5m]` (window deltas, not
+lifetime ratios); Prometheus: `hub_model_spec_acceptance`,
+`hub_model_spec_accept_length`. Live on the k=3 model: 55 % acceptance,
+2.65 tok/step, position curve 71/50/37 % — position 2 still earns its
+verification cost, k=3 stays. (vllm-monitor's raw `prompt_tokens_total`
+"Prompt Tokens/s" was deliberately *not* copied — on a ~99 % cache-hit
+workload it is the old bug in another body.)
+
+**7. Request shape.** Window means of the engine's per-request
+`request_prompt_tokens` / `request_generation_tokens` histograms — the
+context that makes latency interpretable (a TTFT p95 jump means different
+things at 4K vs 45K average input; the live window read ~95K in, 430 out).
+Card: `req shape [5m]`; Prometheus: `hub_model_prompt_tokens_mean`,
+`hub_model_generation_tokens_mean`.
+
+Tests: 17 hub unit tests (the old A–J plus the genuine restart scenario,
+MTP, request shape, external KV, TYPE/HELP/surface) and the 9-case UI
+state matrix, all passing.

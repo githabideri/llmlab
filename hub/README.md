@@ -143,8 +143,10 @@ red cards.
   controlled prefill benchmark (and, being an aggregate ratio over
   completed requests, it may sit below the wall-clock rate of a single
   request when the window mixes requests of different sizes). It carries a
-  sample count and an *age* tag once the window's last completed prefill is
-  more than a minute old, so a stale figure never masquerades as current.
+  sample count and an *age* tag once the window's last prefill *measurement*
+  is more than a minute old (the phase histograms are sampled at request
+  completion, not at TTFT — probe 2026-09-30), so a stale figure never
+  masquerades as current.
   The old version of this cell divided a 2 s delta of the computed-prompt
   counter by the 2 s poll gap; with lump arrivals that read a 28 s / 33K
   prefill as ~5,000 t/s — a measurement artifact, not a speed (the same
@@ -155,10 +157,39 @@ red cards.
   prompt length — prefix-cache hits included — so on a cache-hot fleet it
   differs from actual GPU work by an order of magnitude (observed: 1.18M
   requested vs 16.7K computed, 98.6 % cache-served). The hub keeps the
-  three quantities separate: total requested, computed
+  four prompt-source quantities separate: total requested, computed
   (`prompt_tokens_by_source{source="local_compute"}`, falling back to
-  `prefix_cache_queries − prefix_cache_hits`), and cache-served. Only
+  `prefix_cache_queries − prefix_cache_hits`), local cache-served, and
+  external KV transfer (`external_kv_transfer` — LMCache/disaggregated
+  serving; zero on the current build, modelled for when it isn't). Only
   *computed* may feed a rate.
+- **vLLM spec decoding (MTP).** The engine's official counters
+  (`spec_decode_num_{drafts,draft_tokens,accepted_tokens}_total`, plus
+  per-draft-position) are reduced over the window — **ratios of window
+  deltas, not lifetime ratios**: acceptance = accepted/draft tokens, mean
+  acceptance length = `1 + accepted/drafts` (the `+1` is the bonus token
+  vLLM documents), and per-draft-position acceptance. The card's
+  `mtp [5m]` row answers "is k=N still worth it" — a position accepting
+  near 0 % pays verification cost for nothing. Prometheus:
+  `hub_model_spec_acceptance`, `hub_model_spec_accept_length`.
+- **Request shape.** `request_prompt_tokens` / `request_generation_tokens`
+  (the engine's per-request histograms) give the window's mean input and
+  output length of completed requests — the context that makes the
+  latency numbers interpretable (a TTFT p95 jump means different things at
+  4K vs 45K average input). Card: `req shape [5m]`; Prometheus:
+  `hub_model_prompt_tokens_mean`, `hub_model_generation_tokens_mean`.
+- **Engine-restart re-baselining (full).** A decrease of the computed
+  counter with the *same* model ID means the vLLM process restarted: every
+  engine-derived rolling state (5-min window, 1-min ring, live-prefill
+  detection, phase age) is a different counter world then and is cleared
+  and re-baselined on the restart sample — exactly as on a mux engine
+  switch. Refusing the single negative delta alone is not enough (the
+  pre-restart phase sums would otherwise sit as window baselines for
+  minutes).
+- **Prometheus metadata.** The `/metrics` exposition declares `# HELP` / `# TYPE`
+  for every series it can emit (static header); the counter-ness of
+  `hub_model_prompt_tokens_computed_total` is part of the contract, not an
+  accident of the `_total` suffix.
 - **`hub_model_prompt_tokens_computed_total`** (Prometheus) is that
   computed counter, re-baselined to a monotonic series (an engine restart
   or mux engine switch is a counter *reset* in the Prometheus sense);
@@ -479,9 +510,11 @@ gone: for vLLM it was a 2 s wall-rate of a lumpy counter (the fake
 5–7K t/s), and it papered over the performance-vs-throughput distinction.
 `hub_model_prefill_speed_tokens_per_second` remains the vLLM performance
 figure and now pairs with `hub_model_prefill_speed_age_seconds` (when the
-last completed prefill landed) and `hub_model_prefill_in_flight` (1 = a
-request is in the prefill phase now; no in-flight rate exists on this
-build).
+last completed request contributed a prefill measurement — the histograms
+are sampled at request completion, not TTFT) and `hub_model_prefill_in_flight`
+(1 = a request is in the prefill phase now; no in-flight rate exists on
+this build). The exposition also declares `# HELP`/`# TYPE` for every
+series (the counter-ness of the `_total` is part of the contract).
 
 Unknown values are omitted rather than exported as `NaN` (which would poison
 `avg()`/`sum()` in PromQL); a measured zero is exported as `0`.
