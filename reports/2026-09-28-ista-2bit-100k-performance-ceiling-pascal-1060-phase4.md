@@ -105,6 +105,6 @@ The KV quantization **does exactly what theory promised for VRAM** (q4 at 128K f
 
 ## Open items
 
-1. **Dual-channel re-measure** (2×8 GB pending purchase): decode is the predicted mover; the 2-bit should roughly double until the next bottleneck (PCIe expert prefetch, 4-core serialization) appears. Only the measurement settles it.
+1. **Dual-channel re-measure** (2×8 GB pending purchase): decode is the predicted mover; the 2-bit should roughly double until the next bottleneck (PCIe expert prefetch, 4-core serialization) appears. Only the measurement settles it. — *Update (2026-09-30): the swap that went in was a mixed-vendor 2×8 set, which the BIOS does not interleave — bandwidth unchanged. See [2026-09-30-pascal-1060-2bit-mixed-ram-dual-channel-test](2026-09-30-pascal-1060-2bit-mixed-ram-dual-channel-test.md); the matched-pair re-measure is still open.*
 2. **128K tier:** reachable via the q4-KV trade (−12–15% decode) or by accepting c36/ub1024 at q8 — a user-choice profile, not the default.
 3. The 3-bit IQ3_XXS remains *unmeasured, not dominated*: no quality edge over the 4-bit and no speed edge over the 2-bit on this box.
