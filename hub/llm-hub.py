@@ -75,6 +75,12 @@ SIDECAR_TIMEOUT = 7                 # sidecar runs nvidia-smi (~1 s), allow marg
 RATE_DECAY = 30                     # measured rates decay to idle after this
 LAT_WINDOW = int(os.environ.get("LLM_HUB_LAT_WINDOW", "300"))
 WIN_SAMPLES = max(2, LAT_WINDOW // POLL_INTERVAL)   # window ring buffer size
+# vLLM prompt-compute throughput gauge window. The engine's computed-prompt
+# counter advances in LUMPS (one jump per finished prefill — probed on the
+# 0.28.0 dual-3090: flat through a 28 s prefill, +33K at first token), so a
+# short window turns each lump into a fake spike; one minute turns it into
+# the true average work rate. See hub/README "What the numbers mean".
+PP_TPUT_WINDOW = 60
 COOKIE_SECURE = os.environ.get("LLM_HUB_COOKIE_SECURE", "").lower() in ("1", "true", "yes")
 
 # vLLM latency histograms (emitted per engine/model; buckets incl. +Inf).
@@ -411,6 +417,15 @@ class Server:
         self._kv_hist = collections.deque(maxlen=KV_HIST_MAX)
         # llama.cpp per-model window: mid -> deque of (ts, {cached, new})
         self._wins = {}
+        # vLLM working state (per model id):
+        # _lc_hist: (ts, computed-prompt counter) 1-min ring -> throughput gauge
+        # _live_prefill: prefill-detection start ts (None = not prefilling)
+        # _vlast: raw (gen, ttft-count, prefill-KV) from the last poll
+        # _phase_ts: when the completed-prefill figures last advanced (age)
+        self._lc_hist = {}
+        self._live_prefill = {}
+        self._vlast = {}
+        self._phase_ts = {}
         # sparkline ring: (t, tgen_sum, gpu_max, ttft_p95_ms|None, tpp_sum)
         # (ttft stays in the ring so the UI tooltip can show it; the graph
         #  lanes are tok/s, pp/s, gpu% — a 5-min-window percentile made a
@@ -513,6 +528,12 @@ class Server:
         restart detection (value < prev -> clean re-baseline)."""
         if getattr(self, "_metrics_mid", None) not in (None, mid):
             self._winbuf.clear()
+            # an engine switch changes the counter world: no queue, rate or
+            # age may straddle two engines
+            self._lc_hist.clear()
+            self._live_prefill.clear()
+            self._vlast.clear()
+            self._phase_ts.clear()
         self._metrics_mid = mid
         p = parse_prom(body)
         gen = get_metric(p, "generation_tokens_total", prefixes=("vllm:", "vllm_"))
@@ -533,6 +554,14 @@ class Server:
             ph = get_metric(p, "prefix_cache_hits_total",
                             prefixes=("vllm:", "vllm_")) or 0.0
             pp = max(0.0, pq - ph)
+        # the two other prompt-token quantities (diagnostic only — never
+        # read as performance): full requested prompt length, and the
+        # prefix-cache share of it
+        pt = get_metric(p, "prompt_tokens_total", prefixes=("vllm:", "vllm_"))
+        lh = src.get("local_cache_hit")
+        if lh is None:
+            lh = get_metric(p, "prefix_cache_hits_total",
+                            prefixes=("vllm:", "vllm_"))
         req_running = int(get_metric(p, "num_requests_running",
                                      prefixes=("vllm:", "vllm_")) or 0)
         req_waiting = int(get_metric(p, "num_requests_waiting",
@@ -571,6 +600,13 @@ class Server:
         counters["pre"] = get_metric(p, "num_preemptions_total",
                                      prefixes=("vllm:", "vllm_")) or 0.0
         counters["gen"] = gen
+        counters["lc"] = pp
+        counters["lh"] = lh if lh is not None else 0.0
+        counters["pt"] = pt if pt is not None else 0.0
+        ttftn = parse_sum(body, "vllm:time_to_first_token_seconds_count")
+        if ttftn is None:                       # older builds: bare names
+            ttftn = parse_sum(body, "time_to_first_token_seconds_count")
+        counters["ttftn"] = ttftn if ttftn is not None else 0.0
         for key, base in VLLM_PHASE_HISTS:
             s = parse_sum(body, "vllm:" + base + "_sum")
             if s is None:                       # older builds: bare names
@@ -579,6 +615,7 @@ class Server:
         self._winbuf.append((now, buckets, counters))
 
         latency = finish_win = cache_hit = preempt_win = phase = None
+        prompt_work = None
         if len(self._winbuf) >= 2:
             ts0, b0, c0 = self._winbuf[0]
             win = max(1, round(now - ts0))
@@ -651,6 +688,76 @@ class Server:
             else:
                 phase = None
 
+            # 5-min prompt-work breakdown (diagnostic, not performance):
+            # full requested prompt vs what the GPU computed vs what the
+            # prefix cache served. On a cache-hot fleet these differ ~19x,
+            # which is exactly why only `computed` may feed a rate.
+            d_pt = _counter_delta(c0.get("pt"), counters.get("pt"))
+            d_lc = _counter_delta(c0.get("lc"), counters.get("lc"))
+            d_lh = _counter_delta(c0.get("lh"), counters.get("lh"))
+            if d_pt is not None and d_lc is not None and d_pt >= 0:
+                prompt_work = {
+                    "window_s": win,
+                    "total": int(d_pt),
+                    "computed": int(d_lc),
+                    "cached": int(d_lh) if d_lh is not None else None,
+                    "hit_ratio": (round(d_lh / d_pt, 3)
+                                  if d_lh is not None and d_pt > 0 else None),
+                }
+            else:
+                prompt_work = None
+
+        # ---- 1-min prompt-compute throughput (lump-safe gauge) ----------
+        # the counter's arrivals are per-prefill lumps (see PP_TPUT_WINDOW):
+        # a rolling 1-min ring turns each lump into its true average work
+        # rate. A reset (engine restart / mux switch) or a gap (>3 polls
+        # without a sample — the model was not the active engine) clears
+        # the ring instead of straddling two counter worlds.
+        lhq = self._lc_hist.setdefault(
+            mid, collections.deque(maxlen=PP_TPUT_WINDOW // POLL_INTERVAL))
+        if lhq and (pp < lhq[-1][1] - 1e-9 or now - lhq[-1][0] > 15):
+            lhq.clear()
+        lhq.append((now, pp))
+        pp_tput_1m = None
+        if len(lhq) >= 2:
+            t_a, v_a = lhq[0]
+            t_b, v_b = lhq[-1]
+            if t_b - t_a >= 30 and v_b >= v_a:
+                pp_tput_1m = round((v_b - v_a) / (t_b - t_a), 1)
+
+        # ---- live in-flight prefill (detected, not measured) -----------
+        # This build exposes no token counter during a chunked prefill
+        # (probe 2026-09-30: local_compute flat for 28 s, one jump at
+        # first token), so a live prefill is DETECTED — requests running
+        # while neither the generation counter nor the TTFT histogram
+        # advanced on the last poll — and shown as an honest timer. No
+        # rate is invented for it; the completed-request phase speed
+        # (above) is the only number that may be read as prefill
+        # performance.
+        vl = self._vlast.get(mid)
+        gen_moved = (vl is not None and gen is not None
+                     and vl.get("gen") is not None and gen != vl["gen"])
+        ttft_moved = (vl is not None and vl.get("ttftn") is not None
+                      and counters.get("ttftn") is not None
+                      and counters["ttftn"] != vl["ttftn"])
+        if req_running > 0 and not gen_moved and not ttft_moved:
+            start = self._live_prefill.get(mid) or now
+        else:
+            start = None
+        self._live_prefill[mid] = start
+        # prefill-speed age: when the completed-prefill numerator (the
+        # computed-KV histogram sum) last advanced
+        pks = counters.get("sum:pfkv")
+        if (pks is not None and vl is not None and vl.get("pks") is not None
+                and pks != vl["pks"]):
+            self._phase_ts[mid] = now
+        self._vlast[mid] = {"gen": gen, "ttftn": counters.get("ttftn"),
+                            "pks": pks, "ts": now}
+        prefill_speed_age = (int(now - self._phase_ts[mid])
+                             if mid in self._phase_ts else None)
+        live_prefill = ({"active": True, "elapsed_s": int(now - start)}
+                        if start else None)
+
         sleep_state = next((k for k, v in sleep.items() if v >= 1), None)
         wr = None
         if req_waiting > 0 and any(v > 0 for v in wait_reason.values()):
@@ -668,9 +775,20 @@ class Server:
                 st["desc"] = desc
             st.update({
                 "tgen": self._rate(mid, "gen", gen, now),
-                # pp = prompt tokens actually computed (see above); same
-                # _rate machinery, monotone input
-                "tpp": self._rate(mid, "prompt", pp, now),
+                # headline pp/s for a vLLM model is the completed-request
+                # phase speed (computed KV tokens / vLLM's PREFILL-phase
+                # seconds over the window) — the physical number, immune
+                # to counter arrival patterns. The old wall-rate of the
+                # computed counter (one 2 s delta) is gone: the counter
+                # jumps in lumps at prefill completion, so that rate read
+                # 5,000 t/s for a prefill that took 28 s (probe 2026-09-30).
+                # The operational work-rate lives in pp_tput_1m.
+                "tpp": phase.get("prefill_speed") if phase else None,
+                "pp_tput_1m": pp_tput_1m,
+                "prompt_work": prompt_work,
+                "live_prefill": live_prefill,
+                "prefill_speed_age": prefill_speed_age,
+                "prompt_tokens_computed_raw": pp,
                 "spec_accept": None,
                 "req_running": req_running, "req_waiting": req_waiting,
                 "kv_used": kv,
@@ -736,6 +854,9 @@ class Server:
                     st["desc"] = hint["desc"]
                 if not loaded:
                     st.update({"tgen": None, "tpp": None, "spec_accept": None,
+                               "pp_tput_1m": None, "prompt_work": None,
+                               "live_prefill": None, "prefill_speed_age": None,
+                               "prompt_tokens_computed_raw": None,
                                "req_running": None, "req_waiting": None,
                                "kv_used": None, "kv_used_tokens": None,
                                "kv_pool": None, "kv_peaks": None,
@@ -743,6 +864,7 @@ class Server:
                                "cache_hit": None, "preempt_win": None,
                                "sleep": None, "wait_reason": None,
                                "metrics_ok": False})
+                    self._live_prefill[mid] = None
         if active is None:
             return                      # all idle: no metrics source
         status, body = http_json(f"{self.url}/metrics")
@@ -1287,7 +1409,27 @@ def prom_text():
             ml = f'{{server="{s.name}",model="{m["id"]}"}}'
             L.append(f"hub_model_loaded{ml} {1.0 if m.get('loaded') else 0.0}")
             _g(L, "hub_model_tokens_per_second", ml, m.get('tgen'))
-            _g(L, "hub_model_prompt_tokens_per_second", ml, m.get('tpp'))
+            if m.get("kind") == "vllm":
+                # prompt WORK, as a Prometheus counter (monotonic per engine
+                # lifetime; engine restart / mux switch = counter reset in
+                # the Prometheus sense). Consumers pick their own window:
+                #   rate(hub_model_prompt_tokens_computed_total[1m])
+                # Prefix-cache hits are EXCLUDED. (Retires the old
+                # hub_model_prompt_tokens_per_second 2 s wall-rate gauge,
+                # whose lump arrivals read 5,000 t/s for a 28 s prefill —
+                # see reports/2026-09-30-vllm-prefill-metrics-semantics.md.)
+                _g(L, "hub_model_prompt_tokens_computed_total", ml,
+                   m.get('prompt_tokens_computed_raw'))
+                _g(L, "hub_model_prompt_compute_throughput_tokens_per_second",
+                   ml, m.get('pp_tput_1m'))
+                _g(L, "hub_model_prefill_in_flight", ml,
+                   1.0 if (m.get('live_prefill') or {}).get('active') else 0.0)
+                _g(L, "hub_model_prefill_speed_age_seconds", ml,
+                   m.get('prefill_speed_age'))
+            else:
+                # llama.cpp: child-clock rate (prompt tokens / the engine's
+                # own prompt seconds) — physically bounded, keep the name
+                _g(L, "hub_model_prompt_tokens_per_second", ml, m.get('tpp'))
             if m.get("kind") == "vllm":
                 if m.get("loaded"):
                     L.append(f"hub_vllm_metrics_ok{ml} "
@@ -1313,12 +1455,24 @@ def prom_text():
                 ph = m.get("phase") or {}
                 if ph.get("window_s"):
                     pf, dd, pk = ph.get("prefill"), ph.get("decode"), ph.get("pfkv")
-                    _g(L, "hub_model_prefill_avg_seconds", ml,
+                    # p50/p95, not "avg": these are quantiles of the
+                    # per-request phase-time histogram (renamed from
+                    # *_avg_seconds 2026-09-30 — the old label implied a
+                    # mean the hub never computed)
+                    _g(L, "hub_model_prefill_p50_seconds", ml,
                        pf.get("p50") if pf else None)
-                    _g(L, "hub_model_decode_avg_seconds", ml,
+                    _g(L, "hub_model_prefill_p95_seconds", ml,
+                       pf.get("p95") if pf else None)
+                    _g(L, "hub_model_decode_p50_seconds", ml,
                        dd.get("p50") if dd else None)
+                    _g(L, "hub_model_decode_p95_seconds", ml,
+                       dd.get("p95") if dd else None)
                     _g(L, "hub_model_prefill_computed_tokens_window", ml,
                        pk.get("sum") if pk else None)
+                    # PREFFILL speed: computed KV tokens / vLLM's PREFILL-
+                    # phase seconds over completed requests in the window
+                    # — the performance figure (vs the throughput gauges
+                    # above, which are work per wall-clock second)
                     _g(L, "hub_model_prefill_speed_tokens_per_second", ml,
                        ph.get("prefill_speed"))
                     _g(L, "hub_model_decode_speed_tokens_per_second", ml,
@@ -1453,7 +1607,12 @@ def poller():
             except Exception as e:
                 s.last_err = f"poller exception: {e}"[:200]
             tgen_sum = sum(m.get("tgen") or 0 for m in s.models.values())
-            tpp_sum = sum(m.get("tpp") or 0 for m in s.models.values())
+            # sparkline pp lane: llama.cpp child-clock rate; vLLM the 1-min
+            # prompt-compute throughput (the headline cell is the separate
+            # phase-clock prefill speed — the two branches stay separate)
+            tpp_sum = sum(((m.get("pp_tput_1m") if m.get("kind") == "vllm"
+                            else m.get("tpp")) or 0)
+                          for m in s.models.values())
             gpu_max = max((g.get("util_pct") or 0) for g in s.gpus) if s.gpus else None
             ttft_p95_ms = None
             for m in s.models.values():

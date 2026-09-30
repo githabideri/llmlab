@@ -83,9 +83,21 @@ States are derived per model (node state is the worst across its models):
   show last-known state flagged `stale`.
 - `idle` — not loaded, stale, or no activity (the common state).
 - `active` — requests in flight or recent generation.
-- `busy` — requests waiting, deferred requests, or KV cache ≥ 75 %.
-- `degraded` — KV cache ≥ 90 %, responses hitting the length limit, or
-  preemptions while KV ≥ 80 %.
+- `busy` — requests waiting, deferred requests, or KV cache ≥ 75 %
+  (≥ 90 % shows a pressure chip — pressure alone is not impairment).
+- `degraded` — a *consequence*, not a level: a preemption in the window
+  (the scheduler evicted a request), a stalled engine (GPU busy but
+  counters frozen), a failed `/metrics` parse on a loaded model, or a
+  queue building against KV ≥ 90 %.
+
+Deliberately **not** health signals: responses that hit their max-tokens
+limit (an application outcome — shown as a neutral chip, never a state
+change) and KV occupancy by itself (a 94 %-full pool on one legitimate
+long context, with no queue and no preemptions, is `busy`, not
+`degraded`). The 2026-09-30 semantics fix removed the old
+`kv ≥ 90 % → degraded` and `any length-limited response → degraded`
+rules, which turned normal long-context and capped responses into
+red cards.
 
 ### Metric semantics
 
@@ -100,11 +112,14 @@ States are derived per model (node state is the worst across its models):
   are held to the same contract), so prompt-cache hits cannot inflate pp/s;
   the cached share is tracked separately (`prompt_tokens_cached_total`,
   feeding the 5-min cache-hit gauge). vLLM counters are process-lifetime
-  cumulative, so wall-clock deltas are used (see the vLLM `pp/s` bullet for
-  its cache handling).
+  cumulative **and advance in lumps** (one jump per finished prefill —
+  probed on the 0.28.0 dual-3090 build: flat through a 28 s chunked
+  prefill, then the full count at first token), so the hub no longer
+  derives a short wall-clock rate from them (see the vLLM `pp/s` bullet).
 - Rates decay to "no data" 30 s after the counter **last moved** — idle is
-  shown as no value, not as a stale number. This applies to every rate,
-  including vLLM prompt throughput.
+  shown as no value, not as a stale number. This applies to the llama.cpp
+  rates and the vLLM generation rate. (The vLLM 1-min work-rate gauge has
+  no decay: its window is the semantics.)
 - A counter **decrease** (child restart / model reload) re-baselines
   instead of producing a spike.
 - **vLLM percentiles** are interpolated from the engine's native histogram
@@ -119,19 +134,56 @@ States are derived per model (node state is the worst across its models):
   token-weighted inter-token histogram is available as `itl` (and in the
   diagnostics table) when you want the per-token view. Both come from the
   engine; the hub does not estimate them.
-- **vLLM `pp/s` measures actual prefill compute.** vLLM's
-  `prompt_tokens_total` counts each request's *full* prompt length —
-  prefix-cache hits included — so a hot cache inflates it by an order of
-  magnitude. The hub instead rates `prompt_tokens_by_source{source="local_compute"}`
-  (tokens the GPU actually computed during prefill), falling back to
-  `prefix_cache_queries − prefix_cache_hits` on builds without that counter.
+- **vLLM `pp/s` is prefill *execution speed*, not arrival rate.** The
+  headline figure is `prefill_speed` =
+  `Δ(request_prefill_kv_computed_tokens) / Δ(request_prefill_time_seconds)`
+  over the completed requests in the trailing 5-min window: the engine's
+  own per-request phase clocks, cached/transferred prompt tokens excluded,
+  independent of the arrival pattern — the number that is comparable to a
+  controlled prefill benchmark (and, being an aggregate ratio over
+  completed requests, it may sit below the wall-clock rate of a single
+  request when the window mixes requests of different sizes). It carries a
+  sample count and an *age* tag once the window's last completed prefill is
+  more than a minute old, so a stale figure never masquerades as current.
+  The old version of this cell divided a 2 s delta of the computed-prompt
+  counter by the 2 s poll gap; with lump arrivals that read a 28 s / 33K
+  prefill as ~5,000 t/s — a measurement artifact, not a speed (the same
+  bug class the llama.cpp branch fixed against its own child clock in
+  2026-09-19). No short wall-rate of that counter is computed anymore.
+- **vLLM prompt *work*** (the operational split, in diagnostics as
+  `prompt work [5m]`): `prompt_tokens_total` counts each request's *full*
+  prompt length — prefix-cache hits included — so on a cache-hot fleet it
+  differs from actual GPU work by an order of magnitude (observed: 1.18M
+  requested vs 16.7K computed, 98.6 % cache-served). The hub keeps the
+  three quantities separate: total requested, computed
+  (`prompt_tokens_by_source{source="local_compute"}`, falling back to
+  `prefix_cache_queries − prefix_cache_hits`), and cache-served. Only
+  *computed* may feed a rate.
+- **`hub_model_prompt_tokens_computed_total`** (Prometheus) is that
+  computed counter, re-baselined to a monotonic series (an engine restart
+  or mux engine switch is a counter *reset* in the Prometheus sense);
+  consumers pick their own window:
+  `rate(hub_model_prompt_tokens_computed_total[1m])`. The hub also exports
+  a 1-minute average as
+  `hub_model_prompt_compute_throughput_tokens_per_second` — work per
+  wall-clock second, a load figure, **not** a speed; the 1-min window
+  exists precisely because the counter's arrivals are lumps.
+- **Live in-flight prefill.** While a request is in the prefill phase
+  (requests running but neither the generation counter nor the TTFT
+  histogram advanced on the last poll) the card shows an honest timer,
+  `prefill Ns…`, plus the live kv/req cells. No rate is shown for it: this
+  vLLM build exposes no token counter during a chunked prefill (probed
+  2026-09-30), so any in-flight number would be invented. Under concurrent
+  load the detector may be masked by other requests' decode; that is
+  accepted over a false number.
 - **Per-request phase stats** (`prefill` / `decode` / `pfkv` histograms,
   sampled when a request *finishes*) feed two window aggregates:
-  `prefill_speed` = computed tokens ÷ prefill seconds, `decode_speed` =
-  generated tokens ÷ decode seconds. These are the honest per-phase speeds
-  for the window, independent of the request-arrival pattern. Note the
-  per-request histograms only move when requests *complete* — a long
-  in-flight request contributes its phase stats late.
+  `prefill_speed` (the headline, above) and `decode_speed` = generated
+  tokens ÷ decode seconds. These are the honest per-phase speeds for the
+  window, independent of the request-arrival pattern. Note the per-request
+  histograms only move when requests *complete* — a long in-flight request
+  contributes its phase stats late (and its prefill time includes
+  queue-to-first-token as the engine measures it).
 - **KV usage** (`kv`) is the engine's block-pool gauge: blocks in use
   *including those held by the prefix cache*, divided by the pool. The pool
   is sized for several concurrent max-context requests, so low percent
@@ -396,16 +448,41 @@ CT lists no `rsyslogd` profile and the host journal shows no new
 ## Prometheus export
 
 `/metrics` emits `hub_*` gauges: server online state, per-GPU
-utilization/memory/temperature/power, per-model generation and
-prompt-processing throughput, backend parser-compat flags
-(`hub_vllm_metrics_ok`, `hub_llama_metrics_ok`), vLLM latency percentiles
-(seconds: `hub_model_{ttft,tpot,itl,e2e,queue}_{p50,p95,p99}_seconds`,
+utilization/memory/temperature/power, per-model generation throughput
+(`hub_model_tokens_per_second` — llama.cpp and vLLM), backend
+parser-compat flags (`hub_vllm_metrics_ok`, `hub_llama_metrics_ok`), vLLM
+latency percentiles (seconds:
+`hub_model_{ttft,tpot,itl,e2e,queue}_{p50,p95,p99}_seconds`,
 where `tpot` is the *per-request* metric and `itl` the token-weighted one),
-per-request phase aggregates (`hub_model_prefill_avg_seconds`,
-`hub_model_decode_avg_seconds`, `hub_model_prefill_computed_tokens_window`,
+per-request phase aggregates (`hub_model_prefill_{p50,p95}_seconds`,
+`hub_model_decode_{p50,p95}_seconds` — quantiles, renamed from the
+misleading `*_avg_seconds` in 2026-09-30,
+`hub_model_prefill_computed_tokens_window`,
 `hub_model_prefill_speed_tokens_per_second`,
 `hub_model_decode_speed_tokens_per_second`), request counts, KV usage, cache
 hit rates, preemptions, and engine sleep state.
+
+Prompt work is exported as **two different quantities that must not be
+conflated** (the 2026-09-30 semantics fix):
+
+- `hub_model_prompt_tokens_computed_total` (vLLM; **counter**, monotonic
+  per engine lifetime) — the engine's computed (non-cached) prompt tokens.
+  `rate(…[1m])` is the operational work rate.
+- `hub_model_prompt_compute_throughput_tokens_per_second` (vLLM; gauge,
+  1-min window) — computed work per wall-clock second. A load figure.
+- `hub_model_prompt_tokens_per_second` (llama.cpp only; gauge) — the
+  child-clock computed-prompt rate. A performance figure (tokens per
+  engine-prefill-second).
+
+The old single `hub_model_prompt_tokens_per_second` for both engines is
+gone: for vLLM it was a 2 s wall-rate of a lumpy counter (the fake
+5–7K t/s), and it papered over the performance-vs-throughput distinction.
+`hub_model_prefill_speed_tokens_per_second` remains the vLLM performance
+figure and now pairs with `hub_model_prefill_speed_age_seconds` (when the
+last completed prefill landed) and `hub_model_prefill_in_flight` (1 = a
+request is in the prefill phase now; no in-flight rate exists on this
+build).
+
 Unknown values are omitted rather than exported as `NaN` (which would poison
 `avg()`/`sum()` in PromQL); a measured zero is exported as `0`.
 This is the stable scrape surface for a Grafana stack — a separate concern;
@@ -414,10 +491,11 @@ the hub does not require Prometheus.
 ## State
 
 In-memory: a 30-minute sparkline ring (one tuple per 2 s poll: t, aggregate
-tok/s, max GPU %, ttft p95 ms, aggregate pp/s) and 5-minute rolling windows per
-server, plus a periodic `snapshot.json` in the state dir (restored on boot
-so the UI isn't blank after a hub restart). No historical storage — for
-long-term trends, scrape `/metrics`.
+tok/s, max GPU %, ttft p95 ms, and the pp lane — llama.cpp child-clock rate
+or, for vLLM, the 1-min prompt-compute throughput) and 5-minute rolling
+windows per server, plus a periodic `snapshot.json` in the state dir
+(restored on boot so the UI isn't blank after a hub restart). No historical
+storage — for long-term trends, scrape `/metrics`.
 
 Snapshot shapes change with code versions. `restore()` therefore normalises
 restored model dicts (`kind` re-derived from the server's kind, `desc`
