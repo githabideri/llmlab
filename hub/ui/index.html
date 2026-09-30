@@ -403,7 +403,7 @@ function nowBlock(m) {
   if (m.stalled)
     chips.push(chip("⚠ counters stalled", "GPU is busy but the engine's token counters have not moved for 30+ s — the rates are stale (D-CFR counter-freeze); the mux watchdog restarts the engine, the next request reloads it"));
   if (m.tgen != null)
-    cells.push(cell("t/s", fmt(m.tgen, 1), "aggregate generation throughput — the engine's generation-token counter, wall-rate over the last 2 s poll, across ALL running requests (not per-request decode speed; the per-request figure is in diagnostics, 'phase')"));
+    cells.push(cell("t/s", fmt(m.tgen, 1), "generation tokens per second — engine-dependent clock: llama.cpp = tokens / the engine's own decode-phase seconds (child clocks; a true execution speed), vLLM = Δtokens / wall clock over the window (aggregate service throughput across ALL running requests — this vLLM build exposes no decode-phase-seconds counter). The per-request decode figure is in diagnostics, 'phase'"));
   if (m.tpp != null) {
     // headline performance: vLLM completed-request phase speed (5-min
     // window); llama.cpp child-clock computed-prompt rate. An age tag
@@ -501,10 +501,17 @@ function diagHtml(s, m) {
     if (pw && pw.window_s && (pw.total > 0 || (pw.computed || 0) > 0)) {
       const t = [`requested ${fmtK(pw.total)}`];
       if (pw.computed != null) t.push(`computed ${fmtK(pw.computed)}`);
-      if (pw.served != null)
-        t.push(`cache-served ${fmtK(pw.served)}${pw.hit_ratio != null ? ` (${Math.round(pw.hit_ratio * 100)}%)` : ""}`);
+      if (pw.served != null) {
+        // the % is the COMBINED (local + external) served ratio; the
+        // local-only ratio is split out only when the two differ
+        let s = `cache-served ${fmtK(pw.served)}${pw.hit_ratio != null ? ` (${Math.round(pw.hit_ratio * 100)}%)` : ""}`;
+        if ((pw.ext || 0) > 0 && pw.local_ratio != null)
+          s += ` · local ${Math.round(pw.local_ratio * 100)}%`;
+        t.push(s);
+      }
       if (pw.ext != null && pw.ext > 0) t.push(`ext-kv ${fmtK(pw.ext)}`);
-      bits.push(`<div class="diag-x" title="The raw prompt-length counter counts each request's FULL prompt (cache hits included); the computed share is the GPU's actual prefill work. External KV transfer (LMCache/disaggregated) is tracked separately when present.">prompt work [${winLbl(pw.window_s)}]: ${esc(t.join(" · "))}</div>`);
+      if (pw.drift) t.push('⚠ accounting drift');
+      bits.push(`<div class="diag-x" title="The raw prompt-length counter counts each request's FULL prompt (cache hits included); the computed share is the GPU's actual prefill work. The % is the combined local+external served ratio; local-only is split out when external KV (LMCache/disaggregated) is in play. The drift flag means computed + served does not match requested within 2% — a vLLM version/accounting drift, not a performance number.">prompt work [${winLbl(pw.window_s)}]: ${esc(t.join(" · "))}</div>`);
     }
     // spec decoding / MTP over the window (ratios of window deltas, not
     // lifetime ratios) — the "is k=N still worth it" instrument

@@ -230,3 +230,44 @@ Card: `req shape [5m]`; Prometheus: `hub_model_prompt_tokens_mean`,
 Tests: 17 hub unit tests (the old A–J plus the genuine restart scenario,
 MTP, request shape, external KV, TYPE/HELP/surface) and the 9-case UI
 state matrix, all passing.
+
+## Addendum 2 (same day) — round-3 correctness pass
+
+A second external review of the committed work found three remaining
+semantic problems. All fixed, tested, and deployed:
+
+1. **The throughput rule was still mixing unlike quantities.** The
+   round-2 rule's llama leg used the hub's *child-clock* prompt rate
+   (tokens / engine prompt-phase seconds) — a *speed* — under the
+   "tokens per wall second" name. The fix normalizes the *concepts*:
+   `homelab:llm_prefill_speed_tokens_per_second` now carries **both
+   engines' prompt execution speeds** (vLLM phase clocks OR llama.cpp
+   child clocks — both divide by the engine's own prefill clock; the
+   dashboard's speed graph is now cross-engine, with the caveat that the
+   token bases differ slightly: KV-computed vs prompt tokens).
+   `homelab:llm_prompt_compute_throughput_tokens_per_second` is
+   **vLLM-only** (rate of the monotonic computed counter); a llama leg
+   appears only when the hub exports a monotonic llama prompt-work
+   counter — a speed must not masquerade as a wall-clock work rate.
+2. **External-KV accounting.** The test used an impossible partition
+   (400 + 2800 + 800 = 4000 against 3000 requested); vLLM maintains
+   `computed + local_cache + external_kv == requested`. The test now
+   uses a valid partition, the hub sanity-checks the identity (±2%)
+   and flags **accounting drift** instead of displaying an impossible
+   split, and the percentage attached to the combined "cache-served"
+   value is the **combined** (local + external) ratio, with the
+   local-only ratio split out only when external KV is non-zero.
+3. **The `hub_model_tokens_per_second` HELP was false for vLLM.** It
+   claimed a decode-phase clock; vLLM's value is Δtokens / wall-clock
+   (aggregate service throughput). The HELP now states the
+   engine-dependent clock per engine kind, and the UI tooltip matches.
+   (A vLLM decode-phase-seconds counter does not exist in this build,
+   so a true vLLM decode speed is not derivable from /metrics — the
+   per-request decode figure is the phase-histogram one in
+   diagnostics.)
+
+Also: request-shape means now divide by **each histogram's own request
+count** (parsed separately; they normally agree, and parallel sampling
+can diverge upstream), and `hub_model_preemptions_total` is declared a
+counter (it is a monotonic engine-lifetime counter). 18 hub tests +
+9 UI state cases.
