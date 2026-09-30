@@ -480,7 +480,10 @@ CT lists no `rsyslogd` profile and the host journal shows no new
 
 `/metrics` emits `hub_*` gauges: server online state, per-GPU
 utilization/memory/temperature/power, per-model generation throughput
-(`hub_model_tokens_per_second` — llama.cpp and vLLM), backend
+(`hub_model_tokens_per_second` — engine-dependent clock: llama.cpp is
+tokens/decode-phase-seconds (a true execution speed), vLLM is
+Δtokens/wall-clock (aggregate service throughput; this build has no
+decode-phase clock), backend
 parser-compat flags (`hub_vllm_metrics_ok`, `hub_llama_metrics_ok`), vLLM
 latency percentiles (seconds:
 `hub_model_{ttft,tpot,itl,e2e,queue}_{p50,p95,p99}_seconds`,
@@ -514,7 +517,14 @@ last completed request contributed a prefill measurement — the histograms
 are sampled at request completion, not TTFT) and `hub_model_prefill_in_flight`
 (1 = a request is in the prefill phase now; no in-flight rate exists on
 this build). The exposition also declares `# HELP`/`# TYPE` for every
-series (the counter-ness of the `_total` is part of the contract).
+series (the counter-ness of the `_total` is part of the contract —
+including `hub_model_preemptions_total`, an engine-lifetime counter).
+
+The prompt-work diagnostic also sanity-checks vLLM's accounting invariant
+(computed + local-cache + external-KV == requested) and flags drift
+instead of displaying an impossible partition; request-shape means divide
+by each histogram's own request count (they normally agree; parallel
+sampling can diverge).
 
 Unknown values are omitted rather than exported as `NaN` (which would poison
 `avg()`/`sum()` in PromQL); a measured zero is exported as `0`.

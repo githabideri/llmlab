@@ -640,7 +640,12 @@ class Server:
         # per-request shape (prompt/generation token histograms)
         counters["rp_sum"] = parse_sum(body, "vllm:request_prompt_tokens_sum")
         counters["rg_sum"] = parse_sum(body, "vllm:request_generation_tokens_sum")
+        # per-histogram request counts, parsed SEPARATELY: the two histograms
+        # count the same requests today, but that is an engine invariant, not
+        # something the hub should assume (parallel sampling makes request-
+        # vs sequence accounting diverge upstream).
         counters["reqc"] = parse_sum(body, "vllm:request_prompt_tokens_count")
+        counters["reqc_g"] = parse_sum(body, "vllm:request_generation_tokens_count")
         counters["ext"] = ext
 
         # ---- engine-restart detection (before any window math) ----------
@@ -747,17 +752,35 @@ class Server:
             d_lh = _counter_delta(c0.get("lh"), counters.get("lh"))
             d_ext = _counter_delta(c0.get("ext"), counters.get("ext"))
             if d_pt is not None and d_lc is not None and d_pt >= 0:
+                served = (int((d_lh or 0) + (d_ext or 0))
+                          if (d_lh is not None or d_ext is not None)
+                          else None)
+                # vLLM's prompt-token accounting invariant:
+                #   computed + local_cache + external_kv == requested
+                # (external = 0 on non-LMCache builds). A violation is a
+                # version/accounting drift — flag it instead of displaying
+                # an impossible partition as fact.
+                drift = None
+                if served is not None and d_pt > 0:
+                    resid = abs(d_pt - d_lc - served)
+                    drift = bool(resid / d_pt > 0.02)
                 prompt_work = {
                     "window_s": win,
                     "total": int(d_pt),
                     "computed": int(d_lc),
                     "cached": int(d_lh) if d_lh is not None else None,
                     "ext": int(d_ext) if d_ext is not None else None,
-                    "served": (int((d_lh or 0) + (d_ext or 0))
-                               if (d_lh is not None or d_ext is not None)
-                               else None),
-                    "hit_ratio": (round(d_lh / d_pt, 3)
-                                  if d_lh is not None and d_pt > 0 else None),
+                    "served": served,
+                    # the % shown next to the COMBINED served value is the
+                    # combined ratio; the local-only ratio stays separate
+                    # (they differ exactly when external KV is in play).
+                    "hit_ratio": (round(served / d_pt, 3)
+                                  if served is not None and d_pt > 0
+                                  else None),
+                    "local_ratio": (round(d_lh / d_pt, 3)
+                                    if d_lh is not None and d_pt > 0
+                                    else None),
+                    "drift": drift,
                 }
             else:
                 prompt_work = None
@@ -788,17 +811,24 @@ class Server:
                 }
 
             # request shape over the window (context for latency numbers:
-            # a TTFT p95 jump means different things at 4K vs 45K avg input)
+            # a TTFT p95 jump means different things at 4K vs 45K avg input).
+            # Each average divides by ITS OWN histogram's request count —
+            # the two counts normally agree, and baking that in would be a
+            # bug waiting for parallel sampling / unusual shapes.
             d_rp = _counter_delta(c0.get("rp_sum"), counters.get("rp_sum"))
             d_rg = _counter_delta(c0.get("rg_sum"), counters.get("rg_sum"))
             d_rc = _counter_delta(c0.get("reqc"), counters.get("reqc"))
+            d_rcg = _counter_delta(c0.get("reqc_g"), counters.get("reqc_g"))
             req_shape = None
-            if d_rc is not None and d_rc > 0:
+            if (d_rc is not None and d_rc > 0) or (
+                    d_rcg is not None and d_rcg > 0):
                 req_shape = {
                     "window_s": win,
-                    "n": int(d_rc),
-                    "avg_in": (round(d_rp / d_rc) if d_rp is not None else None),
-                    "avg_out": (round(d_rg / d_rc) if d_rg is not None else None),
+                    "n": int(max(d_rc or 0, d_rcg or 0)),
+                    "avg_in": (round(d_rp / d_rc)
+                               if d_rp is not None and d_rc else None),
+                    "avg_out": (round(d_rg / d_rcg)
+                                if d_rg is not None and d_rcg else None),
                 }
 
         # ---- 1-min prompt-compute throughput (lump-safe gauge) ----------
@@ -1493,7 +1523,7 @@ PROM_META = {
     "hub_gpu_temp_c": ("gauge", "GPU temperature, deg C."),
     "hub_gpu_power_w": ("gauge", "GPU power draw, W."),
     "hub_model_loaded": ("gauge", "1 = model currently loaded on its engine."),
-    "hub_model_tokens_per_second": ("gauge", "Decode speed: generation tokens / the engine's own decode-phase seconds over the window (vLLM phase clocks; llama.cpp child clocks). A speed, not a workload."),
+    "hub_model_tokens_per_second": ("gauge", "Generation tokens per second — engine-dependent clock: llama.cpp = tokens / the engine's own decode-phase seconds (child clocks, a true DECODE EXECUTION SPEED); vLLM = delta(tokens) / wall-clock poll interval — AGGREGATE SERVICE THROUGHPUT (this vLLM build exposes no decode-phase-seconds counter). Same series name, two different quantities per engine kind; the UI's engine column disambiguates."),
     "hub_model_prompt_tokens_per_second": ("gauge", "llama.cpp ONLY: prompt tokens / the engine's own prompt-phase seconds (child clocks) — a defensible speed. vLLM has no such counter (its prompt counter arrives in per-prefill lumps) — for vLLM, prompt work is the computed_tokens_total counter + the compute_throughput gauge below."),
     "hub_model_prompt_tokens_computed_total": ("counter", "vLLM computed prompt tokens, monotonic per engine lifetime (prefix-cache hits EXCLUDED). A decrease is a counter reset (engine process restart / mux engine switch) in the Prometheus sense. Rate it at your own window — 5m for a stable number, 1m for responsiveness."),
     "hub_model_prompt_compute_throughput_tokens_per_second": ("gauge", "vLLM: computed prompt tokens per WALL second over the trailing minute (amortized lumps). Operational workload rate, deliberately NOT the execution speed — a 33K-token prefill arriving as one 28 s lump reads ~553 t/s here while its phase-clock speed is ~1,186 t/s."),
@@ -1534,7 +1564,7 @@ PROM_META = {
     "hub_model_prefill_computed_tokens_window": ("gauge", "vLLM prefill KV-computed tokens of completed requests in the window (numerator of the prefill speed; lumpy by construction)."),
     "hub_model_prefill_speed_tokens_per_second": ("gauge", "vLLM prefill EXECUTION SPEED: prefill KV-computed tokens / prefill-phase seconds over completed requests in the window. The performance figure — cached/transferred tokens excluded; independent of the request-arrival pattern."),
     "hub_model_decode_speed_tokens_per_second": ("gauge", "vLLM decode speed from the phase clocks (generation tokens / decode-phase seconds over the window)."),
-    "hub_model_preemptions_total": ("gauge", "vLLM preemptions, engine lifetime."),
+    "hub_model_preemptions_total": ("counter", "vLLM preemptions, engine lifetime (monotonic; resets with the engine process — a decrease is a counter reset in the Prometheus sense)."),
     "hub_model_preemptions_window": ("gauge", "vLLM preemptions in the window (a preemption alone degrades the hub state — it is an engine impairment, not a request outcome)."),
     "hub_model_finish_total_window": ("gauge", "Requests finished in the window (any reason)."),
     "hub_model_finish_length_window": ("gauge", "Requests finished by hitting the token limit in the window (a normal request outcome — NOT a health signal)."),
@@ -1544,8 +1574,8 @@ PROM_META = {
     "hub_model_engine_asleep": ("gauge", "1 = the vLLM engine reports a non-awake sleep state (e.g. after auto-SHM/swap sleep)."),
     "hub_model_spec_acceptance": ("gauge", "vLLM spec-decoding (MTP) draft-token acceptance, window delta: accepted draft tokens / draft tokens. A ratio of window deltas, not a lifetime ratio."),
     "hub_model_spec_accept_length": ("gauge", "vLLM spec-decoding mean acceptance length, window delta: 1 + accepted/drafts (the +1 is the bonus token)."),
-    "hub_model_prompt_tokens_mean": ("gauge", "Mean prompt length (tokens) of COMPLETED requests in the window (vLLM request_prompt_tokens histogram). Context for reading TTFT."),
-    "hub_model_generation_tokens_mean": ("gauge", "Mean generation length (tokens) of COMPLETED requests in the window (vLLM request_generation_tokens histogram)."),
+    "hub_model_prompt_tokens_mean": ("gauge", "Mean prompt length (tokens) of COMPLETED requests in the window (request_prompt_tokens histogram, divided by its own request count). Context for reading TTFT."),
+    "hub_model_generation_tokens_mean": ("gauge", "Mean generation length (tokens) of COMPLETED requests in the window (request_generation_tokens histogram, divided by its own request count)."),
     "hub_vision_route_available": ("gauge", "1 = a vision-capable model is currently loaded (route recomputed at scrape time)."),
     "hub_vision_candidate_eligible": ("gauge", "1 = vision candidate passes every eligibility rule (0 = rejected, see reject_code)."),
     "hub_vision_candidate_reject_code": ("gauge", "1 = the vision candidate was rejected, labeled with the rule code."),

@@ -370,49 +370,89 @@ class TestVllmMetrics(unittest.TestCase):
 
     def test_l_request_shape(self):
         """feedback item 8: mean prompt/generation length of completed
-        requests over the window (context for the latency numbers)."""
-        def shape(text, rp, rg, rc):
+        requests over the window (context for the latency numbers).
+        round 3: each average divides by ITS OWN histogram's count."""
+        def shape(text, rp, rg, rc, rcg=None):
+            rcg = rc if rcg is None else rcg
             return text + (
                 f'\nvllm:request_prompt_tokens_sum{{engine="0",model_name="{M}"}} {rp}'
                 f'\nvllm:request_generation_tokens_sum{{engine="0",model_name="{M}"}} {rg}'
-                f'\nvllm:request_prompt_tokens_count{{engine="0",model_name="{M}"}} {rc}')
+                f'\nvllm:request_prompt_tokens_count{{engine="0",model_name="{M}"}} {rc}'
+                f'\nvllm:request_generation_tokens_count{{engine="0",model_name="{M}"}} {rcg}')
         s = srv()
         s._apply_vllm_metrics("(vllm)", shape(vbody(), 40000, 4000, 5), 1000.0)
         s._apply_vllm_metrics("(vllm)", shape(vbody(), 46200, 4900, 10), 1030.0)
         rs = s.models["(vllm)"]["req_shape"]
         self.assertEqual(rs["n"], 5)
-        self.assertEqual(rs["avg_in"], 1240)          # 6200/5
-        self.assertEqual(rs["avg_out"], 180)         # 900/5
+        self.assertEqual(rs["avg_in"], 1240)          # 6200 / 5
+        self.assertEqual(rs["avg_out"], 180)         # 900 / 5
+        # per-histogram counts may legitimately differ (parallel sampling
+        # / sequence accounting) — each average still divides by its own
+        s2 = srv()
+        s2._apply_vllm_metrics("(vllm)", shape(vbody(), 40000, 4000, 5, 5), 1000.0)
+        s2._apply_vllm_metrics("(vllm)", shape(vbody(), 46200, 4900, 10, 15), 1030.0)
+        rs2 = s2.models["(vllm)"]["req_shape"]
+        self.assertEqual(rs2["avg_in"], 1240)        # 6200 / 5  (prompt count)
+        self.assertEqual(rs2["avg_out"], 90)         # 900 / 10 (gen count)
 
     def test_m_external_kv_in_prompt_work(self):
         """feedback item 5: external KV transfer (LMCache/disaggregated)
-        is modelled separately from the local prefix cache."""
+        is modelled separately from the local prefix cache. Round 3: a
+        VALID partition (computed + local + external == requested) and the
+        combined vs local-only served ratios."""
+        def ext(body, v):
+            return body.replace('source="external_kv_transfer"} 0.0',
+                                f'source="external_kv_transfer"}} {v}')
+        s = srv()
+        s._apply_vllm_metrics("(vllm)",
+            ext(vbody(lc=1000, lh=7000, pt=8000), "0.0"), 1000.0)
+        s._apply_vllm_metrics("(vllm)",
+            ext(vbody(lc=1400, lh=9200, pt=11000), "400.0"), 1030.0)
+        pw = s.models["(vllm)"]["prompt_work"]
+        self.assertEqual(pw["total"], 3000)
+        self.assertEqual(pw["computed"], 400)
+        self.assertEqual(pw["cached"], 2200)      # local only
+        self.assertEqual(pw["ext"], 400)
+        self.assertEqual(pw["served"], 2600)      # local + external
+        self.assertEqual(pw["drift"], False)
+        # the % shown next to the combined value is the COMBINED ratio
+        self.assertEqual(pw["hit_ratio"], 0.867)  # 2600 / 3000
+        # the local-only ratio stays separate (they differ once ext-kv exists)
+        self.assertEqual(pw["local_ratio"], 0.733)  # 2200 / 3000
+
+    def test_m2_accounting_drift_flagged(self):
+        """round 3: an impossible partition (computed + served > requested)
+        is flagged as accounting drift, not displayed as fact."""
         def ext(body, v):
             return body.replace('source="external_kv_transfer"} 0.0',
                                 f'source="external_kv_transfer"}} {v}')
         s = srv()
         s._apply_vllm_metrics("(vllm)",
             ext(vbody(lc=1000, lh=8000, pt=10000), "0.0"), 1000.0)
+        # deltas: requested 3000, computed 400, local 2800, external 800
+        # -> 4000 against 3000 requested (33% residual)
         s._apply_vllm_metrics("(vllm)",
             ext(vbody(lc=1400, lh=10800, pt=13000), "800.0"), 1030.0)
         pw = s.models["(vllm)"]["prompt_work"]
-        self.assertEqual(pw["total"], 3000)
-        self.assertEqual(pw["computed"], 400)
-        self.assertEqual(pw["cached"], 2800)      # local only
-        self.assertEqual(pw["ext"], 800)
-        self.assertEqual(pw["served"], 3600)      # local + external
+        self.assertEqual(pw["served"], 3600)
+        self.assertEqual(pw["drift"], True)
+        # the combined ratio is still reported (it can exceed 1 — that IS
+        # the drift signal)
+        self.assertEqual(pw["hit_ratio"], 1.2)
 
     def test_n_prometheus_type_help_and_new_series(self):
         """feedback item 6: the exposition declares TYPE/HELP for every
         series; items 7/8: the spec + request-shape gauges are exported."""
-        def mtp(drafts, dt, acc, rp, rg, rc):
+        def mtp(drafts, dt, acc, rp, rg, rc, rcg=None):
+            rcg = rc if rcg is None else rcg
             return vbody() + (
                 f'\nvllm:spec_decode_num_drafts_total{{engine="0",model_name="{M}"}} {drafts}'
                 f'\nvllm:spec_decode_num_draft_tokens_total{{engine="0",model_name="{M}"}} {dt}'
                 f'\nvllm:spec_decode_num_accepted_tokens_total{{engine="0",model_name="{M}"}} {acc}'
                 f'\nvllm:request_prompt_tokens_sum{{engine="0",model_name="{M}"}} {rp}'
                 f'\nvllm:request_generation_tokens_sum{{engine="0",model_name="{M}"}} {rg}'
-                f'\nvllm:request_prompt_tokens_count{{engine="0",model_name="{M}"}} {rc}')
+                f'\nvllm:request_prompt_tokens_count{{engine="0",model_name="{M}"}} {rc}'
+                f'\nvllm:request_generation_tokens_count{{engine="0",model_name="{M}"}} {rcg}')
         s = srv()
         hub.SERVERS[:] = [s]
         s._apply_vllm_metrics("(vllm)", mtp(100, 300, 180, 40000, 900, 8), 1000.0)
@@ -425,7 +465,12 @@ class TestVllmMetrics(unittest.TestCase):
             self.assertIn(f"# TYPE {name} ", txt)
             self.assertIn(f"# HELP {name} ", txt)
         self.assertIn("# TYPE hub_model_prompt_tokens_computed_total counter", txt)
+        self.assertIn("# TYPE hub_model_preemptions_total counter", txt)
         self.assertIn("# TYPE hub_model_tokens_per_second gauge", txt)
+        # the tgen HELP must not claim a phase/child clock for vLLM
+        h = txt.split("# HELP hub_model_tokens_per_second ", 1)[1]
+        self.assertIn("wall-clock", h)
+        self.assertIn("llama.cpp", h)
         self.assertIn('hub_model_spec_acceptance{server="t",model="(vllm)"} 0.6', txt)
         self.assertIn('hub_model_spec_accept_length{server="t",model="(vllm)"} 2.8', txt)
         self.assertIn('hub_model_prompt_tokens_mean{server="t",model="(vllm)"} 2500', txt)
