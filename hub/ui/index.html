@@ -36,7 +36,8 @@
   .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(440px,1fr)); gap:12px; }
   .grid > .card { min-width:0; }   /* let nowrap-ish table content wrap, not stretch */
   .card { background:var(--panel); border:1px solid var(--line); border-radius:6px;
-          padding:14px 16px 12px; }
+          padding:14px 16px 12px; overflow:hidden; }  /* hard boundary:
+          nothing may render outside the card box */
   .card.offline { opacity:.5; }
   .card.busy { border-color:rgba(207,157,78,.40); }
   .card.degraded { border-color:rgba(207,110,98,.55); }
@@ -76,8 +77,11 @@
      load/unload button share one column: same fact, two renderings. */
   .cg-model { width:33%; } .cg-ctx   { width:9%; }
   .cg-now   { width:42%; } .cg-act   { width:16%; }
-  .mact-in { display:inline-flex; align-items:center; gap:8px;
-             justify-content:flex-end; }
+  /* state word + load/unload button share one column: stacked,
+     right-aligned — horizontal fit is width-independent (the widest
+     element is the button, which every column budget accommodates) */
+  .mact-in { display:flex; flex-direction:column; align-items:flex-end;
+             gap:4px; }
   tr:last-child td { border-bottom:none; }
   .mname { font-weight:600; font-size:13px; cursor:pointer; }
   .mname:hover { color:var(--ok); }
@@ -101,7 +105,8 @@
   .mchips { display:flex; flex-wrap:wrap; gap:4px; }
   .mchip { border:1px solid rgba(207,157,78,.45); color:var(--warn); border-radius:3px;
            padding:1px 6px; font-size:11px; white-space:nowrap; }
-  .mact { text-align:right; white-space:nowrap; }
+  .mact { text-align:right; }
+  .mact .ms { white-space:nowrap; }
   .btn { border:1px solid var(--line); background:transparent; color:var(--dim);
          border-radius:3px; padding:3px 10px; font:inherit; font-size:11px;
          letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
@@ -173,8 +178,8 @@
     .gpu .gstat:last-child { display:none; }   /* temp·W only on wider screens */
     th, td { padding:6px 4px; }
     .cg-ctx { display:none; }                /* ctx is in the model desc line */
-    .cg-model { width:32%; } .cg-now { width:50%; }
-    .cg-act { width:18%; }
+    .cg-model { width:42%; } .cg-now { width:28%; }
+    .cg-act { width:30%; }
     th:nth-child(2), .mctx { display:none; }
     .mname { font-size:12px; }
     .mdl { font-size:10px; }
@@ -382,12 +387,19 @@ function nowBlock(m) {
   if (m.spec_accept != null)
     cells.push(cell("mtp", Math.round(m.spec_accept * 100) + "%", "MTP/draft token acceptance rate"));
   const lat = m.latency;
+  let latCells = 0;
   if (lat) {
-    if (lat.ttft && lat.ttft.p95 != null)
+    if (lat.ttft && lat.ttft.p95 != null) {
       cells.push(cell("ttft", fmtMs(lat.ttft.p50) + "/" + fmtMs(lat.ttft.p95), "time to first token, p50/p95 over the window"));
-    if (lat.tpot && lat.tpot.p50 != null)
+      latCells++;
+    }
+    if (lat.tpot && lat.tpot.p50 != null) {
       cells.push(cell("tpot", fmtMs(lat.tpot.p50), "avg time per output token per request over the window (the canonical TPOT); it grows with batch size — token-weighted ITL is in diagnostics"));
-    if (lat.window_s)
+      latCells++;
+    }
+    // window tag only when it labels something — an empty window has no
+    // percentiles, and a bare "[5m]" in the now column reads as noise
+    if (lat.window_s && latCells)
       cells.push(`<span class="mwin" title="trailing window the latency/finish/cache figures cover">[${winLbl(lat.window_s)}]</span>`);
   }
   // load signals — only when non-zero
