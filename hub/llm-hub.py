@@ -78,8 +78,12 @@ WIN_SAMPLES = max(2, LAT_WINDOW // POLL_INTERVAL)   # window ring buffer size
 # vLLM prompt-compute throughput gauge window. The engine's computed-prompt
 # counter advances in LUMPS (one jump per finished prefill — probed on the
 # 0.28.0 dual-3090: flat through a 28 s prefill, +33K at first token), so a
-# short window turns each lump into a fake spike; one minute turns it into
-# the true average work rate. See hub/README "What the numbers mean".
+# short window turns each lump into a fake spike; one minute amortizes the
+# lumpy updates over a stable wall-clock interval to represent operational
+# prompt-compute throughput. That is a work-rate, NOT the execution speed —
+# a 33K-token prefill arriving as one 28 s lump reads ~553 t/s here while
+# its phase-clock speed is ~1,186 t/s; the two are kept apart on purpose.
+# See hub/README "What the numbers mean".
 PP_TPUT_WINDOW = 60
 COOKIE_SECURE = os.environ.get("LLM_HUB_COOKIE_SECURE", "").lower() in ("1", "true", "yes")
 
@@ -286,6 +290,14 @@ def parse_kv_pool(text):
     pool = {"size_tokens": g("kv_cache_size_tokens"),
             "num_blocks": g("num_gpu_blocks"),
             "max_concurrency": g("kv_cache_max_concurrency")}
+    # config context for the UI line (strings; None when absent)
+    def s(key):
+        m = re.search(key + r'="([^"]+)"', line)
+        return m.group(1) if m and m.group(1) not in ("None", "False") else None
+    pool["block_size"] = g("block_size")
+    pool["kv_dtype"] = s("cache_dtype")
+    pool["offload"] = s("kv_offloading_backend")
+    pool["sliding_window"] = g("sliding_window")
     return pool if any(v is not None for v in pool.values()) else None
 
 
@@ -562,6 +574,7 @@ class Server:
         if lh is None:
             lh = get_metric(p, "prefix_cache_hits_total",
                             prefixes=("vllm:", "vllm_"))
+        ext = src.get("external_kv_transfer")
         req_running = int(get_metric(p, "num_requests_running",
                                      prefixes=("vllm:", "vllm_")) or 0)
         req_waiting = int(get_metric(p, "num_requests_waiting",
@@ -612,10 +625,47 @@ class Server:
             if s is None:                       # older builds: bare names
                 s = parse_sum(body, base + "_sum")
             counters["sum:" + key] = s
+
+        # spec decoding / MTP (official vLLM counters; windowed below)
+        counters["mtp_d"] = get_metric(p, "spec_decode_num_drafts_total",
+                                       prefixes=("vllm:", "vllm_"))
+        counters["mtp_dt"] = get_metric(p, "spec_decode_num_draft_tokens_total",
+                                        prefixes=("vllm:", "vllm_"))
+        counters["mtp_acc"] = get_metric(p, "spec_decode_num_accepted_tokens_total",
+                                         prefixes=("vllm:", "vllm_"))
+        for mm in re.finditer(
+                r'vllm:spec_decode_num_accepted_tokens_per_pos_total\{[^}]*?position="(\d+)"[^}]*\}\s+([0-9.eE+-]+)',
+                body):
+            counters["mtp_pos" + mm.group(1)] = float(mm.group(2))
+        # per-request shape (prompt/generation token histograms)
+        counters["rp_sum"] = parse_sum(body, "vllm:request_prompt_tokens_sum")
+        counters["rg_sum"] = parse_sum(body, "vllm:request_generation_tokens_sum")
+        counters["reqc"] = parse_sum(body, "vllm:request_prompt_tokens_count")
+        counters["ext"] = ext
+
+        # ---- engine-restart detection (before any window math) ----------
+        # The computed-token counter decreasing means the vLLM process
+        # restarted with the SAME model ID (a mux engine switch changes the
+        # attributed mid and is handled above). Every engine-derived
+        # working state is then a different counter world: the 5-min
+        # window (phase histograms), the 1-min ring, the live-prefill
+        # detection, the phase age — clear it all and re-baseline on this
+        # sample. Refusing the single negative delta alone is NOT enough:
+        # pre-restart phase sums would otherwise sit as window baselines
+        # until they age out (minutes of blank speed).
+        ppq = self._lc_hist.get(mid)
+        lc_reset = (ppq is not None and len(ppq) > 0
+                    and (pp is None or pp < ppq[-1][1] - 1e-9))
+        if lc_reset:
+            self._winbuf.clear()
+            self._lc_hist.pop(mid, None)
+            self._live_prefill.pop(mid, None)
+            self._vlast.pop(mid, None)
+            self._phase_ts.pop(mid, None)
         self._winbuf.append((now, buckets, counters))
 
         latency = finish_win = cache_hit = preempt_win = phase = None
-        prompt_work = None
+        prompt_work = spec = req_shape = None
         if len(self._winbuf) >= 2:
             ts0, b0, c0 = self._winbuf[0]
             win = max(1, round(now - ts0))
@@ -695,29 +745,78 @@ class Server:
             d_pt = _counter_delta(c0.get("pt"), counters.get("pt"))
             d_lc = _counter_delta(c0.get("lc"), counters.get("lc"))
             d_lh = _counter_delta(c0.get("lh"), counters.get("lh"))
+            d_ext = _counter_delta(c0.get("ext"), counters.get("ext"))
             if d_pt is not None and d_lc is not None and d_pt >= 0:
                 prompt_work = {
                     "window_s": win,
                     "total": int(d_pt),
                     "computed": int(d_lc),
                     "cached": int(d_lh) if d_lh is not None else None,
+                    "ext": int(d_ext) if d_ext is not None else None,
+                    "served": (int((d_lh or 0) + (d_ext or 0))
+                               if (d_lh is not None or d_ext is not None)
+                               else None),
                     "hit_ratio": (round(d_lh / d_pt, 3)
                                   if d_lh is not None and d_pt > 0 else None),
                 }
             else:
                 prompt_work = None
 
+            # spec decoding / MTP over the window (ratios of WINDOW deltas,
+            # not lifetime ratios): acceptance = accepted/draft tokens;
+            # mean acceptance length = 1 + accepted/drafts (the +1 is the
+            # bonus token vLLM documents). Per-draft-position acceptance
+            # answers "is k=3 still worth it": a position accepting near 0
+            # pays verification cost for nothing.
+            dd_ = _counter_delta(c0.get("mtp_d"), counters.get("mtp_d"))
+            ddt = _counter_delta(c0.get("mtp_dt"), counters.get("mtp_dt"))
+            daa = _counter_delta(c0.get("mtp_acc"), counters.get("mtp_acc"))
+            spec = None
+            if dd_ is not None and dd_ > 0 and ddt is not None and daa is not None:
+                pos = {}
+                for i in range(8):
+                    dp = _counter_delta(c0.get(f"mtp_pos{i}"),
+                                        counters.get(f"mtp_pos{i}"))
+                    if dp is not None:
+                        pos[str(i)] = round(dp / dd_, 3)
+                spec = {
+                    "window_s": win,
+                    "drafts": int(dd_),
+                    "acceptance": round(daa / ddt, 3) if ddt > 0 else None,
+                    "mean_len": round(1 + daa / dd_, 2),
+                    "pos": pos or None,
+                }
+
+            # request shape over the window (context for latency numbers:
+            # a TTFT p95 jump means different things at 4K vs 45K avg input)
+            d_rp = _counter_delta(c0.get("rp_sum"), counters.get("rp_sum"))
+            d_rg = _counter_delta(c0.get("rg_sum"), counters.get("rg_sum"))
+            d_rc = _counter_delta(c0.get("reqc"), counters.get("reqc"))
+            req_shape = None
+            if d_rc is not None and d_rc > 0:
+                req_shape = {
+                    "window_s": win,
+                    "n": int(d_rc),
+                    "avg_in": (round(d_rp / d_rc) if d_rp is not None else None),
+                    "avg_out": (round(d_rg / d_rc) if d_rg is not None else None),
+                }
+
         # ---- 1-min prompt-compute throughput (lump-safe gauge) ----------
         # the counter's arrivals are per-prefill lumps (see PP_TPUT_WINDOW):
-        # a rolling 1-min ring turns each lump into its true average work
-        # rate. A reset (engine restart / mux switch) or a gap (>3 polls
-        # without a sample — the model was not the active engine) clears
-        # the ring instead of straddling two counter worlds.
+        # a rolling 1-min ring amortizes the lumpy counter updates over a
+        # stable wall-clock interval to represent OPERATIONAL prompt-compute
+        # throughput — deliberately NOT the execution speed (a 33K-token
+        # prefill arriving as one 28-s lump reads ~553 t/s here, half its
+        # 1,181 t/s phase speed; the two stay apart on purpose). A counter
+        # reset (engine restart) was handled above (full re-baseline); a
+        # gap (>3 polls without a sample — not the active engine) just
+        # clears the ring.
         lhq = self._lc_hist.setdefault(
             mid, collections.deque(maxlen=PP_TPUT_WINDOW // POLL_INTERVAL))
-        if lhq and (pp < lhq[-1][1] - 1e-9 or now - lhq[-1][0] > 15):
+        if not lc_reset and lhq and now - lhq[-1][0] > 15:
             lhq.clear()
-        lhq.append((now, pp))
+        if pp is not None:
+            lhq.append((now, pp))
         pp_tput_1m = None
         if len(lhq) >= 2:
             t_a, v_a = lhq[0]
@@ -749,7 +848,7 @@ class Server:
         # computed-KV histogram sum) last advanced
         pks = counters.get("sum:pfkv")
         if (pks is not None and vl is not None and vl.get("pks") is not None
-                and pks != vl["pks"]):
+                and pks != vl["pks"] and not lc_reset):
             self._phase_ts[mid] = now
         self._vlast[mid] = {"gen": gen, "ttftn": counters.get("ttftn"),
                             "pks": pks, "ts": now}
@@ -789,7 +888,9 @@ class Server:
                 "live_prefill": live_prefill,
                 "prefill_speed_age": prefill_speed_age,
                 "prompt_tokens_computed_raw": pp,
-                "spec_accept": None,
+                "spec": spec,
+                "req_shape": req_shape,
+                "spec_accept": (spec["acceptance"] if spec else None),
                 "req_running": req_running, "req_waiting": req_waiting,
                 "kv_used": kv,
                 "kv_used_tokens": (round(kv * pool["size_tokens"]) if
@@ -1380,8 +1481,86 @@ def _g(L, name, lab, v):
         L.append(f"{name}{lab} {f}")
 
 
+PROM_META = {
+    # exposition contract for every series the hub emits (TYPE + HELP)
+    "hub_servers_total": ("gauge", "Configured hub upstream servers."),
+    "hub_server_online": ("gauge", "1 = server reachable on its last poll (stale/absent semantics: the frozen gauges drop when this is 0)."),
+    "hub_server_gpu_count": ("gauge", "Number of GPUs reported by the server sidecar."),
+    "hub_server_gpus_stale": ("gauge", "1 = the per-GPU point gauges are withheld (sidecar unreachable) — a frozen value must never masquerade as a current reading."),
+    "hub_gpu_utilization_pct": ("gauge", "GPU utilization, percent of peak (nvidia-smi style)."),
+    "hub_gpu_memory_used_mib": ("gauge", "GPU memory used, MiB."),
+    "hub_gpu_memory_total_mib": ("gauge", "GPU memory total, MiB."),
+    "hub_gpu_temp_c": ("gauge", "GPU temperature, deg C."),
+    "hub_gpu_power_w": ("gauge", "GPU power draw, W."),
+    "hub_model_loaded": ("gauge", "1 = model currently loaded on its engine."),
+    "hub_model_tokens_per_second": ("gauge", "Decode speed: generation tokens / the engine's own decode-phase seconds over the window (vLLM phase clocks; llama.cpp child clocks). A speed, not a workload."),
+    "hub_model_prompt_tokens_per_second": ("gauge", "llama.cpp ONLY: prompt tokens / the engine's own prompt-phase seconds (child clocks) — a defensible speed. vLLM has no such counter (its prompt counter arrives in per-prefill lumps) — for vLLM, prompt work is the computed_tokens_total counter + the compute_throughput gauge below."),
+    "hub_model_prompt_tokens_computed_total": ("counter", "vLLM computed prompt tokens, monotonic per engine lifetime (prefix-cache hits EXCLUDED). A decrease is a counter reset (engine process restart / mux engine switch) in the Prometheus sense. Rate it at your own window — 5m for a stable number, 1m for responsiveness."),
+    "hub_model_prompt_compute_throughput_tokens_per_second": ("gauge", "vLLM: computed prompt tokens per WALL second over the trailing minute (amortized lumps). Operational workload rate, deliberately NOT the execution speed — a 33K-token prefill arriving as one 28 s lump reads ~553 t/s here while its phase-clock speed is ~1,186 t/s."),
+    "hub_model_prefill_in_flight": ("gauge", "vLLM: 1 = a prefill is in flight right now (requests running with no first token yet on the last poll). A detector flag, not a rate — this build exposes no token counter during a chunked prefill."),
+    "hub_model_prefill_speed_age_seconds": ("gauge", "vLLM: seconds since the last completed request contributed a prefill measurement (phase histograms are sampled at request COMPLETION, not TTFT). Above ~60 s, treat the speed as stale."),
+    "hub_vllm_metrics_ok": ("gauge", "1 = the vLLM metric names the hub expects were present (a 0 flags a vLLM version rename instead of silent zeros)."),
+    "hub_llama_metrics_ok": ("gauge", "1 = llama.cpp metrics parsed with the expected names."),
+    "hub_model_requests_running": ("gauge", "vLLM requests in the running state."),
+    "hub_model_requests_waiting": ("gauge", "vLLM requests waiting (queued)."),
+    "hub_model_requests_processing": ("gauge", "llama.cpp requests currently processing."),
+    "hub_model_requests_deferred": ("gauge", "llama.cpp requests deferred by n_parallel (the router's wait queue)."),
+    "hub_model_busy_slots": ("gauge", "llama.cpp decode slots in use."),
+    "hub_model_kv_cache_used": ("gauge", "vLLM KV pool occupancy, 0..1."),
+    "hub_model_kv_used_tokens": ("gauge", "vLLM KV pool occupancy in tokens."),
+    "hub_model_kv_pool_tokens": ("gauge", "vLLM KV pool capacity in tokens (cache_config)."),
+    "hub_model_kv_pool_blocks": ("gauge", "vLLM KV pool capacity in blocks (cache_config)."),
+    "hub_model_kv_pool_max_concurrency": ("gauge", "vLLM max concurrent contexts the pool supports (cache_config)."),
+    "hub_model_kv_peak": ("gauge", "vLLM KV occupancy peak over the hub's own sampling window (10m/30m/1h/24h; the Prometheus scrape is the longer-term store)."),
+    "hub_model_ttft_p50_seconds": ("gauge", "Time to first token, window p50 (vLLM histogram)."),
+    "hub_model_ttft_p95_seconds": ("gauge", "Time to first token, window p95 (vLLM histogram)."),
+    "hub_model_ttft_p99_seconds": ("gauge", "Time to first token, window p99 (vLLM histogram)."),
+    "hub_model_tpot_p50_seconds": ("gauge", "Time per output token, window p50."),
+    "hub_model_tpot_p95_seconds": ("gauge", "Time per output token, window p95."),
+    "hub_model_tpot_p99_seconds": ("gauge", "Time per output token, window p99."),
+    "hub_model_itl_p50_seconds": ("gauge", "Inter-token latency, window p50."),
+    "hub_model_itl_p95_seconds": ("gauge", "Inter-token latency, window p95."),
+    "hub_model_itl_p99_seconds": ("gauge", "Inter-token latency, window p99."),
+    "hub_model_e2e_p50_seconds": ("gauge", "End-to-end request latency, window p50."),
+    "hub_model_e2e_p95_seconds": ("gauge", "End-to-end request latency, window p95."),
+    "hub_model_e2e_p99_seconds": ("gauge", "End-to-end request latency, window p99."),
+    "hub_model_queue_p50_seconds": ("gauge", "Queue time before running, window p50."),
+    "hub_model_queue_p95_seconds": ("gauge", "Queue time before running, window p95."),
+    "hub_model_queue_p99_seconds": ("gauge", "Queue time before running, window p99."),
+    "hub_model_prefill_p50_seconds": ("gauge", "Per-request PREFILL phase duration, window p50 (vLLM phase histograms; quantiles, not means — renamed from the misleading *_avg_seconds)."),
+    "hub_model_prefill_p95_seconds": ("gauge", "Per-request PREFILL phase duration, window p95."),
+    "hub_model_decode_p50_seconds": ("gauge", "Per-request DECODE phase duration, window p50."),
+    "hub_model_decode_p95_seconds": ("gauge", "Per-request DECODE phase duration, window p95."),
+    "hub_model_prefill_computed_tokens_window": ("gauge", "vLLM prefill KV-computed tokens of completed requests in the window (numerator of the prefill speed; lumpy by construction)."),
+    "hub_model_prefill_speed_tokens_per_second": ("gauge", "vLLM prefill EXECUTION SPEED: prefill KV-computed tokens / prefill-phase seconds over completed requests in the window. The performance figure — cached/transferred tokens excluded; independent of the request-arrival pattern."),
+    "hub_model_decode_speed_tokens_per_second": ("gauge", "vLLM decode speed from the phase clocks (generation tokens / decode-phase seconds over the window)."),
+    "hub_model_preemptions_total": ("gauge", "vLLM preemptions, engine lifetime."),
+    "hub_model_preemptions_window": ("gauge", "vLLM preemptions in the window (a preemption alone degrades the hub state — it is an engine impairment, not a request outcome)."),
+    "hub_model_finish_total_window": ("gauge", "Requests finished in the window (any reason)."),
+    "hub_model_finish_length_window": ("gauge", "Requests finished by hitting the token limit in the window (a normal request outcome — NOT a health signal)."),
+    "hub_model_finish_abort_window": ("gauge", "Requests aborted in the window."),
+    "hub_model_prefix_cache_hit": ("gauge", "vLLM prefix-cache hit ratio over the window (hits/queries)."),
+    "hub_model_prompt_cache_hit": ("gauge", "llama.cpp prompt-cache hit ratio over the window."),
+    "hub_model_engine_asleep": ("gauge", "1 = the vLLM engine reports a non-awake sleep state (e.g. after auto-SHM/swap sleep)."),
+    "hub_model_spec_acceptance": ("gauge", "vLLM spec-decoding (MTP) draft-token acceptance, window delta: accepted draft tokens / draft tokens. A ratio of window deltas, not a lifetime ratio."),
+    "hub_model_spec_accept_length": ("gauge", "vLLM spec-decoding mean acceptance length, window delta: 1 + accepted/drafts (the +1 is the bonus token)."),
+    "hub_model_prompt_tokens_mean": ("gauge", "Mean prompt length (tokens) of COMPLETED requests in the window (vLLM request_prompt_tokens histogram). Context for reading TTFT."),
+    "hub_model_generation_tokens_mean": ("gauge", "Mean generation length (tokens) of COMPLETED requests in the window (vLLM request_generation_tokens histogram)."),
+    "hub_vision_route_available": ("gauge", "1 = a vision-capable model is currently loaded (route recomputed at scrape time)."),
+    "hub_vision_candidate_eligible": ("gauge", "1 = vision candidate passes every eligibility rule (0 = rejected, see reject_code)."),
+    "hub_vision_candidate_reject_code": ("gauge", "1 = the vision candidate was rejected, labeled with the rule code."),
+    "hub_vision_candidate_selected": ("gauge", "1 = this candidate is the current vision route choice."),
+    "hub_vision_choice_score": ("gauge", "Current vision route choice score (0..100)."),
+    "hub_vision_state_age_seconds": ("gauge", "Seconds since the hub last saw each server's state (the route is only as fresh as this)."),
+    "hub_vision_routes_total": ("counter", "Vision route resolutions, lifetime (increments on state change or first observation)."),
+}
+
+
 def prom_text():
     L = []
+    for name, (typ, help) in PROM_META.items():
+        L.append(f"# HELP {name} {help}")
+        L.append(f"# TYPE {name} {typ}")
     L.append("# --- llm-hub fleet ---")
     L.append("hub_servers_total " + str(len(SERVERS)))
     for s in SERVERS:
@@ -1477,6 +1656,12 @@ def prom_text():
                        ph.get("prefill_speed"))
                     _g(L, "hub_model_decode_speed_tokens_per_second", ml,
                        ph.get("decode_speed"))
+                spec = m.get("spec") or {}
+                _g(L, "hub_model_spec_acceptance", ml, spec.get("acceptance"))
+                _g(L, "hub_model_spec_accept_length", ml, spec.get("mean_len"))
+                rs = m.get("req_shape") or {}
+                _g(L, "hub_model_prompt_tokens_mean", ml, rs.get("avg_in"))
+                _g(L, "hub_model_generation_tokens_mean", ml, rs.get("avg_out"))
                 _g(L, "hub_model_preemptions_total", ml, m.get('preempt_total'))
                 _g(L, "hub_model_preemptions_window", ml, m.get('preempt_win'))
                 fin = m.get("finish") or {}
@@ -1495,7 +1680,6 @@ def prom_text():
                 _g(L, "hub_model_requests_deferred", ml, m.get('n_deferred'))
                 _g(L, "hub_model_busy_slots", ml, m.get('busy_slots'))
                 _g(L, "hub_model_prompt_cache_hit", ml, m.get('cache_hit'))
-            _g(L, "hub_model_spec_acceptance", ml, m.get('spec_accept'))
     # --- vision advisor: route recomputed from current state at scrape time ---
     now = time.time()
     try:
