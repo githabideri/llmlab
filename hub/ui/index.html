@@ -197,16 +197,22 @@
 <div id="grid" class="grid"></div>
 <div class="footer">
   what the numbers mean — <b>t/s</b> aggregate generation throughput (2 s avg) ·
-  <b>pp/s</b> prompt tokens actually prefilled, prefix-cache hits excluded (2 s avg) ·
+  <b>pp/s</b> prefill execution speed — vLLM: computed KV tokens ÷ the engine's own
+  PREFILL-phase seconds over completed requests in the [window] (cached prompt
+  tokens excluded; llama.cpp: computed prompt tokens on the child's prompt clock) ·
   <b>ttft a/b</b> time-to-first-token p50/p95 over the [window] ·
   <b>tpot</b> per-request avg time per output token over the [window] — grows with batch
   size, so it can disagree with aggregate t/s (token-weighted ITL is in diagnostics) ·
+  <b>t/s</b> aggregate generation throughput (all running requests, wall rate) ·
   <b>req</b> running requests (+waiting) at poll time ·
   <b>kv</b> KV-cache blocks in use, incl. prefix-cache-held, over a pool sized for many
-  concurrent long contexts (low % is normal) ·
+  concurrent long contexts (low % is normal; ≥90% shows a pressure chip — pressure
+  alone is not degradation) ·
   <b>cache</b> prefix-cache token hit rate over the [window] ·
   <b>phase</b> (diagnostics) prefill/decode stats from the engine's own per-request clocks ·
-  <b>prefill…</b> a request is in flight but no tokens counted in the last 30 s yet
+  <b>prefill Ns…</b> a request is in the PREFILL phase — this vLLM build exposes no
+  token counters until first token, so there is no in-flight rate to show; the timer
+  and kv/req cells are the live signals
   <br>
   control = direct HTTP to each server's native API (proxied by the hub on demand) ·
   the hub is observability + UI, never in the inference path ·
@@ -331,17 +337,25 @@ authInput.addEventListener("keydown", e => { if (e.key === "Enter") doAuth(); })
 // ---- states
 // threshold source of truth (keep the README "State derivation" in sync):
 //   busy     = req_waiting>0 | n_deferred>0 | kv >= 0.75
-//   degraded = kv >= 0.90 | length-limited responses | preempt_win>0 && kv >= 0.80
+//   degraded = preempt_win>0 (scheduler evicted a request) | stalled (engine
+//              counters frozen while the GPU is busy) | metrics_ok===false
+//              (the engine's /metrics no longer parse) | queue building
+//              against kv >= 0.9
 //   offline  = OFFLINE_AFTER consecutive 2 s polls without an answer (~30 s)
+// Health must not react to application outcomes (a response hitting its
+// max-tokens cap) or to utilization alone (94% KV on a legitimate long
+// context, no queue, no preemption = busy pressure, not degradation).
 function modelState(m) {
   if (m.stale || !m.loaded) return "idle";
   const kv = m.kv_used || 0;
   const active = (m.tgen != null) || (m.tpp != null) ||
                  (m.req_running != null && m.req_running > 0) ||
-                 (m.n_proc != null && m.n_proc > 0);
-  const degraded = kv >= 0.9 ||
-                   (m.finish && m.finish.length > 0) ||
-                   (m.preempt_win != null && m.preempt_win > 0 && kv >= 0.8);
+                 (m.n_proc != null && m.n_proc > 0) ||
+                 !!(m.live_prefill && m.live_prefill.active);
+  const degraded = ((m.preempt_win != null && m.preempt_win > 0) ||
+                   m.stalled ||
+                   m.metrics_ok === false ||
+                   ((m.req_waiting != null && m.req_waiting > 0) && kv >= 0.9));
   const busy = (m.req_waiting != null && m.req_waiting > 0) ||
                kv >= 0.75 ||
                (m.n_deferred != null && m.n_deferred > 0);
@@ -379,10 +393,23 @@ function nowBlock(m) {
   if (m.stalled)
     chips.push(chip("⚠ counters stalled", "GPU is busy but the engine's token counters have not moved for 30+ s — the rates are stale (D-CFR counter-freeze); the mux watchdog restarts the engine, the next request reloads it"));
   if (m.tgen != null)
-    cells.push(cell("t/s", fmt(m.tgen, 1), "aggregate generation throughput, average over the last 2 s poll"));
-  if (m.tpp != null)
-    cells.push(cell("pp/s", fmt(m.tpp, 0), "prompt tokens actually prefilled (prefix-cache hits excluded), 2 s average"));
-  if (m.tgen == null && m.tpp == null && m.req_running > 0)
+    cells.push(cell("t/s", fmt(m.tgen, 1), "aggregate generation throughput — the engine's generation-token counter, wall-rate over the last 2 s poll, across ALL running requests (not per-request decode speed; the per-request figure is in diagnostics, 'phase')"));
+  if (m.tpp != null) {
+    // headline performance: vLLM completed-request phase speed (5-min
+    // window); llama.cpp child-clock computed-prompt rate. An age tag
+    // appears once the window's last completed prefill is >1 min old, so
+    // a stale figure never masquerades as current.
+    const v = fmt(m.tpp, 0) +
+      (m.kind === "vllm" && m.prefill_speed_age != null && m.prefill_speed_age > 60
+        ? ` <span class="dim" style="font-weight:400">· ${Math.round(m.prefill_speed_age)}s</span>` : "");
+    cells.push(cell("pp/s", v, m.kind === "vllm"
+      ? "Prefill execution speed: vLLM's computed-KV tokens divided by its PREFILL-phase time over the completed requests in the trailing 5-min window. Cached/transferred prompt tokens excluded. Seconds tag = how long ago the last completed prefill was."
+      : "prompt tokens actually prefilled (prefix-cache hits excluded), rate taken on the engine's own prompt clock — a big prefill landing in one poll divides by its real processing time, not the 2 s poll gap"));
+  }
+  const lp = m.live_prefill;
+  if (lp && lp.active)
+    cells.push(cell("", "prefill " + Math.max(1, Math.round(lp.elapsed_s)) + "s…", "A request is in the PREFILL phase. This vLLM build exposes no token counters during a chunked prefill (the computed-token counter jumps once, at first token), so there is no in-flight rate to show — the timer, kv and req cells are the live signals. pp/s updates once the prefill completes.", "dim"));
+  else if (m.tgen == null && m.tpp == null && m.req_running > 0)
     cells.push(cell("", "prefill…", "request in flight but no tokens counted in the last 30 s — prefill in progress; rates appear once tokens flow", "dim"));
   if (m.spec_accept != null)
     cells.push(cell("mtp", Math.round(m.spec_accept * 100) + "%", "MTP/draft token acceptance rate"));
@@ -407,14 +434,16 @@ function nowBlock(m) {
     cells.push(cell("req", m.req_running + (m.req_waiting ? "+" + m.req_waiting : ""), "requests the engine is running now; +N waiting"));
   if (m.kv_used != null && m.kv_used >= 0.01)
     cells.push(cell("kv", Math.round(m.kv_used * 100) + "%", "KV-cache blocks in use (incl. blocks held by the prefix cache), as a fraction of the pool"));
+  if (m.kv_used != null && m.kv_used >= 0.9)
+    chips.push(chip("kv " + Math.round(m.kv_used * 100) + "% pressure", "KV pool nearly full — legitimate pressure. The state only becomes degraded if it turns into consequences: preemptions (requests evicted) or a queue building up against this occupancy"));
   if (m.n_proc != null && m.n_proc > 0) cells.push(cell("proc", m.n_proc));
   // warnings — only when relevant, on their own line
   if (m.n_deferred != null && m.n_deferred > 0)
     chips.push(chip(m.n_deferred + " defer", "requests deferred by the router (queueing/throttling)"));
   if (m.preempt_win != null && m.preempt_win > 0)
-    chips.push(chip("preempt +" + m.preempt_win, "KV preemptions in the window — requests were evicted and re-prefilled"));
+    chips.push(chip("preempt +" + m.preempt_win, "KV preemptions in the window — requests were evicted and re-prefilled. This is scheduler/memory pressure with a consequence: it degrades the state until the window clears"));
   if (m.finish && m.finish.length > 0)
-    chips.push(chip(m.finish.length + " length-limited", "responses that hit the max-tokens limit before the model produced a stop token (truncated at the cap)"));
+    chips.push(chip(m.finish.length + " length-limited", "responses that hit the max-tokens cap before producing a stop token — an application outcome (the caller's cap), NOT engine health: it does not change the state"));
   if (m.sleep && m.sleep !== "awake")
     chips.push(chip("sleep:" + m.sleep));
   if (m.cache_hit != null)
@@ -453,6 +482,17 @@ function diagHtml(s, m) {
       if (dd.p50 != null) t.push(`decode ${fmtMs(dd.p50)}/${fmtMs(dd.p95)} (p50/p95)`);
       if (ph.decode_speed != null) t.push(`~${fmt(ph.decode_speed, 0)} tok/s (per-req, batch-inflated)`);
       if (t.length) bits.push(`<div class="diag-x">phase [${winLbl(ph.window_s)}]: ${esc(t.join(" · "))}</div>`);
+    }
+    // prompt-work breakdown: what requests asked for vs what the GPU
+    // computed vs what the prefix cache served. On a cache-hot fleet the
+    // total is ~19x the computed share — only `computed` is work.
+    const pw = m.prompt_work;
+    if (pw && pw.window_s && (pw.total > 0 || (pw.computed || 0) > 0)) {
+      const t = [`total ${fmtK(pw.total)}`];
+      if (pw.computed != null) t.push(`computed ${fmtK(pw.computed)}`);
+      if (pw.cached != null)
+        t.push(`cache-served ${fmtK(pw.cached)}${pw.hit_ratio != null ? ` (${Math.round(pw.hit_ratio * 100)}%)` : ""}`);
+      bits.push(`<div class="diag-x" title="The raw prompt-length counter counts each request's FULL prompt (cache hits included); the computed share is the GPU's actual prefill work">prompt work [${winLbl(pw.window_s)}]: ${esc(t.join(" · "))}</div>`);
     }
     // KV pool: current occupancy (with a glance bar) + recent peaks. The
     // pool is sized by VRAM (~2.7x max ctx on the dual-3090), so a low idle
