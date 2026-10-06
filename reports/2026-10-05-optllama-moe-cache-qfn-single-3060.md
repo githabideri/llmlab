@@ -126,3 +126,51 @@ House rules: the body above is frozen; this section supersedes parts of the Rese
    - **MTP** (the 61.7 includes ~1.65×; Strata's 40 includes ~2.1×): broken in this fork revision (MUL_MAT_ID capture), working in the owner's current verified run — retest on a newer build.
    - If the goal is *his* speeds on this model, the in-range machine is the owner's profile (16 GB card, 62–64 GB RAM, ≥12 cores) — a box purchase, and the number to buy is **64 GB**, not 128.
    - **Next cell (pending approval): O11** = newer OptLlama `moe-cache` build (`925933801` or later) + `--moe-expert-cache-host-pinned-mb 22888` + the owner's full flag composition, 16K + 90K, cgroup cap as guard, host RAM watched; optional 30 s per-fd `strace` sample during the 90K decode to settle the PLE-vs-experts read attribution (item 3).
+
+## O11 results (2026-10-06) — the 24 GB partial-pin regime, measured (closes the Update's pending cell)
+
+Built the exact owner-verified commit `925933801` (2026-09-14, "cuda: isolate MoE host memory
+ownership") — a *different, newer* lineage than the campaign's `167742d` moe-cache branch (11 302
+commits of separation; the 09-14 binary does not carry `--moe-early-router`/`--backend-sampling` — in
+that lineage the overlap features are env-gated as `LLAMA_ARG_DECODE_OVERLAP` /
+`LLAMA_ARG_DECODE_BOUNDARY_OVERLAP`, both set and observed active in the slot logs). Configuration:
+`--moe-expert-cache-host-pinned-mb 22888` (the owner's budget), `--moe-expert-cache-size 32`
+(slabs per expert tensor; 7.7 GB VRAM all-in), q8 KV, ub 512, `-t 4`, under the box's 42 GiB cgroup
+guard. The 22 888 MB budget was **fully consumed**: the admission log shows 32 of 48 expert groups
+pinned (~23.6 GB at ~737 MiB/group), the remaining 16 groups (~11.8 GB) staging/pageable.
+
+| Cell (r1 / r2) | 16K prefill | 16K decode | 90K prefill | 90K decode |
+|---|---:|---:|---:|---:|
+| **O11a** (24 GB partial pin) | 110.7 / 116.0 | **9.9 / 9.8** | 99.7 / 99.9 | **6.8 / 6.6** |
+| **O11b** (same + MTP draft 2) | 107.2 / 122.0 | **10.8 / 11.3** | — | — |
+| 10-05 fork `167742d` (pin 0–2 GiB) | 91.7–289.9 ¹ | 8.8–9.4 | 90.7–91.7 | 6.2–6.4 |
+| 10-05 production expert-pool | 78–95 ¹ | 7.0–7.4 | 88.5–89.6 | 5.5 |
+| Owner reference (12c / 62.1 GiB / 16 GB card, same-commit regime) | — | — | — | 33.7–36.2 (partial) / 55.5–61.7 (full) |
+
+¹ ubatch-dependent (the 2048 cells); O11 kept the owner's ub 512.
+
+**Verdict.**
+1. **The partial-pin regime is correctly implemented but is not the missing lever on this box.**
+   Decode is +6–8 % vs the 10-05 fork cells and ~+20–25 % vs production — inside the existing cluster,
+   not a regime change. At 16K the hot expert set fits within the 32 pinned groups, so pinning removes
+   little that was already fine; at 90K the routing profile touches all 48 groups and the 16 staged
+   ones are re-fetched from NVMe per step — with 4 cores and a PCIe 3.0-class link (~12–14 GB/s
+   effective H2D per 10-05), *staging throughput* sets the floor. (Inference; the per-fd attribution
+   sample the Update left open was armed but its sampler did not survive the window — item 3 stays
+   open.)
+2. **MTP works in this lineage.** 10.8–11.3 t/s (+9–15 % over O11a); the `167742d` `MUL_MAT_ID`
+   capture bug (10-05 O7: every request 500) is absent — the draft engine reports "MTP draft enabled
+   after target acceptance". The gain magnitude matches the owner's own table (55.5 → 61.7 ≈ +11 %).
+3. **The gap to the owner's numbers tracks the staging hardware, not RAM.** Same commit, same budget,
+   same card class: 6.6–6.8 here vs 33.7–36.2 there (4.9–5.3×) — their box has 3× the cores and a
+   newer PCIe generation; at 16K it is 9.9–11.3 vs their full-pin 55.5 (4.9–5.6×). On this
+   4-core / PCIe 3.0 / 46 GB box, 20–30 t/s at 16K and 33+ at 90K is **a hardware story (cores × PCIe
+   generation), not a RAM-capacity or pinning-configuration story** — the corrected form of the
+   original "128 GB" headline (direction right: a different machine is required; axis wrong: it is
+   staging bandwidth — and the RAM figure that would enable the *full-pin* regime is 64 GB, a figure
+   ruled out for this particular server by its two SO-DIMM slots).
+4. **Recommendation update.** Production expert-pool remains the default for service use (same or
+   better decode, no new risk surface). For prefill-heavy or batch work on this box class, the
+   **`925933801` lineage** supersedes `167742d` as the OptLlama reference build (MTP working,
+   partial pin implemented as documented), noting its ub-2048 prefill was not re-verified in this
+   session.
