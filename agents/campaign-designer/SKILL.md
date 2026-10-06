@@ -20,6 +20,11 @@ the spec is data and the runner is the enforcer — a campaign designed with thi
 skill compiles to a spec that the platform runs unattended. The operational
 companion is [docs/benchmarks.md](../../docs/benchmarks.md).
 
+The *general* shape of a campaign (charter, pre-registered claim table,
+human-owned constraint ledger, mechanical → verifier → human gate order) is
+documented in the leiter repo: `docs/practice/campaigns.md` + the `tandem`
+skill. This skill and the platform are its flagship measurement specialization.
+
 ## 1. Start with the question, not the hardware
 
 Every campaign answers ONE scientific question ("does mechanism X provide
