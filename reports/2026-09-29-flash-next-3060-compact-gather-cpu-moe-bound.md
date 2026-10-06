@@ -100,3 +100,5 @@ Findings:
 | LONG CONTROLLER | 90K | same | 8.3–9.1 | 3/3 canary; compact-gather optional (no gain here, correct output) |
 
 Compact-gather and the indexer ablation are env-gated in the `idx` build (`LLAMA_QSA_GATHER_FA`, `LLAMA_ABLATE_INDEXER`); the gather port is the piece worth carrying upstream for GPU-bound cards — the upstream branch's block top-k plus this base's per-cell selection disagree on what "selected" means, so a merged version needs the gathered-mask handling.
+
+> **Update (2026-10-05):** the 18.8/14/8.5 profile is re-identified as a *fresh-cache best case* — the 65 GB model's 90K-context working set exceeds this box's 46 GB RAM, so deep-context decode also streams experts from NVMe (~42 MB/s re-reads measured, both MoE-cache families converge at ~6 t/s there), and the same production build does 7.0–7.4 t/s at 16K after an overnight load campaign. The CPU-MoE attribution stands for the CPU term; the storage term is the missing half. See [2026-10-05-optllama-moe-cache-qfn-single-3060](2026-10-05-optllama-moe-cache-qfn-single-3060.md).

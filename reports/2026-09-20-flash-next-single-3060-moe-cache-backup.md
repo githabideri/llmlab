@@ -76,3 +76,5 @@ The bandwidth scaling is the whole story: 5600X (51 GB/s) → 24.4, i3-9100 (38 
 - Q2_K_XL shard hashes (match the 2026-09-13 set): `a4f3b21e…`, `2e3bf1ee…`, `ec8c1067…` (shards 1–3), MTP `5ff54097…`.
 - Profile CSV: 307,776 rows / 13.7 MB, `9b381b2e…`; regenerate with the 12-prompt trace harness (~30 min on this box) if the model or fork changes.
 - Decode measurement = one SSE content chunk per generated token under this build's streaming contract (same method as 2026-09-13); the server's own `timings` object cross-checked within ~20 % during mux-path runs.
+
+> **Update (2026-10-05):** the "40 GB holds most of the 81.7 GB PLE/expert working set" note above is optimistic at 90K context on the newer 65 GB GSQ quant — the full expert table (35.4 GB) plus dense/KV/PLE exceeds the box's RAM at depth, so deep-context decode re-reads experts from NVMe regardless of cache design. See [2026-10-05-optllama-moe-cache-qfn-single-3060](2026-10-05-optllama-moe-cache-qfn-single-3060.md).
