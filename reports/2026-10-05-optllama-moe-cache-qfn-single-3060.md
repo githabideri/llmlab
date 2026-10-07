@@ -174,3 +174,14 @@ pinned (~23.6 GB at ~737 MiB/group), the remaining 16 groups (~11.8 GB) staging/
    **`925933801` lineage** supersedes `167742d` as the OptLlama reference build (MTP working,
    partial pin implemented as documented), noting its ub-2048 prefill was not re-verified in this
    session.
+
+## Update (2026-10-07) — the read attribution (item 3) is settled: it is the PLE table
+
+The per-fd sample item 3 left open was run the next day (same O11 regime, hard 42 GiB
+guard): a 300 s `strace` window over a 98K decode shows **zero `read()` calls**, while
+`/proc/pid/io` at 2 s shows **27–42 MB/s of storage reads in every 98K phase with `rchar`
+flat** — i.e. the bytes are **mmap page faults on the 28.8 GB PLE shard**, not expert
+streaming, and `strace` is blind to them by construction (`read_bytes` − `rchar` is the
+page-fault component). The 98K prefill (TTFT 832–892 s) is I/O-dominated at that rate, and
+the PLE cannot be resident on this box in any configuration (65.9 GiB model > 54.5 GiB of
+memory containers). See [2026-10-07-qfn-o11-ple-page-faults-single-3060](2026-10-07-qfn-o11-ple-page-faults-single-3060.md).
