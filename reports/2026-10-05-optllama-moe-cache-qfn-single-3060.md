@@ -139,6 +139,8 @@ that lineage the overlap features are env-gated as `LLAMA_ARG_DECODE_OVERLAP` /
 guard. The 22 888 MB budget was **fully consumed**: the admission log shows 32 of 48 expert groups
 pinned (~23.6 GB at ~737 MiB/group), the remaining 16 groups (~11.8 GB) staging/pageable.
 
+> **Supersede note (2026-10-08):** the “*different, newer* lineage … 11 302 commits of separation” statement was a shallow-fetch artifact of the local clone. The GitHub compare API against the published fork (2026-10-07) resolves `925933801...167742d` to ahead 310 / behind 0 — **`925933801` is an ancestor of the `moe-cache` branch**, and the #99 alias-boundary fix `e464190a2` sits 189 commits after `925933801` and 121 before `167742d` (i.e. **`167742d` contains the #99 fix; the O11 build `925933801` is the pre-fix build**). The overlap-gating observation in that paragraph stands as measured in the slot logs. This is why the follow-up campaign (reports 2026-10-07 and 2026-10-08) ran hard output-correctness canaries on the `925933801`-family builds and retested `167742d` in a control cell.
+
 | Cell (r1 / r2) | 16K prefill | 16K decode | 90K prefill | 90K decode |
 |---|---:|---:|---:|---:|
 | **O11a** (24 GB partial pin) | 110.7 / 116.0 | **9.9 / 9.8** | 99.7 / 99.9 | **6.8 / 6.6** |
