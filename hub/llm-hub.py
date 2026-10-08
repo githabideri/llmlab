@@ -228,6 +228,60 @@ def parse_prom(text):
     return out
 
 
+def parse_engine_json(text):
+    """Adapter for engines whose /metrics is a JSON dashboard, not
+    Prometheus text (Strata serve, 2026-10-08: the hub's llama-router path
+    called parse_prom() on the JSON body, got {}, and the UI flagged
+    'metrics degraded' although every number the engine reports was
+    right there). Maps the engine's cumulative totals onto the counter
+    names the router poll path reads, so the same child-clock rate,
+    restart re-baseline, and stall machinery applies unchanged:
+
+      totals.output_tokens   -> tokens_predicted_total      (decode clock: decode_ms)
+      totals.prompt_tokens   -> prompt/cached split (the engine's prompt
+                                counter INCLUDES reused tokens; the hub's
+                                tpp + cache_hit math wants the split, so
+                                both sides are derived here)
+      totals.prompt_ms       -> prompt clock
+      totals.drafts_offered/ -> spec_decode_num_draft/accepted_tokens_total
+        accepted
+      live.queued            -> requests_processing
+
+    Keys carry the llamacpp: prefix get_metric() probes. Returns None for
+    any body that is not such a dashboard, so callers fall through to
+    parse_prom(). Counters are engine-lifetime cumulative; a restart
+    resets them and the downstream _rate() re-baselines on the decrease."""
+    try:
+        obj = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(obj, dict):
+        return None
+    t = obj.get("totals")
+    if not isinstance(t, dict) or t.get("output_tokens") is None:
+        return None
+
+    def f(x):
+        return float(x or 0)
+
+    def sec(ms):
+        return f(ms) / 1000.0
+
+    prompt = f(t.get("prompt_tokens"))
+    reused = f(t.get("reused"))
+    live = obj.get("live") or {}
+    return {
+        "llamacpp:tokens_predicted_total": f(t.get("output_tokens")),
+        "llamacpp:tokens_predicted_seconds_total": sec(t.get("decode_ms")),
+        "llamacpp:prompt_tokens_total": max(prompt - reused, 0.0),
+        "llamacpp:prompt_tokens_cached_total": reused,
+        "llamacpp:prompt_tokens_seconds_total": sec(t.get("prompt_ms")),
+        "llamacpp:spec_decode_num_draft_tokens_total": f(t.get("drafts_offered")),
+        "llamacpp:spec_decode_num_accepted_tokens_total": f(t.get("drafts_accepted")),
+        "llamacpp:requests_processing": f(live.get("queued")),
+    }
+
+
 def parse_buckets(text):
     """{hist_base_name: {le: cumulative_count}} for every *_bucket series,
     summed across the other labels (engine, model_name)."""
@@ -1030,7 +1084,9 @@ class Server:
             if loaded:
                 _, mt = http_json(
                     f"{self.url}/metrics?model={urllib.request.quote(mid)}")
-                p = parse_prom(mt) if mt else None
+                p = parse_engine_json(mt) if mt else None
+                if p is None:
+                    p = parse_prom(mt) if mt else None
             fetched.append((mid, loaded, p, m))
         with self._lock:
             for mid, loaded, p, entry in fetched:
