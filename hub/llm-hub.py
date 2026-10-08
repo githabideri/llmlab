@@ -250,7 +250,21 @@ def parse_engine_json(text):
     Keys carry the llamacpp: prefix get_metric() probes. Returns None for
     any body that is not such a dashboard, so callers fall through to
     parse_prom(). Counters are engine-lifetime cumulative; a restart
-    resets them and the downstream _rate() re-baselines on the decrease."""
+    resets them and the downstream _rate() re-baselines on the decrease.
+
+    In-flight smoothing: the engine commits `totals` only when a request
+    completes, but the `live` object tracks the request in flight
+    (`generated` tokens, `tok_s_mean`). While state == "generating" the
+    adapter adds the in-flight share to the decode counter and clock
+    (generated / tok_s_mean), so the hub's _rate() sees a ticking counter
+    and reports the engine's own mean rate instead of going quiet for the
+    whole response. At completion the engine absorbs the same tokens into
+    totals; if the absorbed clock lands below the last synthesized value
+    _rate() treats it as a restart and re-baselines for one poll —
+    self-healing. The prompt clock stays totals-based: during a long
+    fresh prefill both clocks freeze, so the (display-only) dual-clock
+    stall flag can false-positive until the request completes.
+    """
     try:
         obj = json.loads(text)
     except (json.JSONDecodeError, TypeError):
@@ -270,9 +284,17 @@ def parse_engine_json(text):
     prompt = f(t.get("prompt_tokens"))
     reused = f(t.get("reused"))
     live = obj.get("live") or {}
+    out = f(t.get("output_tokens"))
+    decode_s = sec(t.get("decode_ms"))
+    if live.get("state") == "generating":
+        gen = f(live.get("generated"))
+        out += gen
+        tmean = f(live.get("tok_s_mean"))
+        if tmean > 0:
+            decode_s += gen / tmean
     return {
-        "llamacpp:tokens_predicted_total": f(t.get("output_tokens")),
-        "llamacpp:tokens_predicted_seconds_total": sec(t.get("decode_ms")),
+        "llamacpp:tokens_predicted_total": out,
+        "llamacpp:tokens_predicted_seconds_total": decode_s,
         "llamacpp:prompt_tokens_total": max(prompt - reused, 0.0),
         "llamacpp:prompt_tokens_cached_total": reused,
         "llamacpp:prompt_tokens_seconds_total": sec(t.get("prompt_ms")),

@@ -88,6 +88,12 @@ class TestRouterPath(unittest.TestCase):
         return calls
 
     def _body(self, **kw):
+        live = {"queued": kw.get("queued", 0), "state": kw.get("state", "idle")}
+        if kw.get("state") == "generating":
+            live.update({
+                "generated": kw.get("generated", 0),
+                "tok_s_mean": kw.get("tmean", 0),
+            })
         return json.dumps({
             "totals": {
                 "prompt_tokens": kw.get("prompt", 1000),
@@ -98,7 +104,7 @@ class TestRouterPath(unittest.TestCase):
                 "drafts_offered": kw.get("doffer", 8),
                 "drafts_accepted": kw.get("dacc", 5),
             },
-            "live": {"queued": kw.get("queued", 0)},
+            "live": live,
         })
 
     def test_metrics_ok_and_rates(self):
@@ -134,6 +140,28 @@ class TestRouterPath(unittest.TestCase):
         self._poll(s, self._body(out=5, dms=1.0), 1040.0)
         st = s.models["m1"]
         self.assertIsNone(st["tgen"])              # decayed, not spiking
+
+    def test_inflight_smoothing(self):
+        """totals are request-granular: without the live share a 60 s
+        response shows no rate until it completes. With it, the hub sees a
+        ticking decode counter and reports the engine's mean rate."""
+        s = self._srv()
+        self._poll(s, self._body(state="generating", generated=100,
+                                 tmean=20.0), 1000.0)
+        st = s.models["m1"]
+        self.assertIsNone(st["tgen"])             # baseline only
+        # 2 s later: 40 more tokens in flight, mean rate ~20 t/s
+        self._poll(s, self._body(state="generating", generated=140,
+                                 tmean=20.0), 1002.0)
+        st = s.models["m1"]
+        self.assertAlmostEqual(st["tgen"], 40 / (40 / 20.0), delta=1)
+        # request completes: totals absorb the in-flight share; a small
+        # clock mismatch may re-baseline once — never a spike
+        self._poll(s, self._body(out=24940, dms=1250.0), 1060.0)
+        st = s.models["m1"]
+        self.assertTrue(st["metrics_ok"])
+        if st["tgen"] is not None:
+            self.assertLess(st["tgen"], 1000)     # no artifact spike
 
     def test_loaded_false_no_metrics_call(self):
         s = self._srv()
