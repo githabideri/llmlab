@@ -12,6 +12,8 @@
 
 **Measured (2026-10-08, medians of 3; n=5 confirmations pending):** resident ladder **16 GiB 19.81 → 17 GiB 21.82 → 19 GiB 22.85 → 21 GiB 22.01 t/s** @16K (32K geometry; peak at 19 GiB) · **23.02 t/s @90K / 17.72 @16K** (98K geometry, +24.5% over the in-window 16 GiB re-run) · prefill 2.2–4.6 ms/tok warm, **181.8 s true-cold 98K** (faster than the 16 GiB engine's 240.7 s — the 19th GiB changes the cold fault-in pattern) · first-token overhead ~2.5 s on short interactive requests. Canary battery byte-identical to the llama.cpp-era baseline at every arm; zero OOM/allocfail (cgroup max 38.9 GiB).
 
+**Reading `/metrics`:** the live reading is `spec: 6 / mtp_max: 4 / lookup: 3` — the reported `spec` is the effective verify window, not the flag (`--spec 4` plus the default drafter widening), so this is not config drift. Field semantics: [docs/strata.md](../docs/strata.md).
+
 **Window semantics:** while this unit runs, the box's 35B service is **offline** (42 GiB cgroup — co-residency impossible; same exclusivity as the old model-mux switch, now a design decision). Stop the unit + start the 35B to give the box back. MTP is mandatory in v0.1.41 for this quant (`--spec 0` is refused; spec 2 measures 15.03 vs 19.81 for spec 4 in serve mode).
 
 Full campaign: [`reports/2026-10-08-strata-v0141-single-3060.md`](../reports/2026-10-08-strata-v0141-single-3060.md); predecessor: [`reports/2026-10-08-strata-v0139-single-3060.md`](../reports/2026-10-08-strata-v0139-single-3060.md).
