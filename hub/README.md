@@ -550,6 +550,14 @@ branch and hid the whole vLLM series family (`hub_model_kv_*`, preemptions,
 request counts) from Prometheus. Never "fix" a snapshot by deleting it —
 normalisation on restore is the permanent fix.
 
+A snapshot is a **counter store, not a roster source of truth**: models it
+restores that are no longer in the upstream catalog *and* the config hints
+are pruned on the first poll after restore (the vllm-mux poller has always
+applied this rule; router cards since the 2026-10-09 prune, so an ID folded
+away at an identity boundary in front of a card cannot linger as a ghost
+idle row). If the ID reappears later, the rate math re-baselines on the
+counter decrease.
+
 ## Compatibility
 
 Currently tested with:

@@ -1111,6 +1111,16 @@ class Server:
                     p = parse_prom(mt) if mt else None
             fetched.append((mid, loaded, p, m))
         with self._lock:
+            # prune ghost rows: models absent from both the upstream roster
+            # and the config hints (e.g. an ID folded at an identity boundary
+            # in front of the card). Same rule the vllm-mux branch applies;
+            # without it, a model removed from the config resurrects from
+            # the boot snapshot and lingers as a stale idle row forever.
+            # Counter/rate state is left alone: if the ID reappears, _rate()
+            # re-baselines on the counter decrease.
+            known = {mid for mid, _, _, _ in fetched} | set(self.model_hints)
+            for mid in [m for m in self.models if m not in known]:
+                del self.models[mid]
             for mid, loaded, p, entry in fetched:
                 hint = self.model_hints.get(mid, {})
                 ctx = _ctx_from_args(entry) or hint.get("ctx")
