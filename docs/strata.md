@@ -86,3 +86,6 @@ project's history has already been rewritten once. The video's author maintains 
 **Status as of 2026-10-10:** the maintainer has acknowledged the issues publicly and promised
 the pinned-hash install; no fixing commits had landed yet (upstream's newest commit still
 predates the video). Check the upstream repo before assuming the official path is improved.
+
+**The llama.cpp side, checked (2026-10-10):** mainline has merged the one community PR aimed at this class of engine — #29887, "a GPU cache for MoE experts kept in host memory" (2026-10-07): an LRU cache for host-resident experts, only misses uploaded, small batches only, off by default (`--moe-cache-mib N`). It cannot be deployed on a 12 GB card at 128K context (no VRAM headroom — see the
+[10-10 Re-A/B report](../reports/2026-10-10-llamacpp-mainline-rebuild-35b-a3b-single-3060.md)), which is part of why the Strata card on such a box still earns its keep.
