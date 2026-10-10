@@ -1,7 +1,7 @@
 # llama.cpp mainline `781dbc5a` vs production `925e117` vs Strata: the Re-A/B on the 3060
 
 **Date:** 2026-10-10
-**Status:** measured three-way comparison, one window per arm; not a production cutover. As of writing, the box's production router is still build `925e1179`; the newer build is built, tested, and staged for adoption.
+**Status:** measured three-way comparison, one window per arm; not a production cutover. As of writing, the box's production router is still build `925e1179`; the newer build is built, tested, and staged for adoption. **Update (same day, ~14:20 UTC):** the adoption was executed — `781dbc5a` is now the production llama.cpp arm (the model mux was re-validated in both switch directions against it; `925e1179` is kept as a one-step rollback; recorded in the card's changelog). The measurements above stand as taken.
 **Related:** [2026-10-09 Strata vs llama.cpp A/B](2026-10-09-strata-qwen36-35b-a3b-single-3060.md) (same fixtures, same box).
 
 ## Question
