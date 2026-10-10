@@ -8,7 +8,7 @@ Methodology and reference — the repo's only **maintained** documentation surfa
 | [runbook](runbook.md) | Day-to-day ops: health, restart, rollback, MTP debugging, symptom→fix index | Active |
 | [systemd](systemd.md) | Serving unit reference (vLLM 27B, llama.cpp 35B, 3060-box 27B D-CFR, model-mux) — what the units contain; the runbook says how to operate them | Active |
 | [benchmarks](benchmarks.md) | Durable benchmarking method and comparison discipline | Active |
-| [strata](strata.md) | Reading the sparse-expert engine's reported fields — `spec` vs the flag, arena/expert/PCIe fields, what each is evidence of | Active |
+| [strata](strata.md) | Reading the sparse-expert engine's reported fields — `spec` vs the flag, arena/expert/PCIe fields, what each is evidence of; plus the security & supply-chain rules for running it | Active |
 | [multi-gpu-model-placement](multi-gpu-model-placement.md) | Placement strategy: fitter vs manual, layer/tensor/row, heterogeneous balancing, expert spill, PCIe validation (renamed from multi-gpu-tensor-split, 2026-09) | Active |
 | [kv-cache-sizing](kv-cache-sizing.md) | KV memory math per architecture; quant tradeoffs | Active |
 | [thinking-policy](thinking-policy.md) | When to enable/limit/disable reasoning in serving | Active |
