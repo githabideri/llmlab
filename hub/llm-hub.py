@@ -1072,6 +1072,11 @@ class Server:
                                "sleep": None, "wait_reason": None,
                                "metrics_ok": False})
                     self._live_prefill[mid] = None
+            # Re-key: the loop above keeps first-seen positions (the boot
+            # snapshot resurrects a dead process's order), so re-key into
+            # the current display (config) order each poll.
+            self.models = {mid: self.models[mid] for mid in display
+                           if mid in self.models}
         if active is None:
             return                      # all idle: no metrics source
         status, body = http_json(f"{self.url}/metrics")
@@ -1121,6 +1126,20 @@ class Server:
             known = {mid for mid, _, _, _ in fetched} | set(self.model_hints)
             for mid in [m for m in self.models if m not in known]:
                 del self.models[mid]
+            # Re-key for display: config order (the vllm-mux branch's rule),
+            # else upstream roster order. The setdefault loop above keeps
+            # first-seen positions for the process's lifetime — the boot
+            # snapshot resurrects a dead process's order, so a roster or
+            # config reorder otherwise reaches the UI only on a cold start
+            # (2026-10-10: a reordered card row sat at the bottom of its
+            # list for the whole process lifetime).
+            by_mid = dict(self.models)
+            if self.model_hints:
+                order = ([mid for mid in self.model_hints]
+                         + [mid for mid in by_mid if mid not in self.model_hints])
+            else:
+                order = [mid for mid, _, _, _ in fetched]
+            self.models = {mid: by_mid[mid] for mid in order if mid in by_mid}
             for mid, loaded, p, entry in fetched:
                 hint = self.model_hints.get(mid, {})
                 ctx = _ctx_from_args(entry) or hint.get("ctx")
