@@ -80,6 +80,8 @@ The laptop's `:8080` is **Strata** (model id `qwen36-35b-strata`, 96K q4_0, the 
 
 ## Related
 
+**Update (2026-10-11, same day — wording, not results):** two claims in this report need the sharper wording. (1) The decode figures (TL;DR's "~24 t/s decode at 96K" and the profile table's 23.8–25.5 t/s) are **short-context (839-prompt) measurements on the 96K-capable profile, not filled-96K decode** — filled-context decode is part of the pending INT8 A/B. (2) The 12.4K needle "passing through the q4_0 KV" establishes **basic retrieval correctness, not long-session quality**: a model can retrieve a planted fact while its distribution over ordinary reasoning tokens degrades. Strata's own KV-quality study (teacher-forced vs FP16) shows q4_0 with a real, context-growing precision cost (8K documents: top-1 88.0% vs INT8's 92.3%; KL 0.297 vs 0.114; ppl 8.65 vs 7.63; ~+12% perplexity), so **the INT8 96K A/B on this model is the production-quality gate** — q4_0 is provisional until it runs. (Those upstream numbers are not Qwen3.6 measurements: only 10 of 40 layers carry conventional KV here, which cuts both ways — less quantized mass, but the 10 dense layers are the model's only direct access to individual historical tokens.)
+
 - [Model card](../models/qwen3.6-35b-a3b.md) — the Pascal laptop variant, its changelog, and the retained llama.cpp config
 - [Phase 4 (2026-09-28)](2026-09-28-ista-2bit-100k-performance-ceiling-pascal-1060-phase4.md) — the llama.cpp 2-bit 96K ceiling this cutover measured against
 - [Strata on the secondary 3060 (2026-10-09)](2026-10-09-strata-qwen36-35b-a3b-single-3060.md) — the same engine's A/B on the fleet's other 35B home (the sm_75+ reference numbers)
