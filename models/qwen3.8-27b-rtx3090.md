@@ -119,6 +119,10 @@ The upstream `f8f0a47a` "quantized-KV flash-attention scratch blowup" does **not
 - **Dual TP2 is the steady state again**; the TP1 stopgap (`qwen3.8-27b`, 150k fp8, text-only) stays behind the mux but disabled. Power caps back to **250 W** on both cards (owner's call; the 180 W stopgap is retired). Post-window spot check: 74 °C @ 244 W (re-pasted card, cooler slot) vs 87 °C @ 209 W (TUF, hot slot) at light load.
 - Clock note (closes a recurring question): the 2100 MHz (TUF) / 2130 MHz (VENTUS) `clocks.max.graphics` values are the **tops of the stock GA102 supported-clock P-state tables** — full 15 MHz-stepped tables down to the 210 MHz idle bin, stock 9751 MHz (19.5 Gbps) memory max — *not* modded-VBIOS clocks. Stock 3090s top out right there (community-measured: a STRIX OC 3090 "reaches 2100 but stabilises ~1980" at max power slider).
 
+### 2026-10-13: mux/engine split re-verified; container address drift found and fixed
+- Both endpoints re-verified live: `:8080` = the vllm-mux front (up, serving `qwen3.8-27b-dual`, status `loaded`), `:8083` = the dual engine directly behind it — the 09-26 split is intact and unchanged.
+- The LXC's static LAN address is the `.24` on the box's /24 (a PVE-generated networkd file inside the container), while the container's PVE conf still recorded `.15` — the next restart would have moved the production address (same drift class as the 09-15 port incident). The conf line was synced on the host; no service change, no restart.
+
 ### 2026-09-26: One-card swappable serving — vllm-mux front, TP1 stopgap engine, 220 W restored
 - The older 3090 (GPU 1) proved **electrically degraded**, not just thermally: under the 180 W stopgap cap it oscillated 300–600 MHz at 79 °C while its serviced twin held 1800 MHz at the same power budget — no cap value fixes that; the card goes for thermal/electrical service.
 - The 180 W stopgap (same day, for the 83 °C SW-thermal derating the newer driver introduced) helped single-stream (ITL 57→41 ms) but made **multi-session** clearly worse (287 ms mean ITL / ~25 t/s at 3 reqs vs ~55–65 t/s at 220 W) — the owner restored **220 W** (the 250 W target stands after the card service).

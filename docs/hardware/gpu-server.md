@@ -13,19 +13,19 @@
 | CPU | AMD Ryzen 5 5600X (6C/12T) |
 | Motherboard | MSI MEG X570 ACE |
 | RAM | 64 GB (2× 32 GB DDR4-2933 SO-DIMM via SO-DIMM-to-DIMM adapters; 4×8 GB at 2133 before 2026-08-26) |
-| System disk | 512 GB SATA SSD (ZFS rpool) — chipset-attached |
-| Model disk | 1 TB WD Green SATA SSD (ext4) — chipset-attached, shares the 8 GB/s uplink with GPU 2 (mount name `/mnt/usb-ssd` is historical) |
+| System disk | 512 GB Samsung M.2 NVMe (ZFS rpool) — chipset PCIe 3.0 x4 (bus 22); the two other NVMe (Intel 660p 512 GB, WD SN570 2 TB) are decommissioned-old-host archive disks, out of use; the pre-reinstall SATA rpool lives as read-only `oldrpool` |
+| Model disk | 1 TB WD Green SATA SSD (ext4, `/mnt/internal-ssd`) — chipset-attached, ~550 MB/s; the fast model lane is a ZFS dataset on the rpool NVMe (`models-nvme`, 300 GB) holding working/serving copies, the SATA disk the cold copies + catalog |
 | GPU 0 | RTX 3090 24 GB (new, 2026-09-08) — CPU PCIe 4.0 x8, bus 2d |
 | GPU 1 | RTX 3090 24 GB (original) — CPU PCIe 4.0 x8, bus 2e (PCI_E1; the board allocates x8 per CPU slot) |
 | Total VRAM | 48 GB |
 
-> **PCIe note:** idle GPUs report Gen1 links — this is normal NVIDIA power management; they retrain to full speed under load.
+> **PCIe note:** idle GPUs report Gen1 links — this is normal NVIDIA power management; they retrain to full speed under load. All three NVMe sit on chipset PCIe 3.0 x4 (buses 22/01/23); only the GPUs are CPU-direct (buses 2d/2e); the CPU M.2 slot (PCIe 4.0) is empty (2026-10-13).
 
 ## What runs here
 
 | GPU | Workload | Port |
 |-----|----------|------|
-| 2× RTX 3090 (TP2) | Qwen3.8-27B — vLLM 0.28.0, one dedicated LXC seeing both cards (config, power, numbers: [model card](../../models/qwen3.8-27b-rtx3090.md)) | 8080 |
+| 2× RTX 3090 (TP2) | Qwen3.8-27B — vLLM 0.28.0, one dedicated LXC seeing both cards (config, power, numbers: [model card](../../models/qwen3.8-27b-rtx3090.md)) | 8080 (vllm-mux front; engine at 8083) |
 
 Both cards are CPU-direct Gen4 x8 and share one vLLM engine (tensor-parallel 2); there is no NVLink on this board, so TP collectives run over PCIe (NCCL). The freed chipset slot de-congested the chipset uplink that used to be shared with the model SSD. The former dual-3060 llama.cpp unit (35B + on-demand 27B-Uncensored) was dismantled with the cards — its consumer fleet moved to the secondary/backup boxes; the box's remaining llama.cpp unit is the dormant 27B rollback. The dual-3090 benchmark campaign landed 2026-09-10/11 ([reports](../../reports/)); the 35B interim home is the secondary box (see its [card](../../models/qwen3.6-35b-a3b.md)).
 
