@@ -110,3 +110,29 @@ Two wording corrections to the two 10-12 updates above. The measurements stand; 
 1. **`--prompt-cache-tail` is not an exact-O(suffix) guarantee.** It places a reusable checkpoint at the *last prefill chunk boundary*, and reuse is further bounded by the normal checkpoint policy (root / periodic / pinned prefixes). What is demonstrated: ordinary multi-turn follow-ups read near-suffix-only in the tested shapes (a turn appended to a chunk-aligned conversation), and the explicit `strata_prefix` pin demonstrated 5–41-token reads at ~92K. Precise wording: *"--prompt-cache-tail is enabled to avoid pathological re-reads from the 16K periodic checkpoint grid; explicit strata_prefix demonstrated near-suffix-only reuse at ~92K."*
 2. **The q4_0-vs-INT8 verdict is a detection statement, not an equivalence theorem.** Defensible wording: *"No meaningful q4_0-vs-INT8 quality difference was detected for this deployment in the tested long-session, retrieval and teacher-forced workloads (57-question deep-session battery ×2, 12.4K needle, four-size teacher-forced logits)."* The upstream q4-vs-FP16 numbers (KL 0.297, top-1 88.0%) remain real per-profile costs from a different model/workload/reference experiment — they are not a direct estimate of the q4-vs-INT8 loss, and the pairwise comparison above does not cancel them.
 3. **Two questions, kept separate in all reporting:** warm/resumed chat (solved by checkpoints / pinned prefixes — the 92K multi-minute re-read was a checkpoint-policy / test-shape artifact) and cold bulk ingestion (still slow and kernel-limited: 164 → 97.6 → 66.4 t/s; the next kernel is the tiled non-tensor-core attention). Also: "96K profile" means *capable of* 98,304; the filled-context decode numbers (15–18 t/s @64–92K) are a separate measurement from short-context decode (~24 t/s) under the same config.
+
+## Update (2026-10-13 — the prefill configuration levers: chunk size, embedding-reuse accounting, the short-read threshold)
+
+The three configuration-level levers identified during the A/B window, measured on the production profile (q4_0 / 2600 / 98,304, binary C `25793e20…`; suffix drafter off to isolate the read path; one generated token — the read cost only). Actual prompt depths after the chat template: 3,749 / 9,100 / 15,037 / 36,084 tokens (the 0.39 tok/char generator estimate was ~25% optimistic at depth — report actuals, not labels). Cold-start boots (no production engine co-resident; the 6 GB card admits one 35B engine at a time).
+
+**P2 — explicit chunk size.** Fresh-prefill t/s:
+
+| chunk | 3.7K | 9.1K | 15K | 36K |
+|-------|------|------|-----|-----|
+| 1024 | 171.5 | 110.4 | 78.2 | 38.4 |
+| 2048 | 182.8 | 115.2 | 80.9 | 39.1 |
+| 4096 | 194.9 | 118.6 | 83.3 | 39.7 |
+| 6144 | fit-fail ×4 | | | |
+| 8192 | 196.1 | OOM | OOM | OOM |
+
+4096 is the **fit boundary** at 98,304 context (8192 fits only when the prompt is short enough for one chunk; 6144 fails on every depth — non-power-of-2, not VRAM). Production `auto` resolves to **4352 — already at the boundary**. The 1024→4096 step is +7–13% and diminishing past 2048. The superlinear depth decay (83→40 t/s, 15K→36K) is the O(n²) term of the 10 full-attention layers, not a chunking problem. **Conclusion: no production change; the chunk knob is exhausted.** (These absolutes sit ~10–20% below the 10-11 ladder at comparable depths — different generator documents; the shape is the same.)
+
+**P3 — `STRATA_EMB_REUSE_ACCOUNT=1`** (count the reused embedding budget against the expert RAM budget): it propagates — the engine's budget line moves **8.62 → 8.77 GiB** — but the 7,640-slot host-RAM complement and the 15K cold prefill (84.4 vs 84.0/83.9 t/s) are unchanged: **no measurable effect on this box; the flag stays off.**
+
+**P4 — `--short-read T`** (server; default 64). Follow-up requests on a warm prefix (`--prompt-cache-tail` on, no client-side pinning — the tail checkpoint sits a few tokens short of the prefix end), nominal suffix targets 12–300 (the measured "new" count is smaller — the repetitive filler compresses under the tokenizer; "S=300" ≈ 173 new tokens):
+
+- **Cold prefill is T-invariant** (83.5 t/s @15K, 39.6 @36K at every T): the flag only changes the read path for short suffixes.
+- **Suffix ≤ T → a decode-style windowed read; the win over always-batched grows with context depth.** 20K prefix: 2.4× at S≈12 (0.72 vs 1.78 s), ~1.6× at S≈80 (1.63 vs 2.55, T128/256); 48K prefix: 2.7× at S≈24 (1.03 vs 2.84), 1.6× at S≈300 (6.35 vs 10.33, T256). **Crossover:** at 20K the window ≈ batched around S≈150–173 (T=256 is slightly *worse* than T=0 at the largest suffix there); at 48K the window still wins at the largest suffix.
+- The production default (64) covers ordinary turn-length follow-ups and is a sound value. **Proposed: T=128** — covers ~150-token follow-ups (~1.85× at 48K) with no visible downside in the tested range. One parameter, pending owner approval; the sweep ran the drafter off, and its interaction with `--short-read` is untested.
+
+**Bottom line.** The configuration-level prefill levers are exhausted except the flagged T=128 proposal. What is left is kernel-side — the tiled non-tensor-core attention of the 10-12 note. Its feasibility question, measured before any kernel work: what fraction of GPU chunk time at 36K depth is the full-attention pass (30 of 40 layers are DeltaNet and do not attend over the full prefix)? If it is under ~40%, a 2× kernel win caps near ~1.3× end-to-end, below the 100 t/s-at-20K target, and the campaign re-scopes to the CPU/GPU expert balance instead.
