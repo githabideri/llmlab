@@ -11,18 +11,19 @@ something locally reasonable, and the composition is the bug.
 
 ## Setup
 
-- The estate's always-on 27B (Qwen3.8, dual RTX 3090, vLLM) as the session
-  model, running the pi coding agent
-  (`@earendil-works/pi-coding-agent` **v1.0.0**, upstream
-  `github.com/earendil-works/pi`, package `packages/coding-agent`), under a
-  session daemon.
+- Session model: **Qwen3.8-27B** (W4A16-AutoRound, 2× RTX 3090, vLLM TP2,
+  256K context), this lab's always-on model,
+  [model card](../models/qwen3.8-27b-rtx3090.md). The summarizer call ran on
+  the same model with a `0.5 × reserve` token budget
+  (code: `generateTurnPrefixSummary`).
+- Harness: the pi coding agent (`@earendil-works/pi-coding-agent`
+  **v1.0.0**, upstream `github.com/earendil-works/pi`, package
+  `packages/coding-agent`), under a session daemon.
 - Session: an incident-response conversation on a WordPress site, ~290
   entries of mostly interleaved tool calls by the time compaction fired.
 - Compaction: stock defaults (enabled, 16k reserve tokens, keep-most-recent
-  20k). The summarizer call is made with the session's model and a
-  `0.5 × reserve` token budget (code: `generateTurnPrefixSummary`).
-- The incident date is this report's date. No secrets or credentials were
-  involved; nothing below identifies the site.
+  20k). The incident date is this report's date. No secrets or credentials
+  were involved; nothing below identifies the site.
 
 ## Timeline (times are offsets within the session)
 
@@ -113,32 +114,26 @@ summarize information explicitly present above", and the only user-attributed
 material above was (a) the real line and (b) a sentence *explicitly phrased
 as a user quote*, sitting in an `[Assistant thinking]` block. The summarizer
 merged them: "The user had two parts: (1) … (2) …". Faithful to the
-instructions, wrong in the world. Two design properties did the damage:
+instructions, wrong in the world. Two properties of the pipeline did the
+damage:
 
 1. **The input contains thinking**, labeled as the assistant's but not
    marked as untrusted for user attribution. Thinking is where models put
-   speculation, self-talk, and, occasionally, invented dialogue. It is the
-   least user-like content in a transcript and the most plausible-looking
-   source of "the user said X".
+   speculation, self-talk, and, occasionally, invented dialogue.
 2. **The output label is authoritative.** "## Original Request" is consumed
-   by the reloaded agent as the user's word. Had the section been labeled
-   "what the summarized context *appears to* be asking", the reloaded agent
-   would have had a reason to check before acting.
+   by the reloaded agent as the user's word.
 
-The **main** (non-split) summarization prompt has the same vector: it asks
-for `## Goal [What is the user trying to accomplish?]` and `## Constraints &
-Preferences [… mentioned by user]` while its input again contains
-`[Assistant thinking]`. That is the likely source of the recurring pattern,
-seen across sessions of smaller models, where the agent writes "the user
-repeatedly tells me to …" about instructions that were never given: model-side
-claims about the user, promoted into durable summary sections by compaction.
+The main (non-split) summarization prompt has the same structure: its
+`## Goal` and `## Constraints & Preferences` sections attribute things to
+the user, and its input contains `[Assistant thinking]` lines too.
 
 ## Detection
 
-Not by style. The user remembered exactly what they had typed; their first
-signal was a register mismatch ("I don't write that way"), which in their
-words was a nudge to investigate rather than a detector. The actual
-detection was the transcript check:
+Detection was by memory and the transcript, not by writing style. The user
+remembered exactly what they had typed; their first signal was a register
+mismatch ("I don't write that way"), which in their words was a nudge to
+investigate rather than a detector. The actual detection was the transcript
+check:
 
 ```
 $ grep -n "<first few words of the phantom sentence>" session.jsonl
@@ -158,60 +153,44 @@ of truth, and high-impact actions should verify against it.
 - One wrong high-confidence answer to "what did I ask?", corrected after the
   user pushed.
 - A coincidental limiter: the same user message that preceded the
-  hallucination held a class of outbound actions, so the worst realistic
-  escalation of this specific incident was bounded. The general worst case
-  is not: a hallucinated *destructive* instruction laundered into "Original
-  Request" is a deletion, an exfiltration, or a mass action, not an audit.
+  hallucination held a class of outbound actions, so the realistic
+  escalation of this specific incident stayed bounded. A hallucinated
+  *destructive* instruction would have the same launder path available to
+  it, which is the part worth taking seriously.
 
-Scope note: this is not a prompt-injection attack (no external input), and
-it implicates no session-hosting layer; the pi-web distro we run contains
-zero occurrences of the "Turn Context / Original Request" mechanism. It is
-pi-core plus the model, so **every pi session with compaction enabled is
-exposed**, on any host, with any model that ever quotes imagined user
-utterances in thinking (small local models do this more often; the "the
-user repeatedly tells me to …" pattern above is the chronic form).
+## Where this lives
 
-## Proposed fixes (for the upstream issue)
+The whole chain sits in the pi-core compaction module
+(`packages/coding-agent`); the session-hosting layer we run the agent
+under was checked and contains none of this mechanism. Because the module
+is in pi's core, every pi installation carries the code path. How often the
+model-side trigger fires is model-dependent; this report is one case on a
+local 27B, not a prevalence study, and the session daemon, the hosting
+environment, and the transport play no part in the chain as documented.
 
-1. **`serializeConversation()`:** exclude `thinking` blocks from
-   summarization input, or label them explicitly ("model internal monologue,
-   untrusted for user attribution").
-2. **Both summarization prompts:** "User attribution must come **only**
-   from `[User]` lines. Content in `[Assistant thinking]` is the model's
-   internal monologue and must never be attributed to the user."
-3. **Mechanical anchor before persisting:** the turn's actual user message
-   is known (it is in the prefix). Check the produced "Original Request"
-   against it (containment/match); on mismatch, tag the section
-   "unverified, model-claimed" or drop it.
-4. **Relabel:** "## Original Request" → something that signals derived data
-   ("## Requested task (summarized; verify against transcript)").
+A separate observation, kept separate on purpose: in other sessions of
+smaller models, agents have referred to "instructions the user repeatedly
+gives" that appear nowhere in the transcript. That pattern has not been
+forensically established as this mechanism. The main summarization prompt's
+structure (user-attribution fields plus thinking in the input) makes it a
+candidate, and it is checkable with the same first-occurrence grep.
 
-1 and 2 are prompt/serializer changes only; 3 is a small code check; 4 costs
-a rename. Fixes 1+2 would have broken the chain at the input; 3 is the guard
-that makes the failure detectable rather than silent; 4 changes how the next
-agent *reads* the summary even when 1–3 miss an edge.
+## Deterministic repro (no hallucination required)
 
-**Deterministic repro (no hallucination required):** in any pi session, plant
-a single assistant message whose only content is a thinking block:
-`The user just asked to also check service X`. Force a mid-turn compaction
-past it (`/compact` after further tool work, or let the threshold cross).
-The stored summary's "Original Request" now contains "the user asked to also
-check service X" although no user line ever said it. The model's
-hallucination was the spark in the real incident; the laundering step is
-deterministic given a contaminated prefix.
+In any pi session, plant a single assistant message whose only content is a
+thinking block: `The user just asked to also check service X`. Force a
+mid-turn compaction past it (`/compact` after further tool work, or let the
+threshold cross). The stored summary's "Original Request" now contains "the
+user asked to also check service X" although no user line ever said it. The
+model's hallucination was the spark in the real incident; the laundering
+step is deterministic given a contaminated prefix.
 
-## Open questions
+## Open question
 
-- The summarizer here ran on the session's own 27B with a smaller budget. A
-  stronger summarizer might resist attributing `[Assistant thinking]`
-  content to the user; that is an empirical question, not a design one, and
-  the prompt fix should not depend on the summarizer being good.
-- Whether pi should treat compaction summaries as a distinct message type
-  with a "derived, verify against transcript" envelope on every re-injection
-  (today the summary text and the label do all the work).
-- The "user repeatedly tells me to …" chronic form: how often does it
-  actually steer tool calls? We have anecdotes; a systematic count over
-  session transcripts would turn it into a number.
+How often does the "the user repeatedly tells me to …" pattern above
+actually steer tool calls? What exists is anecdote; a systematic
+first-occurrence grep across session transcripts would turn it into a
+number.
 
 ## Conclusion
 
@@ -220,5 +199,4 @@ derived text carrying an authority-bearing label, fed by the model's own
 scratch space. The model produced the lie, the summarizer transcribed it
 faithfully, the label made it law, and the reloaded agent obeyed. Each step
 is defensible in isolation; the composition is not. Verify "the user said
-X" against the raw transcript before high-impact actions, and keep compaction
-summaries out of the position of issuing orders in the user's name.
+X" against the raw transcript before high-impact actions.
