@@ -16,8 +16,10 @@ something locally reasonable, and the composition is the bug.
   [model card](../models/qwen3.8-27b-rtx3090.md). The summarizer call ran on
   the same model with a `0.5 × reserve` token budget
   (code: `generateTurnPrefixSummary`).
-- Harness: the pi coding agent (`@earendil-works/pi-coding-agent`
-  **v1.0.0**, upstream `github.com/earendil-works/pi`, package
+- Harness: the pi coding agent
+  ([`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)
+  **v1.0.0**, upstream
+  [earendil-works/pi](https://github.com/earendil-works/pi), package
   `packages/coding-agent`), under a session daemon.
 - Session: an incident-response conversation on a WordPress site, ~290
   entries of mostly interleaved tool calls by the time compaction fired.
@@ -40,8 +42,12 @@ something locally reasonable, and the composition is the bug.
 
 ## The mechanism, at code level
 
-All quotes are from the pi-core v1.0.0 distribution
-(`dist/core/compaction/`).
+All quotes are from the v1.0.0 distribution
+(`dist/core/compaction/`); the corresponding sources in the upstream
+repo at that tag:
+[`utils.ts`](https://github.com/earendil-works/pi/blob/v1.0.0/packages/coding-agent/src/core/compaction/utils.ts)
+and
+[`compaction.ts`](https://github.com/earendil-works/pi/blob/v1.0.0/packages/coding-agent/src/core/compaction/compaction.ts).
 
 **1. The serializer feeds the model's internal monologue to the
 summarizer.** `utils.js:101`, `serializeConversation()`:
@@ -98,6 +104,8 @@ summary = `${historyText}\n\n---\n\n**Turn Context (split turn):**\n\n${turnPref
 ```
 
 After the session reloads, that block sits at the head of the context.
+(Line numbers are from the v1.0.0 dist; the same functions exist in
+1.3.0 at shifted offsets.)
 
 **Why the summarizer "failed" is the interesting part: it didn't, on its
 face.** Its input for this turn prefix was, in effect:
@@ -158,39 +166,95 @@ of truth, and high-impact actions should verify against it.
   *destructive* instruction would have the same launder path available to
   it, which is the part worth taking seriously.
 
-## Where this lives
+## Where this lives, and in which versions
 
 The whole chain sits in the pi-core compaction module
-(`packages/coding-agent`); the session-hosting layer we run the agent
-under was checked and contains none of this mechanism. Because the module
-is in pi's core, every pi installation carries the code path. How often the
-model-side trigger fires is model-dependent; this report is one case on a
-local 27B, not a prevalence study, and the session daemon, the hosting
-environment, and the transport play no part in the chain as documented.
+(`packages/coding-agent`). The session-hosting layer we run the agent
+under was checked and contains none of this mechanism; the session
+daemon, the hosting environment, and the transport play no part in the
+chain as documented. This report is one case on a local 27B, not a
+prevalence study; how often the model-side trigger fires is
+model-dependent.
+
+Version status, checked against the npm releases on 2026-10-21:
+
+- This incident ran on **v1.0.0**, the first 1.x release.
+- **v1.3.0 (2026-10-15)** changed `serializeConversation()` to omit
+  thinking blocks; the
+  [changelog](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/CHANGELOG.md)
+  motivation is size and robustness (replayed thinking can make a
+  summarization request larger than the context it summarizes and
+  fail), not attribution. The input side of the chain documented here is
+  closed in 1.3.0; the incident version is what made it possible.
+- In 1.3.0, `TURN_PREFIX_SUMMARIZATION_PROMPT` is unchanged: "Original
+  Request" remains a free paraphrase. The main summarization prompt also
+  still attributes things to the user ("Goal", "Constraints … mentioned
+  by user") from whatever sits in user-role messages, and sender
+  identity is text inside a message rather than a fact about it.
 
 A separate observation, kept separate on purpose: in other sessions of
-smaller models, agents have referred to "instructions the user repeatedly
-gives" that appear nowhere in the transcript. That pattern has not been
-forensically established as this mechanism. The main summarization prompt's
-structure (user-attribution fields plus thinking in the input) makes it a
-candidate, and it is checkable with the same first-occurrence grep.
+smaller models, agents have referred to "instructions the user
+repeatedly gives" that appear nowhere in the transcript. That pattern
+has not been forensicated as this mechanism. The main summarization
+prompt's user-attribution fields make it a candidate, and it is
+checkable with the same first-occurrence grep.
+
+## Prior art
+
+A 2026-10-21 search over GitHub issues (phrase-level and string-level,
+the upstream repo plus the fork/derivative ecosystem) found no issue in
+[earendil-works/pi](https://github.com/earendil-works/pi) covering
+user-attribution; its compaction issues as of that date are
+operational (thresholds, transport, retries, custom-instruction loss,
+summary refusals). The fork ecosystem has reports of the same class:
+
+- [`iwismer/pi` PR #2](https://github.com/iwismer/pi/pull/2)
+  (2026-10-01, merged into that fork): the split-turn checkpoint
+  "paraphrases the user's request and can invent a task identity"; the
+  accompanying fix makes the turn-prefix prompt quote the user's most
+  recent explicit request verbatim. It is not upstream.
+- [`pandysp/pi-hydra` issue #31](https://github.com/pandysp/pi-hydra/issues/31)
+  (2026-09-28, open): "Compaction turns a head's advice into the
+  user's request." Helper messages delivered through the user-message
+  slot with a text-only sender label end up listed under "Original
+  Request". Same sink, different source; the report includes a
+  no-model reproduction.
+- [`Lowpower/pigo` issue #364](https://github.com/Lowpower/pigo/issues/364)
+  (2026-10-20, open): a Go re-implementation aligning its serializer
+  with pi v1.3.0's thinking-omitting behavior.
+- [`leo-labs-ai/pi-mono` PR #640](https://github.com/leo-labs-ai/pi-mono/pull/640)
+  (2026-10-19): a different symptom (agents stalling after automatic
+  compaction), included because it also modifies the split-turn merge
+  text.
+
+The wider "compaction degrades long sessions" class has reports in
+other agent frameworks, e.g.
+[claude-code #96308](https://github.com/anthropics/claude-code/issues/96308)
+and [#99860](https://github.com/anthropics/claude-code/issues/99860);
+the attribution mechanism itself appears unreported in upstream pi as
+of this date.
 
 ## Deterministic repro (no hallucination required)
 
-In any pi session, plant a single assistant message whose only content is a
-thinking block: `The user just asked to also check service X`. Force a
-mid-turn compaction past it (`/compact` after further tool work, or let the
-threshold cross). The stored summary's "Original Request" now contains "the
-user asked to also check service X" although no user line ever said it. The
-model's hallucination was the spark in the real incident; the laundering
-step is deterministic given a contaminated prefix.
+On a release whose serializer still includes thinking (v1.0.0 through
+1.2.x; 1.3.0 omits it), plant a single assistant message whose only
+content is a thinking block: `The user just asked to also check service
+X`. Force a mid-turn compaction past it (`/compact` after further tool
+work, or let the threshold cross). The stored summary's "Original
+Request" now contains "the user asked to also check service X"
+although no user line ever said it. The model's hallucination was the
+spark in the real incident; the laundering step is deterministic given
+a contaminated prefix.
 
-## Open question
+## Open questions
 
-How often does the "the user repeatedly tells me to …" pattern above
-actually steer tool calls? What exists is anecdote; a systematic
-first-occurrence grep across session transcripts would turn it into a
-number.
+- How often does the "the user repeatedly tells me to …" pattern above
+  actually steer tool calls? What exists is anecdote; a systematic
+  first-occurrence grep across session transcripts would turn it into a
+  number.
+- What effect 1.3.0's thinking omission has on summary quality is
+  unmeasured: the summarizer now sees a smaller, cleaner input, on the
+  same model, with no published comparison.
 
 ## Conclusion
 
