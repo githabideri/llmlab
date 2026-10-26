@@ -18,6 +18,10 @@
 
 > **PCIe note:** the idle GPU reports a Gen1 link — normal NVIDIA power management; it retrains to full speed under load (the 2026-06-30 report walked through exactly this). Not a finding.
 
+## Power management (measured 2026-10-26)
+
+Loaded idle (Strata resident, CUDA context held): **P8, 210/405 MHz, ~5.9 W** on the card, PCIe Gen1 link — the driver's floor while a context exists, stable for 15+ min; the 11.4 GB of VRAM costs <0.15 W of it. Runtime D3 is unavailable (desktop PCIe, no wake path, persistence mode on). No driver-side lever improves on this: `nvidia-pstated` measured a no-op (+0.2 W), clock locks *raise* idle (they pin the P-state above P8), and the 170 W power cap is never near (86 W peak under load). Memory-clock tiers the driver exposes: 405 / 810 / 5001 / 7301 / 7501 MHz. Details and the full state matrix: [2026-10-26 loaded-idle power report](../../reports/2026-10-26-rtx3060-strata-loaded-idle-power.md).
+
 ## Why it exists
 
 The x16 slot was vacant and a single inference machine is a single point of failure, so the box doubles as a secondary llama.cpp MTP endpoint on the 3060.
@@ -25,3 +29,4 @@ The x16 slot was vacant and a single inference machine is a single point of fail
 ## Related
 
 - **Single-3060 MTP config:** [2026-06-30 single RTX 3060 report](../../reports/2026-06-30-qwen3.6-35b-a3b-mtp-single-3060.md)
+- **Loaded-idle power floor:** [2026-10-26 report](../../reports/2026-10-26-rtx3060-strata-loaded-idle-power.md)
