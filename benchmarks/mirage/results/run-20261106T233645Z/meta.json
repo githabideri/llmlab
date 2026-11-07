@@ -1,0 +1,35 @@
+{
+ "run": "run-20261106T233645Z",
+ "resumed_from": "two resume runs (25 perf tasks; fresh processes, each with +1 model load; perf stats for those 25 calls include warmup-state effects and are flagged in the report)",
+ "date": "2026-11-06",
+ "environment": {
+  "host": "4-core CPU LXC (Intel i5-8500T, 12 GiB RAM), Linux x86_64, Python 3.12.3",
+  "engine": {
+   "version": "4.0.0",
+   "sha256": "89ad23bdcfa5b8e62137175eb297664933d75a3095fc44a24043e0bf9bc574c7",
+   "note": "filled from cache listing",
+   "path_note": "path omitted (machine-local)"
+  },
+  "model": {
+   "repo": "Cactus-Compute/mirage",
+   "commit": "76c1e9e53381aca8fc3843c636216c96ff220122",
+   "cact_sha256": "4249a0f7515272ff76b9414bec17d7e7daf84b15b66c7fb4f17fce1e66f9f237",
+   "size_bytes": 21611043,
+   "bits": "2-bit (embedding/mhc 4-bit)"
+  },
+  "library": {
+   "name": "cactus-compute",
+   "version": "4.0.1"
+  },
+  "telemetry": "CACTUS_TELEMETRY=0"
+ },
+ "n_images": 110,
+ "n_tasks": 450,
+ "manifest_sha256": {
+  "images.jsonl": "bc5441b91f5aaefed5445c945378cf85b0ecd4fb6431de69aebef158b6e7ff02",
+  "tasks.jsonl": "216b277d5f84b54a623c6f93d624c909a3f82d470d598ffeca321cee280419fb",
+  "RULES.md": "1fa51a545c32d3641db7b0aa5b21192a15d353c3c588e40fcb02f86e31ce42e0"
+ },
+ "protocol_fix": "141 question-based tasks (presence/choice/relation/count) re-run after the v1 protocol bug (generic 'answer' field instead of the question text as form field name, which is the documented usage). Records carry the fixed-protocol calls.",
+ "manifest_path_rewrite": "post-run, pre-commit: the 4 'own' image paths in manifest/images.jsonl were rewritten from machine-local absolute to repo-relative paths. Pre-rewrite sha256 (recorded above): bc5441b91f5aaefed5445c945378cf85b0ecd4fb6431de69aebef158b6e7ff02; post-rewrite sha256: e64d532a2804469c0d2d2e2d38105f3a2ac7aa53f1178722bee9ad0c808c96fd. No image content or sha256 fields changed."
+}

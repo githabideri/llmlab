@@ -1,0 +1,141 @@
+{"task_id": "t0002", "image_id": "syn-shapes-simple-1", "type": "count", "gt": {"answer": 2}, "lo": 1, "hi": 12}
+{"task_id": "t0004", "image_id": "syn-shapes-simple-2", "type": "count", "gt": {"answer": 3}, "lo": 1, "hi": 12}
+{"task_id": "t0006", "image_id": "syn-shapes-simple-3", "type": "count", "gt": {"answer": 4}, "lo": 1, "hi": 12}
+{"task_id": "t0008", "image_id": "syn-shapes-simple-4", "type": "count", "gt": {"answer": 1}, "lo": 1, "hi": 12}
+{"task_id": "t0010", "image_id": "syn-shapes-simple-5", "type": "count", "gt": {"answer": 3}, "lo": 1, "hi": 12}
+{"task_id": "t0012", "image_id": "syn-shapes-simple-6", "type": "count", "gt": {"answer": 2}, "lo": 1, "hi": 12}
+{"task_id": "t0014", "image_id": "syn-shapes-simple-7", "type": "count", "gt": {"answer": 4}, "lo": 1, "hi": 12}
+{"task_id": "t0016", "image_id": "syn-shapes-simple-8", "type": "count", "gt": {"answer": 3}, "lo": 1, "hi": 12}
+{"task_id": "t0018", "image_id": "syn-shapes-crowded-11", "type": "count", "gt": {"answer": 8}, "lo": 1, "hi": 12}
+{"task_id": "t0020", "image_id": "syn-shapes-crowded-12", "type": "count", "gt": {"answer": 10}, "lo": 1, "hi": 12}
+{"task_id": "t0022", "image_id": "syn-shapes-crowded-13", "type": "count", "gt": {"answer": 12}, "lo": 1, "hi": 12}
+{"task_id": "t0024", "image_id": "syn-shapes-crowded-14", "type": "count", "gt": {"answer": 9}, "lo": 1, "hi": 12}
+{"task_id": "t0026", "image_id": "syn-shapes-crowded-15", "type": "count", "gt": {"answer": 8}, "lo": 1, "hi": 12}
+{"task_id": "t0028", "image_id": "syn-shapes-crowded-16", "type": "count", "gt": {"answer": 11}, "lo": 1, "hi": 12}
+{"task_id": "t0030", "image_id": "syn-shapes-crowded-17", "type": "count", "gt": {"answer": 10}, "lo": 1, "hi": 12}
+{"task_id": "t0032", "image_id": "syn-shapes-crowded-18", "type": "count", "gt": {"answer": 12}, "lo": 1, "hi": 12}
+{"task_id": "t0034", "image_id": "syn-shapes-small-21", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a brown circle in this image?"}
+{"task_id": "t0036", "image_id": "syn-shapes-small-22", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a yellow circle in this image?"}
+{"task_id": "t0038", "image_id": "syn-shapes-small-23", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a blue triangle in this image?"}
+{"task_id": "t0040", "image_id": "syn-shapes-pairs-31", "type": "relation", "gt": {"answer": "below", "question": "Object A is a red square and object B is a blue circle. Where is A relative to B?"}, "options": ["left of", "right of", "above", "below"]}
+{"task_id": "t0042", "image_id": "syn-shapes-pairs-32", "type": "relation", "gt": {"answer": "left of", "question": "Object A is a green circle and object B is a yellow triangle. Where is A relative to B?"}, "options": ["left of", "right of", "above", "below"]}
+{"task_id": "t0044", "image_id": "syn-shapes-pairs-33", "type": "relation", "gt": {"answer": "right of", "question": "Object A is a orange rectangle and object B is a purple diamond. Where is A relative to B?"}, "options": ["left of", "right of", "above", "below"]}
+{"task_id": "t0046", "image_id": "syn-shapes-pairs-34", "type": "relation", "gt": {"answer": "below", "question": "Object A is a pink ellipse and object B is a brown square. Where is A relative to B?"}, "options": ["left of", "right of", "above", "below"]}
+{"task_id": "t0047", "image_id": "syn-shapes-counts-41", "type": "count", "gt": {"answer": 1}, "lo": 1, "hi": 6}
+{"task_id": "t0048", "image_id": "syn-shapes-counts-42", "type": "count", "gt": {"answer": 2}, "lo": 1, "hi": 6}
+{"task_id": "t0049", "image_id": "syn-shapes-counts-43", "type": "count", "gt": {"answer": 3}, "lo": 1, "hi": 6}
+{"task_id": "t0050", "image_id": "syn-shapes-counts-44", "type": "count", "gt": {"answer": 5}, "lo": 1, "hi": 6}
+{"task_id": "t0051", "image_id": "syn-shapes-counts-45", "type": "count", "gt": {"answer": 6}, "lo": 1, "hi": 6}
+{"task_id": "t0052", "image_id": "syn-shapes-faint-51", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a gray circle in this image?"}
+{"task_id": "t0053", "image_id": "syn-shapes-faint-52", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a red triangle in this image?"}
+{"task_id": "t0054", "image_id": "syn-shapes-blank-61", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a red square in this image?"}
+{"task_id": "t0055", "image_id": "syn-shapes-blank-62", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a red square in this image?"}
+{"task_id": "t0056", "image_id": "syn-shapes-blank-63", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a red square in this image?"}
+{"task_id": "t0057", "image_id": "syn-shapes-blank-64", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a red square in this image?"}
+{"task_id": "t0058", "image_id": "syn-noise-71", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a red square in this image?"}
+{"task_id": "t0059", "image_id": "syn-noise-72", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a red square in this image?"}
+{"task_id": "t0060", "image_id": "syn-gradient-73", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a red square in this image?"}
+{"task_id": "t0111", "image_id": "com-everyday-00", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a cat in this image?"}
+{"task_id": "t0112", "image_id": "com-everyday-00", "type": "choice", "gt": {"answer": "cat", "question": "What is the main subject of this image?"}, "options": ["cat", "dog", "car", "book"]}
+{"task_id": "t0113", "image_id": "com-everyday-01", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a dog in this image?"}
+{"task_id": "t0114", "image_id": "com-everyday-01", "type": "choice", "gt": {"answer": "dog", "question": "What is the main subject of this image?"}, "options": ["dog", "cat", "horse", "bicycle"]}
+{"task_id": "t0115", "image_id": "com-everyday-02", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a horse in this image?"}
+{"task_id": "t0116", "image_id": "com-everyday-02", "type": "choice", "gt": {"answer": "horse", "question": "What is the main subject of this image?"}, "options": ["horse", "deer", "dog", "boat"]}
+{"task_id": "t0117", "image_id": "com-everyday-03", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a truck in this image?"}
+{"task_id": "t0118", "image_id": "com-everyday-03", "type": "choice", "gt": {"answer": "truck", "question": "What is the main subject of this image?"}, "options": ["truck", "bicycle", "boat", "train"]}
+{"task_id": "t0119", "image_id": "com-everyday-04", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a bicycle in this image?"}
+{"task_id": "t0120", "image_id": "com-everyday-04", "type": "choice", "gt": {"answer": "bicycle", "question": "What is the main subject of this image?"}, "options": ["bicycle", "car", "boat", "cart"]}
+{"task_id": "t0121", "image_id": "com-everyday-05", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a chair in this image?"}
+{"task_id": "t0122", "image_id": "com-everyday-05", "type": "choice", "gt": {"answer": "chair", "question": "What is the main subject of this image?"}, "options": ["chair", "piano", "book", "car"]}
+{"task_id": "t0123", "image_id": "com-everyday-06", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a table in this image?"}
+{"task_id": "t0124", "image_id": "com-everyday-06", "type": "choice", "gt": {"answer": "table", "question": "What is the main subject of this image?"}, "options": ["table", "chair", "book", "bottle"]}
+{"task_id": "t0125", "image_id": "com-everyday-07", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a bottle in this image?"}
+{"task_id": "t0126", "image_id": "com-everyday-07", "type": "choice", "gt": {"answer": "bottle", "question": "What is the main subject of this image?"}, "options": ["bottle", "apple", "cup", "phone"]}
+{"task_id": "t0127", "image_id": "com-everyday-08", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a cup in this image?"}
+{"task_id": "t0128", "image_id": "com-everyday-08", "type": "choice", "gt": {"answer": "cup", "question": "What is the main subject of this image?"}, "options": ["cup", "spoon", "bowl", "bottle"]}
+{"task_id": "t0129", "image_id": "com-everyday-09", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a laptop in this image?"}
+{"task_id": "t0130", "image_id": "com-everyday-09", "type": "choice", "gt": {"answer": "laptop", "question": "What is the main subject of this image?"}, "options": ["laptop", "book", "phone", "television"]}
+{"task_id": "t0131", "image_id": "com-everyday-10", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a book in this image?"}
+{"task_id": "t0132", "image_id": "com-everyday-10", "type": "choice", "gt": {"answer": "book", "question": "What is the main subject of this image?"}, "options": ["book", "car", "chair", "newspaper"]}
+{"task_id": "t0133", "image_id": "com-everyday-11", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a apple in this image?"}
+{"task_id": "t0134", "image_id": "com-everyday-11", "type": "choice", "gt": {"answer": "apple", "question": "What is the main subject of this image?"}, "options": ["apple", "banana", "orange", "grape"]}
+{"task_id": "t0135", "image_id": "com-everyday-12", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a banana in this image?"}
+{"task_id": "t0136", "image_id": "com-everyday-12", "type": "choice", "gt": {"answer": "banana", "question": "What is the main subject of this image?"}, "options": ["banana", "apple", "carrot", "bread"]}
+{"task_id": "t0137", "image_id": "com-everyday-13", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a bird in this image?"}
+{"task_id": "t0138", "image_id": "com-everyday-13", "type": "choice", "gt": {"answer": "bird", "question": "What is the main subject of this image?"}, "options": ["bird", "fish", "cat", "butterfly"]}
+{"task_id": "t0139", "image_id": "com-everyday-14", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a sailboat in this image?"}
+{"task_id": "t0140", "image_id": "com-everyday-14", "type": "choice", "gt": {"answer": "sailboat", "question": "What is the main subject of this image?"}, "options": ["sailboat", "car", "bridge", "balloon"]}
+{"task_id": "t0141", "image_id": "com-everyday-15", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a bridge in this image?"}
+{"task_id": "t0142", "image_id": "com-everyday-15", "type": "choice", "gt": {"answer": "bridge", "question": "What is the main subject of this image?"}, "options": ["bridge", "tower", "crane", "boat"]}
+{"task_id": "t0143", "image_id": "com-everyday-16", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a clock in this image?"}
+{"task_id": "t0144", "image_id": "com-everyday-16", "type": "choice", "gt": {"answer": "clock", "question": "What is the main subject of this image?"}, "options": ["clock", "watch", "phone", "mirror"]}
+{"task_id": "t0145", "image_id": "com-everyday-17", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a umbrella in this image?"}
+{"task_id": "t0146", "image_id": "com-everyday-17", "type": "choice", "gt": {"answer": "umbrella", "question": "What is the main subject of this image?"}, "options": ["umbrella", "hat", "balloon", "lamp"]}
+{"task_id": "t0147", "image_id": "com-everyday-18", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a guitar in this image?"}
+{"task_id": "t0148", "image_id": "com-everyday-18", "type": "choice", "gt": {"answer": "guitar", "question": "What is the main subject of this image?"}, "options": ["guitar", "piano", "violin", "drum"]}
+{"task_id": "t0149", "image_id": "com-everyday-19", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a bus in this image?"}
+{"task_id": "t0150", "image_id": "com-everyday-19", "type": "choice", "gt": {"answer": "bus", "question": "What is the main subject of this image?"}, "options": ["bus", "train", "tram", "truck"]}
+{"task_id": "t0151", "image_id": "com-everyday-20", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a train in this image?"}
+{"task_id": "t0152", "image_id": "com-everyday-20", "type": "choice", "gt": {"answer": "train", "question": "What is the main subject of this image?"}, "options": ["train", "bus", "truck", "boat"]}
+{"task_id": "t0153", "image_id": "com-everyday-21", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a airplane in this image?"}
+{"task_id": "t0154", "image_id": "com-everyday-21", "type": "choice", "gt": {"answer": "airplane", "question": "What is the main subject of this image?"}, "options": ["airplane", "bird", "helicopter", "kite"]}
+{"task_id": "t0155", "image_id": "com-everyday-22", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a television in this image?"}
+{"task_id": "t0156", "image_id": "com-everyday-22", "type": "choice", "gt": {"answer": "television", "question": "What is the main subject of this image?"}, "options": ["television", "monitor", "radio", "phone"]}
+{"task_id": "t0157", "image_id": "com-crowded-00", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0158", "image_id": "com-crowded-00", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0159", "image_id": "com-crowded-00", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a boats in this image?"}
+{"task_id": "t0160", "image_id": "com-crowded-01", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0161", "image_id": "com-crowded-01", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a bicycles in this image?"}
+{"task_id": "t0162", "image_id": "com-crowded-01", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a dogs in this image?"}
+{"task_id": "t0163", "image_id": "com-crowded-02", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0164", "image_id": "com-crowded-02", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a trains in this image?"}
+{"task_id": "t0165", "image_id": "com-crowded-02", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a boats in this image?"}
+{"task_id": "t0166", "image_id": "com-crowded-03", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0167", "image_id": "com-crowded-03", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a bicycles in this image?"}
+{"task_id": "t0168", "image_id": "com-crowded-03", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0169", "image_id": "com-crowded-04", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0170", "image_id": "com-crowded-04", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a trains in this image?"}
+{"task_id": "t0171", "image_id": "com-crowded-04", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a boats in this image?"}
+{"task_id": "t0172", "image_id": "com-crowded-05", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a motorcycles in this image?"}
+{"task_id": "t0173", "image_id": "com-crowded-05", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a trains in this image?"}
+{"task_id": "t0174", "image_id": "com-crowded-05", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a boats in this image?"}
+{"task_id": "t0175", "image_id": "com-crowded-07", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a fish in this image?"}
+{"task_id": "t0176", "image_id": "com-crowded-07", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0177", "image_id": "com-crowded-07", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a bicycles in this image?"}
+{"task_id": "t0178", "image_id": "com-crowded-09", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0179", "image_id": "com-crowded-09", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a trains in this image?"}
+{"task_id": "t0180", "image_id": "com-crowded-09", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0181", "image_id": "com-crowded-10", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0182", "image_id": "com-crowded-10", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a trains in this image?"}
+{"task_id": "t0183", "image_id": "com-crowded-10", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a boats in this image?"}
+{"task_id": "t0184", "image_id": "com-crowded-11", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0185", "image_id": "com-crowded-11", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a trains in this image?"}
+{"task_id": "t0186", "image_id": "com-crowded-11", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a boats in this image?"}
+{"task_id": "t0187", "image_id": "com-negative-00", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0188", "image_id": "com-negative-00", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a people in this image?"}
+{"task_id": "t0189", "image_id": "com-negative-00", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a tables in this image?"}
+{"task_id": "t0190", "image_id": "com-negative-01", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0191", "image_id": "com-negative-01", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a people in this image?"}
+{"task_id": "t0192", "image_id": "com-negative-01", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a tables in this image?"}
+{"task_id": "t0193", "image_id": "com-negative-02", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0194", "image_id": "com-negative-02", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a people in this image?"}
+{"task_id": "t0195", "image_id": "com-negative-02", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a tables in this image?"}
+{"task_id": "t0196", "image_id": "com-negative-03", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0197", "image_id": "com-negative-03", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a people in this image?"}
+{"task_id": "t0198", "image_id": "com-negative-03", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a tables in this image?"}
+{"task_id": "t0199", "image_id": "com-negative-05", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0200", "image_id": "com-negative-05", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a people in this image?"}
+{"task_id": "t0201", "image_id": "com-negative-05", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a tables in this image?"}
+{"task_id": "t0202", "image_id": "com-everyday-23", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a phone in this image?"}
+{"task_id": "t0203", "image_id": "com-everyday-23", "type": "choice", "gt": {"answer": "phone", "question": "What is the main subject of this image?"}, "options": ["phone", "tablet", "camera", "laptop"]}
+{"task_id": "t0205", "image_id": "com-everyday-24", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a flower in this image?"}
+{"task_id": "t0206", "image_id": "com-everyday-24", "type": "choice", "gt": {"answer": "flower", "question": "What is the main subject of this image?"}, "options": ["flower", "fruit", "vegetable", "tree"]}
+{"task_id": "t0207", "image_id": "com-crowded-08", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a boats in this image?"}
+{"task_id": "t0208", "image_id": "com-crowded-08", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a trains in this image?"}
+{"task_id": "t0209", "image_id": "com-crowded-08", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0210", "image_id": "com-negative-04", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0211", "image_id": "com-negative-04", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a people in this image?"}
+{"task_id": "t0212", "image_id": "com-negative-04", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a tables in this image?"}
+{"task_id": "t0213", "image_id": "com-crowded-06", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0214", "image_id": "com-crowded-06", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0215", "image_id": "com-crowded-06", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a boats in this image?"}

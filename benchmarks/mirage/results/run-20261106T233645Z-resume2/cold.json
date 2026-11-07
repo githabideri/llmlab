@@ -1,0 +1,9 @@
+{
+ "import_s": 0.08,
+ "construct_load_s": 0.743,
+ "first_call_s": 3.419,
+ "first_call_code": 116,
+ "first_call_bytes": 793,
+ "first_call_parsed": true,
+ "rss_kb": 162756
+}

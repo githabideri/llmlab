@@ -1,0 +1,450 @@
+{"task_id": "t0001", "image_id": "syn-shapes-simple-1", "type": "detect", "gt": {"objects": [{"name": "blue circle", "bbox": [245, 337, 367, 459], "color": "blue", "shape": "circle"}, {"name": "pink square", "bbox": [198, 111, 345, 258], "color": "pink", "shape": "square"}]}}
+{"task_id": "t0002", "image_id": "syn-shapes-simple-1", "type": "count", "gt": {"answer": 2}, "lo": 1, "hi": 12}
+{"task_id": "t0003", "image_id": "syn-shapes-simple-2", "type": "detect", "gt": {"objects": [{"name": "blue square", "bbox": [112, 314, 212, 414], "color": "blue", "shape": "square"}, {"name": "green triangle", "bbox": [330, 205, 505, 380], "color": "green", "shape": "triangle"}, {"name": "orange triangle", "bbox": [22, 18, 189, 185], "color": "orange", "shape": "triangle"}]}}
+{"task_id": "t0004", "image_id": "syn-shapes-simple-2", "type": "count", "gt": {"answer": 3}, "lo": 1, "hi": 12}
+{"task_id": "t0005", "image_id": "syn-shapes-simple-3", "type": "detect", "gt": {"objects": [{"name": "gray circle", "bbox": [286, 123, 392, 229], "color": "gray", "shape": "circle"}, {"name": "pink triangle", "bbox": [102, 244, 272, 414], "color": "pink", "shape": "triangle"}, {"name": "blue ellipse", "bbox": [280, 285, 447, 485], "color": "blue", "shape": "ellipse"}, {"name": "pink square", "bbox": [36, 85, 159, 208], "color": "pink", "shape": "square"}]}}
+{"task_id": "t0006", "image_id": "syn-shapes-simple-3", "type": "count", "gt": {"answer": 4}, "lo": 1, "hi": 12}
+{"task_id": "t0007", "image_id": "syn-shapes-simple-4", "type": "detect", "gt": {"objects": [{"name": "orange circle", "bbox": [373, 206, 476, 309], "color": "orange", "shape": "circle"}]}}
+{"task_id": "t0008", "image_id": "syn-shapes-simple-4", "type": "count", "gt": {"answer": 1}, "lo": 1, "hi": 12}
+{"task_id": "t0009", "image_id": "syn-shapes-simple-5", "type": "detect", "gt": {"objects": [{"name": "orange ellipse", "bbox": [30, 84, 165, 246], "color": "orange", "shape": "ellipse"}, {"name": "gray diamond", "bbox": [244, 130, 337, 223], "color": "gray", "shape": "diamond"}, {"name": "yellow rectangle", "bbox": [198, 282, 371, 489], "color": "yellow", "shape": "rectangle"}]}}
+{"task_id": "t0010", "image_id": "syn-shapes-simple-5", "type": "count", "gt": {"answer": 3}, "lo": 1, "hi": 12}
+{"task_id": "t0011", "image_id": "syn-shapes-simple-6", "type": "detect", "gt": {"objects": [{"name": "blue ellipse", "bbox": [78, 304, 230, 486], "color": "blue", "shape": "ellipse"}, {"name": "red triangle", "bbox": [244, 392, 334, 482], "color": "red", "shape": "triangle"}]}}
+{"task_id": "t0012", "image_id": "syn-shapes-simple-6", "type": "count", "gt": {"answer": 2}, "lo": 1, "hi": 12}
+{"task_id": "t0013", "image_id": "syn-shapes-simple-7", "type": "detect", "gt": {"objects": [{"name": "green triangle", "bbox": [113, 23, 253, 163], "color": "green", "shape": "triangle"}, {"name": "red diamond", "bbox": [48, 226, 147, 325], "color": "red", "shape": "diamond"}, {"name": "blue ellipse", "bbox": [286, 221, 422, 384], "color": "blue", "shape": "ellipse"}, {"name": "red ellipse", "bbox": [284, 36, 438, 220], "color": "red", "shape": "ellipse"}]}}
+{"task_id": "t0014", "image_id": "syn-shapes-simple-7", "type": "count", "gt": {"answer": 4}, "lo": 1, "hi": 12}
+{"task_id": "t0015", "image_id": "syn-shapes-simple-8", "type": "detect", "gt": {"objects": [{"name": "purple circle", "bbox": [130, 263, 268, 401], "color": "purple", "shape": "circle"}, {"name": "yellow circle", "bbox": [297, 102, 477, 282], "color": "yellow", "shape": "circle"}, {"name": "blue square", "bbox": [53, 36, 160, 143], "color": "blue", "shape": "square"}]}}
+{"task_id": "t0016", "image_id": "syn-shapes-simple-8", "type": "count", "gt": {"answer": 3}, "lo": 1, "hi": 12}
+{"task_id": "t0017", "image_id": "syn-shapes-crowded-11", "type": "detect", "gt": {"objects": [{"name": "gray rectangle", "bbox": [328, 179, 457, 333], "color": "gray", "shape": "rectangle"}, {"name": "gray rectangle", "bbox": [60, 172, 205, 346], "color": "gray", "shape": "rectangle"}, {"name": "green circle", "bbox": [126, 254, 261, 389], "color": "green", "shape": "circle"}, {"name": "green rectangle", "bbox": [100, 381, 182, 479], "color": "green", "shape": "rectangle"}, {"name": "orange rectangle", "bbox": [197, 128, 285, 233], "color": "orange", "shape": "rectangle"}, {"name": "gray square", "bbox": [273, 331, 431, 489], "color": "gray", "shape": "square"}, {"name": "red diamond", "bbox": [48, 27, 194, 173], "color": "red", "shape": "diamond"}, {"name": "pink rectangle", "bbox": [100, 197, 253, 380], "color": "pink", "shape": "rectangle"}]}}
+{"task_id": "t0018", "image_id": "syn-shapes-crowded-11", "type": "count", "gt": {"answer": 8}, "lo": 1, "hi": 12}
+{"task_id": "t0019", "image_id": "syn-shapes-crowded-12", "type": "detect", "gt": {"objects": [{"name": "orange rectangle", "bbox": [291, 285, 445, 469], "color": "orange", "shape": "rectangle"}, {"name": "purple ellipse", "bbox": [79, 225, 167, 330], "color": "purple", "shape": "ellipse"}, {"name": "red rectangle", "bbox": [56, 267, 173, 407], "color": "red", "shape": "rectangle"}, {"name": "orange rectangle", "bbox": [56, 308, 208, 490], "color": "orange", "shape": "rectangle"}, {"name": "yellow rectangle", "bbox": [50, 119, 191, 288], "color": "yellow", "shape": "rectangle"}, {"name": "green square", "bbox": [10, 220, 136, 346], "color": "green", "shape": "square"}, {"name": "green triangle", "bbox": [221, 175, 334, 288], "color": "green", "shape": "triangle"}, {"name": "red circle", "bbox": [327, 89, 470, 232], "color": "red", "shape": "circle"}, {"name": "blue circle", "bbox": [96, 84, 231, 219], "color": "blue", "shape": "circle"}, {"name": "purple diamond", "bbox": [322, 124, 479, 281], "color": "purple", "shape": "diamond"}]}}
+{"task_id": "t0020", "image_id": "syn-shapes-crowded-12", "type": "count", "gt": {"answer": 10}, "lo": 1, "hi": 12}
+{"task_id": "t0021", "image_id": "syn-shapes-crowded-13", "type": "detect", "gt": {"objects": [{"name": "orange triangle", "bbox": [262, 71, 419, 228], "color": "orange", "shape": "triangle"}, {"name": "green diamond", "bbox": [8, 301, 161, 454], "color": "green", "shape": "diamond"}, {"name": "green circle", "bbox": [45, 149, 143, 247], "color": "green", "shape": "circle"}, {"name": "green diamond", "bbox": [150, 156, 236, 242], "color": "green", "shape": "diamond"}, {"name": "gray square", "bbox": [368, 324, 465, 421], "color": "gray", "shape": "square"}, {"name": "orange diamond", "bbox": [339, 46, 412, 119], "color": "orange", "shape": "diamond"}, {"name": "green rectangle", "bbox": [119, 265, 276, 453], "color": "green", "shape": "rectangle"}, {"name": "red ellipse", "bbox": [128, 52, 233, 178], "color": "red", "shape": "ellipse"}, {"name": "blue circle", "bbox": [226, 325, 329, 428], "color": "blue", "shape": "circle"}, {"name": "brown rectangle", "bbox": [233, 232, 320, 336], "color": "brown", "shape": "rectangle"}, {"name": "purple triangle", "bbox": [139, 183, 238, 282], "color": "purple", "shape": "triangle"}, {"name": "gray rectangle", "bbox": [321, 322, 463, 492], "color": "gray", "shape": "rectangle"}]}}
+{"task_id": "t0022", "image_id": "syn-shapes-crowded-13", "type": "count", "gt": {"answer": 12}, "lo": 1, "hi": 12}
+{"task_id": "t0023", "image_id": "syn-shapes-crowded-14", "type": "detect", "gt": {"objects": [{"name": "gray square", "bbox": [169, 279, 270, 380], "color": "gray", "shape": "square"}, {"name": "orange triangle", "bbox": [389, 228, 496, 335], "color": "orange", "shape": "triangle"}, {"name": "blue diamond", "bbox": [58, 346, 212, 500], "color": "blue", "shape": "diamond"}, {"name": "orange rectangle", "bbox": [219, 70, 348, 224], "color": "orange", "shape": "rectangle"}, {"name": "brown diamond", "bbox": [286, 55, 406, 175], "color": "brown", "shape": "diamond"}, {"name": "orange square", "bbox": [110, 155, 208, 253], "color": "orange", "shape": "square"}, {"name": "purple triangle", "bbox": [359, 131, 462, 234], "color": "purple", "shape": "triangle"}, {"name": "gray triangle", "bbox": [25, 345, 114, 434], "color": "gray", "shape": "triangle"}, {"name": "gray circle", "bbox": [162, 289, 317, 444], "color": "gray", "shape": "circle"}]}}
+{"task_id": "t0024", "image_id": "syn-shapes-crowded-14", "type": "count", "gt": {"answer": 9}, "lo": 1, "hi": 12}
+{"task_id": "t0025", "image_id": "syn-shapes-crowded-15", "type": "detect", "gt": {"objects": [{"name": "red circle", "bbox": [366, 240, 502, 376], "color": "red", "shape": "circle"}, {"name": "red diamond", "bbox": [392, 385, 482, 475], "color": "red", "shape": "diamond"}, {"name": "red circle", "bbox": [125, 319, 202, 396], "color": "red", "shape": "circle"}, {"name": "green diamond", "bbox": [96, 44, 254, 202], "color": "green", "shape": "diamond"}, {"name": "yellow triangle", "bbox": [202, 410, 286, 494], "color": "yellow", "shape": "triangle"}, {"name": "pink triangle", "bbox": [122, 234, 282, 394], "color": "pink", "shape": "triangle"}, {"name": "orange triangle", "bbox": [60, 38, 180, 158], "color": "orange", "shape": "triangle"}, {"name": "purple triangle", "bbox": [377, 44, 476, 143], "color": "purple", "shape": "triangle"}]}}
+{"task_id": "t0026", "image_id": "syn-shapes-crowded-15", "type": "count", "gt": {"answer": 8}, "lo": 1, "hi": 12}
+{"task_id": "t0027", "image_id": "syn-shapes-crowded-16", "type": "detect", "gt": {"objects": [{"name": "pink triangle", "bbox": [333, 51, 464, 182], "color": "pink", "shape": "triangle"}, {"name": "brown triangle", "bbox": [187, 339, 286, 438], "color": "brown", "shape": "triangle"}, {"name": "red rectangle", "bbox": [232, 80, 354, 226], "color": "red", "shape": "rectangle"}, {"name": "orange diamond", "bbox": [370, 338, 470, 438], "color": "orange", "shape": "diamond"}, {"name": "yellow diamond", "bbox": [277, 76, 348, 147], "color": "yellow", "shape": "diamond"}, {"name": "orange triangle", "bbox": [164, 243, 276, 355], "color": "orange", "shape": "triangle"}, {"name": "green diamond", "bbox": [272, 218, 419, 365], "color": "green", "shape": "diamond"}, {"name": "red triangle", "bbox": [144, 22, 242, 120], "color": "red", "shape": "triangle"}, {"name": "orange ellipse", "bbox": [69, 212, 141, 298], "color": "orange", "shape": "ellipse"}, {"name": "red circle", "bbox": [346, 51, 475, 180], "color": "red", "shape": "circle"}, {"name": "orange rectangle", "bbox": [196, 298, 294, 415], "color": "orange", "shape": "rectangle"}]}}
+{"task_id": "t0028", "image_id": "syn-shapes-crowded-16", "type": "count", "gt": {"answer": 11}, "lo": 1, "hi": 12}
+{"task_id": "t0029", "image_id": "syn-shapes-crowded-17", "type": "detect", "gt": {"objects": [{"name": "brown ellipse", "bbox": [229, 227, 337, 356], "color": "brown", "shape": "ellipse"}, {"name": "orange triangle", "bbox": [34, 249, 126, 341], "color": "orange", "shape": "triangle"}, {"name": "gray diamond", "bbox": [18, 262, 172, 416], "color": "gray", "shape": "diamond"}, {"name": "blue triangle", "bbox": [290, 37, 363, 110], "color": "blue", "shape": "triangle"}, {"name": "brown circle", "bbox": [80, 149, 203, 272], "color": "brown", "shape": "circle"}, {"name": "gray triangle", "bbox": [5, 113, 115, 223], "color": "gray", "shape": "triangle"}, {"name": "brown diamond", "bbox": [38, 342, 125, 429], "color": "brown", "shape": "diamond"}, {"name": "red ellipse", "bbox": [106, 66, 193, 170], "color": "red", "shape": "ellipse"}, {"name": "green circle", "bbox": [44, 91, 204, 251], "color": "green", "shape": "circle"}, {"name": "gray ellipse", "bbox": [47, 10, 204, 198], "color": "gray", "shape": "ellipse"}]}}
+{"task_id": "t0030", "image_id": "syn-shapes-crowded-17", "type": "count", "gt": {"answer": 10}, "lo": 1, "hi": 12}
+{"task_id": "t0031", "image_id": "syn-shapes-crowded-18", "type": "detect", "gt": {"objects": [{"name": "blue circle", "bbox": [246, 203, 400, 357], "color": "blue", "shape": "circle"}, {"name": "purple rectangle", "bbox": [407, 241, 507, 361], "color": "purple", "shape": "rectangle"}, {"name": "pink circle", "bbox": [256, 318, 406, 468], "color": "pink", "shape": "circle"}, {"name": "green rectangle", "bbox": [81, 320, 212, 477], "color": "green", "shape": "rectangle"}, {"name": "pink triangle", "bbox": [287, 119, 390, 222], "color": "pink", "shape": "triangle"}, {"name": "orange circle", "bbox": [260, 325, 418, 483], "color": "orange", "shape": "circle"}, {"name": "purple square", "bbox": [324, 209, 460, 345], "color": "purple", "shape": "square"}, {"name": "green diamond", "bbox": [340, 314, 440, 414], "color": "green", "shape": "diamond"}, {"name": "yellow circle", "bbox": [177, 263, 272, 358], "color": "yellow", "shape": "circle"}, {"name": "purple diamond", "bbox": [219, 342, 362, 485], "color": "purple", "shape": "diamond"}, {"name": "yellow ellipse", "bbox": [150, 315, 306, 502], "color": "yellow", "shape": "ellipse"}, {"name": "yellow rectangle", "bbox": [66, 187, 174, 316], "color": "yellow", "shape": "rectangle"}]}}
+{"task_id": "t0032", "image_id": "syn-shapes-crowded-18", "type": "count", "gt": {"answer": 12}, "lo": 1, "hi": 12}
+{"task_id": "t0033", "image_id": "syn-shapes-small-21", "type": "detect", "gt": {"objects": [{"name": "brown circle", "bbox": [218, 329, 245, 356], "color": "brown", "shape": "circle"}]}}
+{"task_id": "t0034", "image_id": "syn-shapes-small-21", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a brown circle in this image?"}
+{"task_id": "t0035", "image_id": "syn-shapes-small-22", "type": "detect", "gt": {"objects": [{"name": "yellow circle", "bbox": [317, 232, 333, 248], "color": "yellow", "shape": "circle"}]}}
+{"task_id": "t0036", "image_id": "syn-shapes-small-22", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a yellow circle in this image?"}
+{"task_id": "t0037", "image_id": "syn-shapes-small-23", "type": "detect", "gt": {"objects": [{"name": "blue triangle", "bbox": [307, 161, 323, 177], "color": "blue", "shape": "triangle"}]}}
+{"task_id": "t0038", "image_id": "syn-shapes-small-23", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a blue triangle in this image?"}
+{"task_id": "t0039", "image_id": "syn-shapes-pairs-31", "type": "detect", "gt": {"objects": [{"name": "red square", "bbox": [10, 244, 130, 364], "color": "red", "shape": "square"}, {"name": "blue circle", "bbox": [26, 75, 146, 195], "color": "blue", "shape": "circle"}]}}
+{"task_id": "t0040", "image_id": "syn-shapes-pairs-31", "type": "relation", "gt": {"answer": "below", "question": "Object A is a red square and object B is a blue circle. Where is A relative to B?"}, "options": ["left of", "right of", "above", "below"]}
+{"task_id": "t0041", "image_id": "syn-shapes-pairs-32", "type": "detect", "gt": {"objects": [{"name": "green circle", "bbox": [43, 113, 143, 213], "color": "green", "shape": "circle"}, {"name": "yellow triangle", "bbox": [361, 125, 461, 225], "color": "yellow", "shape": "triangle"}]}}
+{"task_id": "t0042", "image_id": "syn-shapes-pairs-32", "type": "relation", "gt": {"answer": "left of", "question": "Object A is a green circle and object B is a yellow triangle. Where is A relative to B?"}, "options": ["left of", "right of", "above", "below"]}
+{"task_id": "t0043", "image_id": "syn-shapes-pairs-33", "type": "detect", "gt": {"objects": [{"name": "orange rectangle", "bbox": [296, 89, 436, 257], "color": "orange", "shape": "rectangle"}, {"name": "purple diamond", "bbox": [145, 249, 235, 339], "color": "purple", "shape": "diamond"}]}}
+{"task_id": "t0044", "image_id": "syn-shapes-pairs-33", "type": "relation", "gt": {"answer": "right of", "question": "Object A is a orange rectangle and object B is a purple diamond. Where is A relative to B?"}, "options": ["left of", "right of", "above", "below"]}
+{"task_id": "t0045", "image_id": "syn-shapes-pairs-34", "type": "detect", "gt": {"objects": [{"name": "pink ellipse", "bbox": [274, 186, 384, 318], "color": "pink", "shape": "ellipse"}, {"name": "brown square", "bbox": [303, 18, 413, 128], "color": "brown", "shape": "square"}]}}
+{"task_id": "t0046", "image_id": "syn-shapes-pairs-34", "type": "relation", "gt": {"answer": "below", "question": "Object A is a pink ellipse and object B is a brown square. Where is A relative to B?"}, "options": ["left of", "right of", "above", "below"]}
+{"task_id": "t0047", "image_id": "syn-shapes-counts-41", "type": "count", "gt": {"answer": 1}, "lo": 1, "hi": 6}
+{"task_id": "t0048", "image_id": "syn-shapes-counts-42", "type": "count", "gt": {"answer": 2}, "lo": 1, "hi": 6}
+{"task_id": "t0049", "image_id": "syn-shapes-counts-43", "type": "count", "gt": {"answer": 3}, "lo": 1, "hi": 6}
+{"task_id": "t0050", "image_id": "syn-shapes-counts-44", "type": "count", "gt": {"answer": 5}, "lo": 1, "hi": 6}
+{"task_id": "t0051", "image_id": "syn-shapes-counts-45", "type": "count", "gt": {"answer": 6}, "lo": 1, "hi": 6}
+{"task_id": "t0052", "image_id": "syn-shapes-faint-51", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a gray circle in this image?"}
+{"task_id": "t0053", "image_id": "syn-shapes-faint-52", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a red triangle in this image?"}
+{"task_id": "t0054", "image_id": "syn-shapes-blank-61", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a red square in this image?"}
+{"task_id": "t0055", "image_id": "syn-shapes-blank-62", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a red square in this image?"}
+{"task_id": "t0056", "image_id": "syn-shapes-blank-63", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a red square in this image?"}
+{"task_id": "t0057", "image_id": "syn-shapes-blank-64", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a red square in this image?"}
+{"task_id": "t0058", "image_id": "syn-noise-71", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a red square in this image?"}
+{"task_id": "t0059", "image_id": "syn-noise-72", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a red square in this image?"}
+{"task_id": "t0060", "image_id": "syn-gradient-73", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a red square in this image?"}
+{"task_id": "t0061", "image_id": "syn-doc-101", "type": "ocr", "gt": {"text": ["Order confirmation", "vat 8842 date total net amount balance 24 invoice", "amount number date due 137.50 amount client due date vat 8842 amount 2026", "24 street Vienna amount due Vienna date invoice amount item balance", "137.50 street street 24 Vienna due street Vienna order date amount", "item 8842 order 8842 8842 order 137.50 paid price total Vienna client 137.50 due", "street 8842 paid 2026 client 2026 net invoice"]}}
+{"task_id": "t0062", "image_id": "syn-doc-101", "type": "text_presence", "gt": {"true_query": "item 8842 order 8842 8842 order 137.50 paid price total Vienna client 137.50 due", "false_query": "item 8842 order 8842 8842 order 137.50 paid price total Vienna client 137.50 zebra"}, "true_query": "item 8842 order 8842 8842 order 137.50 paid price total Vienna client 137.50 due", "false_query": "item 8842 order 8842 8842 order 137.50 paid price total Vienna client 137.50 zebra"}
+{"task_id": "t0063", "image_id": "syn-doc-102", "type": "ocr", "gt": {"text": ["INVOICE 8842", "balance 8842 client vat balance client street invoice", "paid paid total net vat balance net client street date 24 net", "due total client balance paid date net 24"]}}
+{"task_id": "t0064", "image_id": "syn-doc-102", "type": "text_presence", "gt": {"true_query": "paid paid total net vat balance net client street date 24 net", "false_query": "paid paid total net vat balance net client street date 24 zebra"}, "true_query": "paid paid total net vat balance net client street date 24 net", "false_query": "paid paid total net vat balance net client street date 24 zebra"}
+{"task_id": "t0065", "image_id": "syn-doc-103", "type": "ocr", "gt": {"text": ["Statement of account", "amount due balance item street date number item 2026 due price 24 paid", "total 24 item price balance net", "client Vienna paid Vienna 24 paid balance 24 due 8842", "paid amount balance net 2026 137.50 invoice amount net", "net amount net invoice total 2026 price price Vienna net 137.50 item 2026", "item due invoice 2026 item paid item street invoice order vat", "balance balance street street date 137.50 due client date total number invoice order", "24 paid 24 balance 24 24 street price paid due street order 2026 date"]}}
+{"task_id": "t0066", "image_id": "syn-doc-103", "type": "text_presence", "gt": {"true_query": "total 24 item price balance net", "false_query": "total 24 item price balance zebra"}, "true_query": "total 24 item price balance net", "false_query": "total 24 item price balance zebra"}
+{"task_id": "t0067", "image_id": "syn-doc-104", "type": "ocr", "gt": {"text": ["Receipt", "amount 24 street number order price", "client item price item due number"]}}
+{"task_id": "t0068", "image_id": "syn-doc-104", "type": "text_presence", "gt": {"true_query": "Receipt", "false_query": "zebra"}, "true_query": "Receipt", "false_query": "zebra"}
+{"task_id": "t0069", "image_id": "syn-doc-105", "type": "ocr", "gt": {"text": ["Order summary", "total 137.50", "due date 2026-12-01", "thanks for your order", "paid item order invoice net paid number invoice client 8842 client", "item street 8842 client Vienna balance street date"]}}
+{"task_id": "t0070", "image_id": "syn-doc-105", "type": "text_presence", "gt": {"true_query": "due date 2026-12-01", "false_query": "due date zebra"}, "true_query": "due date 2026-12-01", "false_query": "due date zebra"}
+{"task_id": "t0071", "image_id": "syn-doc-106", "type": "ocr", "gt": {"text": ["Packing slip", "item 3 x 12.00", "vat 20 percent", "net 36.00", "order vat net 2026 total 137.50 due amount 2026 8842 Vienna date invoice"]}}
+{"task_id": "t0072", "image_id": "syn-doc-106", "type": "text_presence", "gt": {"true_query": "order vat net 2026 total 137.50 due amount 2026 8842 Vienna date invoice", "false_query": "order vat net 2026 total 137.50 due amount 2026 8842 Vienna date zebra"}, "true_query": "order vat net 2026 total 137.50 due amount 2026 8842 Vienna date invoice", "false_query": "order vat net 2026 total 137.50 due amount 2026 8842 Vienna date zebra"}
+{"task_id": "t0073", "image_id": "syn-doc-107", "type": "ocr", "gt": {"text": ["Shipping label", "balance paid Vienna 2026 invoice price Vienna vat item", "invoice balance total 137.50 number amount client paid amount price", "price 24 8842 item due client due 2026 amount price date 137.50 due 24", "Vienna Vienna 24 due balance invoice street invoice invoice total", "invoice client 24 24 paid item balance date amount amount invoice 2026", "vat net date number order street balance paid total 2026 street item net", "137.50 order 24 street vat balance invoice 137.50 street street 8842"]}}
+{"task_id": "t0074", "image_id": "syn-doc-107", "type": "text_presence", "gt": {"true_query": "Shipping label", "false_query": "Shipping zebra"}, "true_query": "Shipping label", "false_query": "Shipping zebra"}
+{"task_id": "t0075", "image_id": "syn-doc-108", "type": "ocr", "gt": {"text": ["Warranty card", "due street 137.50 street amount due invoice amount", "amount number amount item amount due vat Vienna", "vat number street amount balance total paid"]}}
+{"task_id": "t0076", "image_id": "syn-doc-108", "type": "text_presence", "gt": {"true_query": "due street 137.50 street amount due invoice amount", "false_query": "due street 137.50 street amount due invoice zebra"}, "true_query": "due street 137.50 street amount due invoice amount", "false_query": "due street 137.50 street amount due invoice zebra"}
+{"task_id": "t0077", "image_id": "syn-doc-109", "type": "ocr", "gt": {"text": ["Bank statement", "24 date date vat total item 24 net 2026 invoice", "due 24 date net 137.50 Vienna client invoice vat net number due net client", "number balance amount price balance client", "date price Vienna 8842 price client total order street street 2026 item", "amount date net paid item total 137.50 date 8842 paid", "order total Vienna due 2026 invoice amount 8842 street 24 balance 137.50 2026"]}}
+{"task_id": "t0078", "image_id": "syn-doc-109", "type": "text_presence", "gt": {"true_query": "Bank statement", "false_query": "Bank zebra"}, "true_query": "Bank statement", "false_query": "Bank zebra"}
+{"task_id": "t0079", "image_id": "syn-doc-110", "type": "ocr", "gt": {"text": ["Purchase order 5512", "balance 24 Vienna 2026 137.50 vat due vat Vienna net number total", "net due price date order net Vienna", "137.50 invoice 8842 8842 net item Vienna vat date", "price amount 137.50 Vienna 2026 24 client date 24 due", "number number 24 client invoice price amount 137.50 client order balance 137.50 price"]}}
+{"task_id": "t0080", "image_id": "syn-doc-110", "type": "text_presence", "gt": {"true_query": "number number 24 client invoice price amount 137.50 client order balance 137.50 price", "false_query": "number number 24 client invoice price amount 137.50 client order balance 137.50 zebra"}, "true_query": "number number 24 client invoice price amount 137.50 client order balance 137.50 price", "false_query": "number number 24 client invoice price amount 137.50 client order balance 137.50 zebra"}
+{"task_id": "t0081", "image_id": "syn-doc-111", "type": "ocr", "gt": {"text": ["Delivery note", "number 2026 amount street Vienna balance client amount Vienna", "24 client date Vienna street 137.50 street 24 8842 2026 total number 24 paid", "Vienna due Vienna net item invoice item number date amount number 24 net", "order Vienna net invoice 2026 2026"]}}
+{"task_id": "t0082", "image_id": "syn-doc-111", "type": "text_presence", "gt": {"true_query": "24 client date Vienna street 137.50 street 24 8842 2026 total number 24 paid", "false_query": "24 client date Vienna street 137.50 street 24 8842 2026 total number 24 zebra"}, "true_query": "24 client date Vienna street 137.50 street 24 8842 2026 total number 24 paid", "false_query": "24 client date Vienna street 137.50 street 24 8842 2026 total number 24 zebra"}
+{"task_id": "t0083", "image_id": "syn-doc-112", "type": "ocr", "gt": {"text": ["Fine print", "paid balance invoice date Vienna client 8842 24 net date order street balance", "date date 137.50 8842 amount 24 balance client date", "8842 Vienna balance street 137.50 order due due 24 invoice street due paid order", "24 137.50 vat 2026 order 137.50 Vienna", "client invoice vat Vienna price net balance item amount balance 137.50 24 paid paid", "Vienna street 24 balance client due number balance", "paid item vat number item 2026 item", "net net client 137.50 due order net order number 8842 137.50 street 2026"]}}
+{"task_id": "t0084", "image_id": "syn-doc-112", "type": "text_presence", "gt": {"true_query": "8842 Vienna balance street 137.50 order due due 24 invoice street due paid order", "false_query": "8842 Vienna balance street 137.50 order due due 24 invoice street due paid zebra"}, "true_query": "8842 Vienna balance street 137.50 order due due 24 invoice street due paid order", "false_query": "8842 Vienna balance street 137.50 order due due 24 invoice street due paid zebra"}
+{"task_id": "t0085", "image_id": "syn-ui-window-201", "type": "ui_presence", "gt": {"present": ["button", "menu item"], "absent": ["toggle", "minimap"]}, "candidates": ["button", "menu item", "toggle", "minimap"]}
+{"task_id": "t0086", "image_id": "syn-ui-window-201", "type": "text_presence", "gt": {"true_query": "File", "false_query": "zebra"}, "true_query": "File", "false_query": "zebra"}
+{"task_id": "t0087", "image_id": "syn-ui-mobile-202", "type": "ui_presence", "gt": {"present": ["app icon"], "absent": ["button", "toggle"]}, "candidates": ["app icon", "button", "toggle"]}
+{"task_id": "t0088", "image_id": "syn-ui-mobile-202", "type": "text_presence", "gt": {"true_query": "12:44", "false_query": "zebra"}, "true_query": "12:44", "false_query": "zebra"}
+{"task_id": "t0089", "image_id": "syn-ui-dialog-203", "type": "ui_presence", "gt": {"present": ["button"], "absent": ["toggle", "menu item"]}, "candidates": ["button", "toggle", "menu item"]}
+{"task_id": "t0090", "image_id": "syn-ui-dialog-203", "type": "text_presence", "gt": {"true_query": "Confirm action?", "false_query": "Confirm zebra"}, "true_query": "Confirm action?", "false_query": "Confirm zebra"}
+{"task_id": "t0091", "image_id": "syn-ui-terminal-204", "type": "ui_presence", "gt": {"present": [], "absent": ["button", "toggle"]}, "candidates": ["button", "toggle"]}
+{"task_id": "t0092", "image_id": "syn-ui-terminal-204", "type": "text_presence", "gt": {"true_query": "$ df -h /", "false_query": "$ df -h zebra"}, "true_query": "$ df -h /", "false_query": "$ df -h zebra"}
+{"task_id": "t0093", "image_id": "syn-ui-chart-205", "type": "ui_presence", "gt": {"present": ["bar"], "absent": ["button", "toggle"]}, "candidates": ["bar", "button", "toggle"]}
+{"task_id": "t0094", "image_id": "syn-ui-chart-205", "type": "text_presence", "gt": {"true_query": "Thu", "false_query": "zebra"}, "true_query": "Thu", "false_query": "zebra"}
+{"task_id": "t0095", "image_id": "syn-ui-settings-206", "type": "ui_presence", "gt": {"present": ["toggle"], "absent": ["button", "menu item"]}, "candidates": ["toggle", "button", "menu item"]}
+{"task_id": "t0096", "image_id": "syn-ui-settings-206", "type": "text_presence", "gt": {"true_query": "Settings", "false_query": "zebra"}, "true_query": "Settings", "false_query": "zebra"}
+{"task_id": "t0097", "image_id": "syn-ui-hud-207", "type": "ui_presence", "gt": {"present": ["minimap", "crosshair"], "absent": ["button", "toggle"]}, "candidates": ["minimap", "crosshair", "button", "toggle"]}
+{"task_id": "t0098", "image_id": "syn-ui-window-208", "type": "ui_presence", "gt": {"present": ["button", "menu item"], "absent": ["toggle", "minimap"]}, "candidates": ["button", "menu item", "toggle", "minimap"]}
+{"task_id": "t0099", "image_id": "syn-ui-window-208", "type": "text_presence", "gt": {"true_query": "Edit", "false_query": "zebra"}, "true_query": "Edit", "false_query": "zebra"}
+{"task_id": "t0100", "image_id": "syn-ui-mobile-209", "type": "ui_presence", "gt": {"present": ["app icon"], "absent": ["button", "toggle"]}, "candidates": ["app icon", "button", "toggle"]}
+{"task_id": "t0101", "image_id": "syn-ui-mobile-209", "type": "text_presence", "gt": {"true_query": "Home screen", "false_query": "Home zebra"}, "true_query": "Home screen", "false_query": "Home zebra"}
+{"task_id": "t0102", "image_id": "syn-ui-dialog-210", "type": "ui_presence", "gt": {"present": ["button"], "absent": ["toggle", "menu item"]}, "candidates": ["button", "toggle", "menu item"]}
+{"task_id": "t0103", "image_id": "syn-ui-dialog-210", "type": "text_presence", "gt": {"true_query": "Confirm action?", "false_query": "Confirm zebra"}, "true_query": "Confirm action?", "false_query": "Confirm zebra"}
+{"task_id": "t0104", "image_id": "syn-ui-terminal-211", "type": "ui_presence", "gt": {"present": [], "absent": ["button", "toggle"]}, "candidates": ["button", "toggle"]}
+{"task_id": "t0105", "image_id": "syn-ui-terminal-211", "type": "text_presence", "gt": {"true_query": "/dev/sda1  50G   32G    14G", "false_query": "/dev/sda1 50G 32G zebra"}, "true_query": "/dev/sda1  50G   32G    14G", "false_query": "/dev/sda1 50G 32G zebra"}
+{"task_id": "t0106", "image_id": "syn-ui-chart-212", "type": "ui_presence", "gt": {"present": ["bar"], "absent": ["button", "toggle"]}, "candidates": ["bar", "button", "toggle"]}
+{"task_id": "t0107", "image_id": "syn-ui-chart-212", "type": "text_presence", "gt": {"true_query": "Tue", "false_query": "zebra"}, "true_query": "Tue", "false_query": "zebra"}
+{"task_id": "t0108", "image_id": "syn-ui-settings-213", "type": "ui_presence", "gt": {"present": ["toggle"], "absent": ["button", "menu item"]}, "candidates": ["toggle", "button", "menu item"]}
+{"task_id": "t0109", "image_id": "syn-ui-settings-213", "type": "text_presence", "gt": {"true_query": "Dark mode", "false_query": "Dark zebra"}, "true_query": "Dark mode", "false_query": "Dark zebra"}
+{"task_id": "t0110", "image_id": "syn-ui-hud-214", "type": "ui_presence", "gt": {"present": ["minimap", "crosshair"], "absent": ["button", "toggle"]}, "candidates": ["minimap", "crosshair", "button", "toggle"]}
+{"task_id": "t0111", "image_id": "com-everyday-00", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a cat in this image?"}
+{"task_id": "t0112", "image_id": "com-everyday-00", "type": "choice", "gt": {"answer": "cat", "question": "What is the main subject of this image?"}, "options": ["cat", "dog", "car", "book"]}
+{"task_id": "t0113", "image_id": "com-everyday-01", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a dog in this image?"}
+{"task_id": "t0114", "image_id": "com-everyday-01", "type": "choice", "gt": {"answer": "dog", "question": "What is the main subject of this image?"}, "options": ["dog", "cat", "horse", "bicycle"]}
+{"task_id": "t0115", "image_id": "com-everyday-02", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a horse in this image?"}
+{"task_id": "t0116", "image_id": "com-everyday-02", "type": "choice", "gt": {"answer": "horse", "question": "What is the main subject of this image?"}, "options": ["horse", "deer", "dog", "boat"]}
+{"task_id": "t0117", "image_id": "com-everyday-03", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a truck in this image?"}
+{"task_id": "t0118", "image_id": "com-everyday-03", "type": "choice", "gt": {"answer": "truck", "question": "What is the main subject of this image?"}, "options": ["truck", "bicycle", "boat", "train"]}
+{"task_id": "t0119", "image_id": "com-everyday-04", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a bicycle in this image?"}
+{"task_id": "t0120", "image_id": "com-everyday-04", "type": "choice", "gt": {"answer": "bicycle", "question": "What is the main subject of this image?"}, "options": ["bicycle", "car", "boat", "cart"]}
+{"task_id": "t0121", "image_id": "com-everyday-05", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a chair in this image?"}
+{"task_id": "t0122", "image_id": "com-everyday-05", "type": "choice", "gt": {"answer": "chair", "question": "What is the main subject of this image?"}, "options": ["chair", "piano", "book", "car"]}
+{"task_id": "t0123", "image_id": "com-everyday-06", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a table in this image?"}
+{"task_id": "t0124", "image_id": "com-everyday-06", "type": "choice", "gt": {"answer": "table", "question": "What is the main subject of this image?"}, "options": ["table", "chair", "book", "bottle"]}
+{"task_id": "t0125", "image_id": "com-everyday-07", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a bottle in this image?"}
+{"task_id": "t0126", "image_id": "com-everyday-07", "type": "choice", "gt": {"answer": "bottle", "question": "What is the main subject of this image?"}, "options": ["bottle", "apple", "cup", "phone"]}
+{"task_id": "t0127", "image_id": "com-everyday-08", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a cup in this image?"}
+{"task_id": "t0128", "image_id": "com-everyday-08", "type": "choice", "gt": {"answer": "cup", "question": "What is the main subject of this image?"}, "options": ["cup", "spoon", "bowl", "bottle"]}
+{"task_id": "t0129", "image_id": "com-everyday-09", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a laptop in this image?"}
+{"task_id": "t0130", "image_id": "com-everyday-09", "type": "choice", "gt": {"answer": "laptop", "question": "What is the main subject of this image?"}, "options": ["laptop", "book", "phone", "television"]}
+{"task_id": "t0131", "image_id": "com-everyday-10", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a book in this image?"}
+{"task_id": "t0132", "image_id": "com-everyday-10", "type": "choice", "gt": {"answer": "book", "question": "What is the main subject of this image?"}, "options": ["book", "car", "chair", "newspaper"]}
+{"task_id": "t0133", "image_id": "com-everyday-11", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a apple in this image?"}
+{"task_id": "t0134", "image_id": "com-everyday-11", "type": "choice", "gt": {"answer": "apple", "question": "What is the main subject of this image?"}, "options": ["apple", "banana", "orange", "grape"]}
+{"task_id": "t0135", "image_id": "com-everyday-12", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a banana in this image?"}
+{"task_id": "t0136", "image_id": "com-everyday-12", "type": "choice", "gt": {"answer": "banana", "question": "What is the main subject of this image?"}, "options": ["banana", "apple", "carrot", "bread"]}
+{"task_id": "t0137", "image_id": "com-everyday-13", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a bird in this image?"}
+{"task_id": "t0138", "image_id": "com-everyday-13", "type": "choice", "gt": {"answer": "bird", "question": "What is the main subject of this image?"}, "options": ["bird", "fish", "cat", "butterfly"]}
+{"task_id": "t0139", "image_id": "com-everyday-14", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a sailboat in this image?"}
+{"task_id": "t0140", "image_id": "com-everyday-14", "type": "choice", "gt": {"answer": "sailboat", "question": "What is the main subject of this image?"}, "options": ["sailboat", "car", "bridge", "balloon"]}
+{"task_id": "t0141", "image_id": "com-everyday-15", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a bridge in this image?"}
+{"task_id": "t0142", "image_id": "com-everyday-15", "type": "choice", "gt": {"answer": "bridge", "question": "What is the main subject of this image?"}, "options": ["bridge", "tower", "crane", "boat"]}
+{"task_id": "t0143", "image_id": "com-everyday-16", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a clock in this image?"}
+{"task_id": "t0144", "image_id": "com-everyday-16", "type": "choice", "gt": {"answer": "clock", "question": "What is the main subject of this image?"}, "options": ["clock", "watch", "phone", "mirror"]}
+{"task_id": "t0145", "image_id": "com-everyday-17", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a umbrella in this image?"}
+{"task_id": "t0146", "image_id": "com-everyday-17", "type": "choice", "gt": {"answer": "umbrella", "question": "What is the main subject of this image?"}, "options": ["umbrella", "hat", "balloon", "lamp"]}
+{"task_id": "t0147", "image_id": "com-everyday-18", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a guitar in this image?"}
+{"task_id": "t0148", "image_id": "com-everyday-18", "type": "choice", "gt": {"answer": "guitar", "question": "What is the main subject of this image?"}, "options": ["guitar", "piano", "violin", "drum"]}
+{"task_id": "t0149", "image_id": "com-everyday-19", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a bus in this image?"}
+{"task_id": "t0150", "image_id": "com-everyday-19", "type": "choice", "gt": {"answer": "bus", "question": "What is the main subject of this image?"}, "options": ["bus", "train", "tram", "truck"]}
+{"task_id": "t0151", "image_id": "com-everyday-20", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a train in this image?"}
+{"task_id": "t0152", "image_id": "com-everyday-20", "type": "choice", "gt": {"answer": "train", "question": "What is the main subject of this image?"}, "options": ["train", "bus", "truck", "boat"]}
+{"task_id": "t0153", "image_id": "com-everyday-21", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a airplane in this image?"}
+{"task_id": "t0154", "image_id": "com-everyday-21", "type": "choice", "gt": {"answer": "airplane", "question": "What is the main subject of this image?"}, "options": ["airplane", "bird", "helicopter", "kite"]}
+{"task_id": "t0155", "image_id": "com-everyday-22", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a television in this image?"}
+{"task_id": "t0156", "image_id": "com-everyday-22", "type": "choice", "gt": {"answer": "television", "question": "What is the main subject of this image?"}, "options": ["television", "monitor", "radio", "phone"]}
+{"task_id": "t0157", "image_id": "com-crowded-00", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0158", "image_id": "com-crowded-00", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0159", "image_id": "com-crowded-00", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a boats in this image?"}
+{"task_id": "t0160", "image_id": "com-crowded-01", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0161", "image_id": "com-crowded-01", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a bicycles in this image?"}
+{"task_id": "t0162", "image_id": "com-crowded-01", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a dogs in this image?"}
+{"task_id": "t0163", "image_id": "com-crowded-02", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0164", "image_id": "com-crowded-02", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a trains in this image?"}
+{"task_id": "t0165", "image_id": "com-crowded-02", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a boats in this image?"}
+{"task_id": "t0166", "image_id": "com-crowded-03", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0167", "image_id": "com-crowded-03", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a bicycles in this image?"}
+{"task_id": "t0168", "image_id": "com-crowded-03", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0169", "image_id": "com-crowded-04", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0170", "image_id": "com-crowded-04", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a trains in this image?"}
+{"task_id": "t0171", "image_id": "com-crowded-04", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a boats in this image?"}
+{"task_id": "t0172", "image_id": "com-crowded-05", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a motorcycles in this image?"}
+{"task_id": "t0173", "image_id": "com-crowded-05", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a trains in this image?"}
+{"task_id": "t0174", "image_id": "com-crowded-05", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a boats in this image?"}
+{"task_id": "t0175", "image_id": "com-crowded-07", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a fish in this image?"}
+{"task_id": "t0176", "image_id": "com-crowded-07", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0177", "image_id": "com-crowded-07", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a bicycles in this image?"}
+{"task_id": "t0178", "image_id": "com-crowded-09", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0179", "image_id": "com-crowded-09", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a trains in this image?"}
+{"task_id": "t0180", "image_id": "com-crowded-09", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0181", "image_id": "com-crowded-10", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0182", "image_id": "com-crowded-10", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a trains in this image?"}
+{"task_id": "t0183", "image_id": "com-crowded-10", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a boats in this image?"}
+{"task_id": "t0184", "image_id": "com-crowded-11", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0185", "image_id": "com-crowded-11", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a trains in this image?"}
+{"task_id": "t0186", "image_id": "com-crowded-11", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a boats in this image?"}
+{"task_id": "t0187", "image_id": "com-negative-00", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0188", "image_id": "com-negative-00", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a people in this image?"}
+{"task_id": "t0189", "image_id": "com-negative-00", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a tables in this image?"}
+{"task_id": "t0190", "image_id": "com-negative-01", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0191", "image_id": "com-negative-01", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a people in this image?"}
+{"task_id": "t0192", "image_id": "com-negative-01", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a tables in this image?"}
+{"task_id": "t0193", "image_id": "com-negative-02", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0194", "image_id": "com-negative-02", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a people in this image?"}
+{"task_id": "t0195", "image_id": "com-negative-02", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a tables in this image?"}
+{"task_id": "t0196", "image_id": "com-negative-03", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0197", "image_id": "com-negative-03", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a people in this image?"}
+{"task_id": "t0198", "image_id": "com-negative-03", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a tables in this image?"}
+{"task_id": "t0199", "image_id": "com-negative-05", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0200", "image_id": "com-negative-05", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a people in this image?"}
+{"task_id": "t0201", "image_id": "com-negative-05", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a tables in this image?"}
+{"task_id": "t0202", "image_id": "com-everyday-23", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a phone in this image?"}
+{"task_id": "t0203", "image_id": "com-everyday-23", "type": "choice", "gt": {"answer": "phone", "question": "What is the main subject of this image?"}, "options": ["phone", "tablet", "camera", "laptop"]}
+{"task_id": "t0204", "image_id": "com-everyday-23", "type": "text_presence", "gt": {"true_query": "ChatGPT", "false_query": "Claude"}, "true_query": "ChatGPT", "false_query": "Claude"}
+{"task_id": "t0205", "image_id": "com-everyday-24", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a flower in this image?"}
+{"task_id": "t0206", "image_id": "com-everyday-24", "type": "choice", "gt": {"answer": "flower", "question": "What is the main subject of this image?"}, "options": ["flower", "fruit", "vegetable", "tree"]}
+{"task_id": "t0207", "image_id": "com-crowded-08", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a boats in this image?"}
+{"task_id": "t0208", "image_id": "com-crowded-08", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a trains in this image?"}
+{"task_id": "t0209", "image_id": "com-crowded-08", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0210", "image_id": "com-negative-04", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0211", "image_id": "com-negative-04", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a people in this image?"}
+{"task_id": "t0212", "image_id": "com-negative-04", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a tables in this image?"}
+{"task_id": "t0213", "image_id": "com-crowded-06", "type": "presence", "gt": {"answer": "yes"}, "query": "Is there a people in this image?"}
+{"task_id": "t0214", "image_id": "com-crowded-06", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a cars in this image?"}
+{"task_id": "t0215", "image_id": "com-crowded-06", "type": "presence", "gt": {"answer": "no"}, "query": "Is there a boats in this image?"}
+{"task_id": "t0216", "image_id": "syn-shapes-simple-1", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0217", "image_id": "syn-shapes-simple-2", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0218", "image_id": "syn-shapes-simple-3", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0219", "image_id": "syn-shapes-simple-4", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0220", "image_id": "syn-shapes-simple-5", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0221", "image_id": "syn-shapes-simple-6", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0222", "image_id": "syn-shapes-simple-7", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0223", "image_id": "syn-shapes-simple-8", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0224", "image_id": "syn-shapes-crowded-11", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0225", "image_id": "syn-shapes-crowded-12", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0226", "image_id": "syn-shapes-crowded-13", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0227", "image_id": "syn-shapes-crowded-14", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0228", "image_id": "syn-shapes-crowded-15", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0229", "image_id": "syn-shapes-crowded-16", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0230", "image_id": "syn-shapes-crowded-17", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0231", "image_id": "syn-shapes-crowded-18", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0232", "image_id": "syn-shapes-small-21", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0233", "image_id": "syn-shapes-small-22", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0234", "image_id": "syn-shapes-small-23", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0235", "image_id": "syn-shapes-pairs-31", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0236", "image_id": "syn-shapes-pairs-32", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0237", "image_id": "syn-shapes-pairs-33", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0238", "image_id": "syn-shapes-pairs-34", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0239", "image_id": "syn-shapes-counts-41", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0240", "image_id": "syn-shapes-counts-42", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0241", "image_id": "syn-shapes-counts-43", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0242", "image_id": "syn-shapes-counts-44", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0243", "image_id": "syn-shapes-counts-45", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0244", "image_id": "syn-shapes-faint-51", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0245", "image_id": "syn-shapes-faint-52", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0246", "image_id": "syn-shapes-blank-61", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0247", "image_id": "syn-shapes-blank-62", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0248", "image_id": "syn-shapes-blank-63", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0249", "image_id": "syn-shapes-blank-64", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0250", "image_id": "syn-noise-71", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0251", "image_id": "syn-noise-72", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0252", "image_id": "syn-gradient-73", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0253", "image_id": "syn-doc-101", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0254", "image_id": "syn-doc-102", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0255", "image_id": "syn-doc-103", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0256", "image_id": "syn-doc-104", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0257", "image_id": "syn-doc-105", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0258", "image_id": "syn-doc-106", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0259", "image_id": "syn-doc-107", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0260", "image_id": "syn-doc-108", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0261", "image_id": "syn-doc-109", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0262", "image_id": "syn-doc-110", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0263", "image_id": "syn-doc-111", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0264", "image_id": "syn-doc-112", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0265", "image_id": "syn-ui-window-201", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0266", "image_id": "syn-ui-mobile-202", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0267", "image_id": "syn-ui-dialog-203", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0268", "image_id": "syn-ui-terminal-204", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0269", "image_id": "syn-ui-chart-205", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0270", "image_id": "syn-ui-settings-206", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0271", "image_id": "syn-ui-hud-207", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0272", "image_id": "syn-ui-window-208", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0273", "image_id": "syn-ui-mobile-209", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0274", "image_id": "syn-ui-dialog-210", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0275", "image_id": "syn-ui-terminal-211", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0276", "image_id": "syn-ui-chart-212", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0277", "image_id": "syn-ui-settings-213", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0278", "image_id": "syn-ui-hud-214", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0279", "image_id": "com-everyday-00", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0280", "image_id": "com-everyday-01", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0281", "image_id": "com-everyday-02", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0282", "image_id": "com-everyday-03", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0283", "image_id": "com-everyday-04", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0284", "image_id": "com-everyday-05", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0285", "image_id": "com-everyday-06", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0286", "image_id": "com-everyday-07", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0287", "image_id": "com-everyday-08", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0288", "image_id": "com-everyday-09", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0289", "image_id": "com-everyday-10", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0290", "image_id": "com-everyday-11", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0291", "image_id": "com-everyday-12", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0292", "image_id": "com-everyday-13", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0293", "image_id": "com-everyday-14", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0294", "image_id": "com-everyday-15", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0295", "image_id": "com-everyday-16", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0296", "image_id": "com-everyday-17", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0297", "image_id": "com-everyday-18", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0298", "image_id": "com-everyday-19", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0299", "image_id": "com-everyday-20", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0300", "image_id": "com-everyday-21", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0301", "image_id": "com-everyday-22", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0302", "image_id": "com-crowded-00", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0303", "image_id": "com-crowded-01", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0304", "image_id": "com-crowded-02", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0305", "image_id": "com-crowded-03", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0306", "image_id": "com-crowded-04", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0307", "image_id": "com-crowded-05", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0308", "image_id": "com-crowded-07", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0309", "image_id": "com-crowded-09", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0310", "image_id": "com-crowded-10", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0311", "image_id": "com-crowded-11", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0312", "image_id": "com-negative-00", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0313", "image_id": "com-negative-01", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0314", "image_id": "com-negative-02", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0315", "image_id": "com-negative-03", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0316", "image_id": "com-negative-05", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0317", "image_id": "com-everyday-23", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0318", "image_id": "com-everyday-24", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0319", "image_id": "com-crowded-08", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0320", "image_id": "com-negative-04", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0321", "image_id": "com-crowded-06", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0322", "image_id": "own-own-nvtop-glm", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0323", "image_id": "own-own-nvtop-nemotron", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0324", "image_id": "own-own-nvtop-qwen35", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0325", "image_id": "own-own-nvtop-vllm-pcie", "type": "describe", "gt": {"note": "raw full response, no GT"}}
+{"task_id": "t0326", "image_id": "com-everyday-00", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0327", "image_id": "com-everyday-00", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0328", "image_id": "com-everyday-00", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0329", "image_id": "com-everyday-00", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0330", "image_id": "com-everyday-00", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0331", "image_id": "com-everyday-01", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0332", "image_id": "com-everyday-01", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0333", "image_id": "com-everyday-01", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0334", "image_id": "com-everyday-01", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0335", "image_id": "com-everyday-01", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0336", "image_id": "com-everyday-02", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0337", "image_id": "com-everyday-02", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0338", "image_id": "com-everyday-02", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0339", "image_id": "com-everyday-02", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0340", "image_id": "com-everyday-02", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0341", "image_id": "com-everyday-03", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0342", "image_id": "com-everyday-03", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0343", "image_id": "com-everyday-03", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0344", "image_id": "com-everyday-03", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0345", "image_id": "com-everyday-03", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0346", "image_id": "com-everyday-04", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0347", "image_id": "com-everyday-04", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0348", "image_id": "com-everyday-04", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0349", "image_id": "com-everyday-04", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0350", "image_id": "com-everyday-04", "type": "determinism", "gt": {"note": "raw full response, hash-compared"}}
+{"task_id": "t0351", "image_id": "com-everyday-00", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0352", "image_id": "com-everyday-00", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0353", "image_id": "com-everyday-00", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0354", "image_id": "com-everyday-00", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0355", "image_id": "com-everyday-00", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0356", "image_id": "com-everyday-01", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0357", "image_id": "com-everyday-01", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0358", "image_id": "com-everyday-01", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0359", "image_id": "com-everyday-01", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0360", "image_id": "com-everyday-01", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0361", "image_id": "com-everyday-02", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0362", "image_id": "com-everyday-02", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0363", "image_id": "com-everyday-02", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0364", "image_id": "com-everyday-02", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0365", "image_id": "com-everyday-02", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0366", "image_id": "com-everyday-03", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0367", "image_id": "com-everyday-03", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0368", "image_id": "com-everyday-03", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0369", "image_id": "com-everyday-03", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0370", "image_id": "com-everyday-03", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0371", "image_id": "com-everyday-05", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0372", "image_id": "com-everyday-05", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0373", "image_id": "com-everyday-05", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0374", "image_id": "com-everyday-05", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0375", "image_id": "com-everyday-05", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0376", "image_id": "com-everyday-15", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0377", "image_id": "com-everyday-15", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0378", "image_id": "com-everyday-15", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0379", "image_id": "com-everyday-15", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0380", "image_id": "com-everyday-15", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0381", "image_id": "com-crowded-00", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0382", "image_id": "com-crowded-00", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0383", "image_id": "com-crowded-00", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0384", "image_id": "com-crowded-00", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0385", "image_id": "com-crowded-00", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0386", "image_id": "com-crowded-05", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0387", "image_id": "com-crowded-05", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0388", "image_id": "com-crowded-05", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0389", "image_id": "com-crowded-05", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0390", "image_id": "com-crowded-05", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0391", "image_id": "com-crowded-07", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0392", "image_id": "com-crowded-07", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0393", "image_id": "com-crowded-07", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0394", "image_id": "com-crowded-07", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0395", "image_id": "com-crowded-07", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0396", "image_id": "com-crowded-09", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0397", "image_id": "com-crowded-09", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0398", "image_id": "com-crowded-09", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0399", "image_id": "com-crowded-09", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0400", "image_id": "com-crowded-09", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0401", "image_id": "com-negative-00", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0402", "image_id": "com-negative-00", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0403", "image_id": "com-negative-00", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0404", "image_id": "com-negative-00", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0405", "image_id": "com-negative-00", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0406", "image_id": "com-negative-02", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0407", "image_id": "com-negative-02", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0408", "image_id": "com-negative-02", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0409", "image_id": "com-negative-02", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0410", "image_id": "com-negative-02", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0411", "image_id": "syn-shapes-simple-1", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0412", "image_id": "syn-shapes-simple-1", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0413", "image_id": "syn-shapes-simple-1", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0414", "image_id": "syn-shapes-simple-1", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0415", "image_id": "syn-shapes-simple-1", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0416", "image_id": "syn-shapes-crowded-11", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0417", "image_id": "syn-shapes-crowded-11", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0418", "image_id": "syn-shapes-crowded-11", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0419", "image_id": "syn-shapes-crowded-11", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0420", "image_id": "syn-shapes-crowded-11", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0421", "image_id": "syn-doc-101", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0422", "image_id": "syn-doc-101", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0423", "image_id": "syn-doc-101", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0424", "image_id": "syn-doc-101", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0425", "image_id": "syn-doc-101", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0426", "image_id": "syn-doc-112", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0427", "image_id": "syn-doc-112", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0428", "image_id": "syn-doc-112", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0429", "image_id": "syn-doc-112", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0430", "image_id": "syn-doc-112", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0431", "image_id": "syn-ui-window-201", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0432", "image_id": "syn-ui-window-201", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0433", "image_id": "syn-ui-window-201", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0434", "image_id": "syn-ui-window-201", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0435", "image_id": "syn-ui-window-201", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0436", "image_id": "syn-ui-hud-207", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0437", "image_id": "syn-ui-hud-207", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0438", "image_id": "syn-ui-hud-207", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0439", "image_id": "syn-ui-hud-207", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0440", "image_id": "syn-ui-hud-207", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0441", "image_id": "syn-shapes-small-21", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0442", "image_id": "syn-shapes-small-21", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0443", "image_id": "syn-shapes-small-21", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0444", "image_id": "syn-shapes-small-21", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0445", "image_id": "syn-shapes-small-21", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0446", "image_id": "syn-shapes-blank-61", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0447", "image_id": "syn-shapes-blank-61", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0448", "image_id": "syn-shapes-blank-61", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0449", "image_id": "syn-shapes-blank-61", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}
+{"task_id": "t0450", "image_id": "syn-shapes-blank-61", "type": "perf", "gt": {"note": "timed describe; rss/hwm/threads recorded"}}

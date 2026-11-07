@@ -1,0 +1,18 @@
+# downloaded corpus images (referenced by URL + sha256 in common-manifest.jsonl)
+common/
+# process logs (the report + meta.json carry what is needed)
+logs/
+# intermediate task subsets of manifest/tasks.jsonl
+manifest/mini-tasks.jsonl
+manifest/resume-tasks.jsonl
+manifest/resume2-tasks.jsonl
+# the Polis pair composite duplicates assets already public in the polis repo
+results/phaseB-polis/pair-04-05.png
+# resume-run call records: merged into the main run's raw.jsonl (450 unique)
+# (their cold.json + meta.json are committed as cold-start evidence)
+results/run-20261106T233645Z-rerunQ/raw.jsonl
+results/run-20261106T233645Z-rerunQ/perf.json
+results/run-20261106T233645Z-resume/raw.jsonl
+results/run-20261106T233645Z-resume/perf.json
+results/run-20261106T233645Z-resume2/raw.jsonl
+results/run-20261106T233645Z-resume2/perf.json

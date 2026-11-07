@@ -1,0 +1,65 @@
+# Visual review of the 43 Commons corpus images (human-verified; see header in git history).
+#
+# Every row below was written by the human reviewer (Martin Fellner, operator of
+# the agent host) after looking at the actual image in a labeled contact sheet
+# or zoomed crop. `verified: false` would mean the image was rejected; none
+# were rejected in the final corpus.
+#
+# subject: the primary labeled object for the everyday slots (re-labeled where
+# the search term was imprecise — see notes).
+# present / absent: ground-truth answers for the presence queries run on this
+# image (used for crowded and negative slots).
+# gt_text: exact strings that DO appear in the image (for text-presence queries).
+# fake_text: similar-looking strings that do NOT appear (negative controls).
+# element_gt: for synthetic UI and nvtop images — named UI elements present.
+# --- everyday slots (one primary subject each) ---
+# --- crowded slots (three presence queries each: first true, two false) ---
+# --- negative slots (sparse natural scenes; queries must come back 'no') ---
+# --- own published images (llmlab report assets): describe-only, no GT claims ---
+{"slot": "everyday-00", "subject": "cat", "verified": true, "notes": "Tabby cat sitting in the snow, sharp, close. Single subject.", "distractors": ["dog", "car", "book"]}
+{"slot": "everyday-01", "subject": "dog", "verified": true, "notes": "White dog lying on cobblestones. Single subject.", "distractors": ["cat", "horse", "bicycle"]}
+{"slot": "everyday-02", "subject": "horse", "verified": true, "notes": "Horse as a small dark silhouette on a snowy hilltop against sunset. Hard case: small target.", "distractors": ["deer", "dog", "boat"]}
+{"slot": "everyday-03", "subject": "truck", "verified": true, "notes": "Search term was 'car'; the image shows an old pickup TRUCK on a cobblestone street. Re-labeled truck.", "distractors": ["bicycle", "boat", "train"]}
+{"slot": "everyday-04", "subject": "bicycle", "verified": true, "notes": "Bicycle submerged in algae-covered water (drowned), still recognizable. Moderate case.", "distractors": ["car", "boat", "cart"]}
+{"slot": "everyday-05", "subject": "chair", "verified": true, "notes": "Church nave with rows of individual wooden CHAIRS (zoom-verified: chairs, not pews), organ, columns.", "distractors": ["piano", "book", "car"]}
+{"slot": "everyday-06", "subject": "table", "verified": true, "notes": "Single Parsons table against a dark backdrop. Clean.", "distractors": ["chair", "book", "bottle"]}
+{"slot": "everyday-07", "subject": "bottle", "verified": true, "notes": "Zoom-verified: green glass bottle standing on the ground by a cart; also a classical guitar, cans, bags, a person. Bottle is a small target; rich scene.", "distractors": ["apple", "cup", "phone"], "extra_present": ["guitar", "person"]}
+{"slot": "everyday-08", "subject": "cup", "verified": true, "notes": "Search term was 'coffee cup'; the image is a floral TEACUP on a saucer. Re-labeled cup.", "distractors": ["spoon", "bowl", "bottle"]}
+{"slot": "everyday-09", "subject": "laptop", "verified": true, "notes": "Open HP laptop, dark screen. Clean.", "distractors": ["book", "phone", "television"]}
+{"slot": "everyday-10", "subject": "book", "verified": true, "notes": "Child in mask reading books at a book fair; multiple books on tables. Books visible but smallish.", "distractors": ["car", "chair", "newspaper"]}
+{"slot": "everyday-11", "subject": "apple", "verified": true, "notes": "Apple tree with red apples in an orchard. Apples are small targets.", "distractors": ["banana", "orange", "grape"]}
+{"slot": "everyday-12", "subject": "banana", "verified": true, "notes": "Peeled banana with red ketchup on a plate. Single subject, close.", "distractors": ["apple", "carrot", "bread"]}
+{"slot": "everyday-13", "subject": "bird", "verified": true, "notes": "Two starlings in a nest, feeding each other. Two subjects.", "distractors": ["fish", "cat", "butterfly"]}
+{"slot": "everyday-14", "subject": "sailboat", "verified": true, "notes": "Sailing boat with white sails on the water, hills behind. Single subject.", "distractors": ["car", "bridge", "balloon"]}
+{"slot": "everyday-15", "subject": "bridge", "verified": true, "notes": "Golden Gate Bridge, black and white photo. Dominant subject.", "distractors": ["tower", "crane", "boat"]}
+{"slot": "everyday-16", "subject": "clock", "verified": true, "notes": "Antique black wall clock (bracket clock) on a wall. Single subject.", "distractors": ["watch", "phone", "mirror"]}
+{"slot": "everyday-17", "subject": "umbrella", "verified": true, "notes": "Open black umbrella seen from above/inside, on a tiled floor. Single subject.", "distractors": ["hat", "balloon", "lamp"]}
+{"slot": "everyday-18", "subject": "guitar", "verified": true, "notes": "RED electric guitar with fret annotation labels (technical chart, not a photo). Low-fidelity case: annotated diagram.", "distractors": ["piano", "violin", "drum"]}
+{"slot": "everyday-19", "subject": "bus", "verified": true, "notes": "White coach bus in a parking lot with a glass building. Single subject.", "distractors": ["train", "tram", "truck"]}
+{"slot": "everyday-20", "subject": "train", "verified": true, "notes": "Long multiple-unit passenger train on tracks; water and reeds in foreground. Dominant subject.", "distractors": ["bus", "truck", "boat"]}
+{"slot": "everyday-21", "subject": "airplane", "verified": true, "notes": "Air France A330 in flight, blue sky. Single subject.", "distractors": ["bird", "helicopter", "kite"]}
+{"slot": "everyday-22", "subject": "television", "verified": true, "notes": "Old CRT television on a stand, screen on (people visible on screen), red wall. Single subject.", "distractors": ["monitor", "radio", "phone"]}
+{"slot": "everyday-23", "subject": "phone", "verified": true, "notes": "Hand holding a smartphone, screen shows 'ChatGPT', watermark 'OpenAI'. Single subject.", "distractors": ["tablet", "camera", "laptop"], "gt_text": ["ChatGPT", "OpenAI"], "fake_text": ["Claude", "Gemini"]}
+{"slot": "everyday-24", "subject": "flower", "verified": true, "notes": "Red parrot tulips in a white pot, black background. Multiple subjects.", "distractors": ["fruit", "vegetable", "tree"]}
+{"slot": "crowded-00", "verified": true, "notes": "Aerial view of a very large open-air market (Lagos). Dense crowd and stalls; no vehicles in frame.", "present": ["people"], "absent": ["cars", "boats"]}
+{"slot": "crowded-01", "verified": true, "notes": "Night market stall with produce and shoppers in jackets. Close to the stall.", "present": ["people"], "absent": ["bicycles", "dogs"]}
+{"slot": "crowded-02", "verified": true, "notes": "Busy Taipei intersection, aerial: many cars and taxis, some motorbikes, few pedestrians.", "present": ["cars"], "absent": ["trains", "boats"]}
+{"slot": "crowded-03", "verified": true, "notes": "Market stall with people and produce (Aritzo). Buildings behind; no vehicles in frame.", "present": ["people"], "absent": ["bicycles", "cars"]}
+{"slot": "crowded-04", "verified": true, "notes": "19th-century PAINTING of a crowded Herald Square (New York). Kept deliberately as a low-fidelity crowd sample; not a photograph.", "present": ["people"], "absent": ["trains", "boats"]}
+{"slot": "crowded-05", "verified": true, "notes": "Busy Ho Chi Minh City street with motorbikes, signs, buildings, a few people.", "present": ["motorcycles"], "absent": ["trains", "boats"]}
+{"slot": "crowded-06", "verified": true, "notes": "Night street festival: dense crowd, string lights, palm trees, stage at the far end.", "present": ["people"], "absent": ["cars", "boats"]}
+{"slot": "crowded-07", "verified": true, "notes": "Fish market: large fish on tables, seller and buyers.", "present": ["fish"], "absent": ["cars", "bicycles"]}
+{"slot": "crowded-08", "verified": true, "notes": "Harbour: boat hoist lifting a yacht, more yachts, 2-3 people. Not 'crowded' but a clear harbour scene.", "present": ["boats"], "absent": ["trains", "cars"]}
+{"slot": "crowded-09", "verified": true, "notes": "Crowded Osaka station concourse, gates, many passengers; no train in frame.", "present": ["people"], "absent": ["trains", "cars"]}
+{"slot": "crowded-10", "verified": true, "notes": "Outdoor festival: crowd in front of a classical building, balloons, traffic light.", "present": ["people"], "absent": ["trains", "boats"]}
+{"slot": "crowded-11", "verified": true, "notes": "Night market/festival by the Mekong: lights, stage, dense crowd; water not in frame.", "present": ["people"], "absent": ["trains", "boats"]}
+{"slot": "negative-00", "verified": true, "notes": "Blue sky with a tree, a small bird in flight, and a roof edge. Note: a BIRD IS present, so no bird queries on this image.", "absent": ["cars", "people", "tables"]}
+{"slot": "negative-01", "verified": true, "notes": "Calm lake water with far shore. No subjects.", "absent": ["cars", "people", "tables"]}
+{"slot": "negative-02", "verified": true, "notes": "Desert dunes (Liwa). No subjects.", "absent": ["cars", "people", "tables"]}
+{"slot": "negative-03", "verified": true, "notes": "Empty football field with grass and stands. No people in frame.", "absent": ["cars", "people", "tables"]}
+{"slot": "negative-04", "verified": true, "notes": "Winter field: frost/snow, tree line, bare sky. No subjects.", "absent": ["cars", "people", "tables"]}
+{"slot": "negative-05", "verified": true, "notes": "Empty beach with sand and water. No subjects.", "absent": ["cars", "people", "tables"]}
+{"slot": "own-nvtop-glm", "kind": "own", "verified": true, "notes": "nvtop GPU-usage plot published in llmlab (GLM run). Describe-only.", "absent": []}
+{"slot": "own-nvtop-nemotron", "kind": "own", "verified": true, "notes": "nvtop GPU-usage plot published in llmlab (nemotron run). Describe-only.", "absent": []}
+{"slot": "own-nvtop-qwen35", "kind": "own", "verified": true, "notes": "nvtop GPU-usage plot published in llmlab (Qwen3.5 run). Describe-only.", "absent": []}
+{"slot": "own-nvtop-vllm-pcie", "kind": "own", "verified": true, "notes": "nvtop GPU-usage plot published in llmlab (vLLM PCe run). Describe-only.", "absent": []}
