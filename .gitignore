@@ -15,3 +15,6 @@ __pycache__/
 web/venv/
 web/.env
 scripts/.env.local
+
+# per-window generated campaign run state (frozen bundles, briefs, evidence) — keep out of the public repo
+benchmarks/campaigns/runs/

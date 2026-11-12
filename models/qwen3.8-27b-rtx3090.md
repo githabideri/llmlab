@@ -3,8 +3,8 @@
 **Model:** Qwen3.8-27B (Dense, hybrid SSM + attention)  
 **Tested Quantization:** W4A16-AutoRound (vLLM production), Q4_K_M (llama.cpp baseline/rollback), UD-Q4_K_XL (tested, heavier)  
 **Hardware:** 2× RTX 3090 24 GB — vLLM tensor-parallel 2 since 2026-09-08 (single-3090 vLLM until then; single-3090 llama.cpp kept as dormant rollback)  
-**Runtime:** vLLM 0.28.0 (production since 2026-09-08); 0.27.1 until then; llama.cpp 5f754ea retained as validated fallback  
-**Status:** ✅ Production — vLLM TP2 (W4A16-AutoRound, MTP k=3, fp8 KV, 262,144 ctx, vision, **220 W/card** — interim since 2026-09-21, GPU 1 overheating, thermal service pending); the single-3090 llama.cpp Q4_K_M+MTP config below remains the documented rollback  
+**Runtime:** **live 2026-11-08: vLLM 0.32.0 PTH per-token-head INT8 KV (HyperQwen stack) as a reversible trial**; canonical/rollback **0.28.0** (production 2026-09-08 → 2026-11-08); 0.27.1 until then; llama.cpp 5f754ea retained as validated fallback  
+**Status:** ✅ Production — vLLM TP2 (W4A16-AutoRound, MTP k=3 probabilistic, **live: PTH INT8 KV / 673,093-token pool / 4 seqs**; rollback: fp8 KV / 696,938 / 16 seqs, **262,144 ctx**, vision, **220 W/card**); the single-3090 llama.cpp Q4_K_M+MTP config below remains the documented rollback  
 **Multimodal:** ✅ vLLM vision (weight-sharded vision tower, +0.86 GB across the pair) + llama.cpp fallback (mmproj BF16 on CPU via `--no-mmproj-offload`)  
 **Supersedes:** Qwen3.6-27B BeeLlama deployment (see [`qwen3.6-27b-rtx3090.md`](qwen3.6-27b-rtx3090.md))
 
@@ -15,17 +15,19 @@
 | Parameter | Value |
 |-----------|-------|
 | **Parameters** | ~27.3 billion |
-| **Context Window** | 262,144 tokens (native) — deployed in full on the dual-3090 TP2 pool (710,402-token KV = 897 GPU blocks, block size 832 → ≈ 2.7× max concurrency); was 163,840 on the single 3090 |
+| **Context Window** | 262,144 tokens (native) — deployed in full; shared KV pool **673,093 tokens** on the live 0.32 PTH-INT8 trial (874 blocks, 816/block, INT8 per-token-head), **696,938** on the 0.28 canonical (fp8) — pool is shared by the TP2 pair; see the [2026-11-08 pool arithmetic](../reports/2026-11-08-dual3090-engine-ladder-pth-int8-kv.md) for why public 560K/1.32M figures don't contradict these |
 | **Embedding Dimension** | 5120 |
 | **Vocabulary Size** | 248,320 |
 | **Quantization** | Q4_K_M (17.1 GB) |
 | **Multimodal** | vLLM vision (weight-sharded across the pair) since 2026-09-08; llama.cpp fallback: mmproj BF16 ~0.9 GB CPU-resident |
-| **Speculative Decoding** | MTP (draft-mtp, n-max 2, p-min 0.4) — no separate draft model |
-| **Full-attention layers** | 17 of 66 (rest are SSM/hybrid) |
+| **Speculative Decoding** | MTP k=3 **with `draft_sample_method=probabilistic`** (the dual launcher had silently omitted the flag the recipe's single-user launcher sets; added 2026-11-07, +11-14 % measured). Draft acceptance is workload-dependent: ~95 % on the low-entropy temp-0 benchmark text, ~53 % on stochastic agent traffic |
+| **Full-attention layers** | 16 of 64 (rest SSM/hybrid) — corrected 2026-11-08 from the earlier "17 of 66" (the KV arithmetic and measured pools use 16) |
 
-## Production performance (vLLM TP2 — measured)
+## Production performance
 
-**tgen (median of 3, cold unique-nonce prompts, [2026-09-10/11 campaigns](../reports/2026-09-11-dual3090-v2-operating-envelope.md)):**
+**Current profile (2026-11-08, live trial — vLLM 0.32 PTH INT8 KV):** on the frozen 20K/80K *reasoning* fixture (stochastic sampling, server-usage-based rates) the engine ladder measured on this exact checkpoint is **0.28: 83/78 tok/s → 0.30: 95-104/85-87 → 0.32 PTH: ~100/100.8-102.8** (warm; 80K ≈ +30 % over the 0.28 baseline). Cold long-context TTFT: 150K 172 s / 255K 376 s (vs 156/339 on 0.28 — the INT8-KV cold-prefill tax). Prompt processing: ~1,365-1,370 tok/s at the 21.8K cell (0.28: ~1,310 — parity at short context), ~1,216-1,257 at the 43.7K cell. First real agent session on the trial: cold 147K first turn 166.9 s E2E, then 6 follow-ups in 4.9-27.1 s (~81 t/s), prefix-cache hit 87 %. Prices: **4 validated concurrent sequences** (16 on 0.28) and the cold TTFT. The 0.28 profile (probabilistic MTP, fp8 KV, 696,938-token pool) is the one-step rollback. Full gates, method, and the acceptance/queue analysis: [2026-11-08 report](../reports/2026-11-08-dual3090-engine-ladder-pth-int8-kv.md).
+
+**tgen (median of 3, cold unique-nonce prompts, [2026-09-10/11 campaigns](../reports/2026-09-11-dual3090-v2-operating-envelope.md)) — the low-entropy regime (repeated paragraph, temp 0; MTP acceptance ~95 %):**
 
 | Workload | tgen |
 |---|---|
@@ -106,12 +108,20 @@ The upstream `f8f0a47a` "quantized-KV flash-attention scratch blowup" does **not
 ## Known Limits
 
 - **CPU KV offload / RAM-tier extensions are not functional for this model**: on vLLM 0.27.1 the native offload stored to RAM but hit rate stayed 0% (no hybrid-aware offload planner, upstream #38230/#49537); on vLLM 0.28.0 **LMCache 0.5.0 fails even earlier** — its connector lacks `SupportsHMA`, vLLM disables the hybrid KV-cache manager, and this hybrid-SSM model dies at engine init (KV-spec unification) before the pool is touched. Do not retry *that combination* (0.5.0 `LMCacheConnectorV1`); the re-test trigger is a connector that (1) advertises HMA to the tested vLLM version, (2) supports this hybrid's mamba/attention groups, and (3) inits without disabling the hybrid manager — LMCache 0.5.5's `LMCacheMPConnector` subclasses `SupportsHMA` and is the first candidate to check. The native-offload path still waits on upstream #38230/#49537. See [2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md](../reports/2026-08-30-vllm-cpu-kv-offload-hybrid-mamba-fails.md) and [2026-09-15-lmcache-ram-tier-vllm-dual3090.md](../reports/2026-09-15-lmcache-ram-tier-vllm-dual3090.md).
-- **TP2 has no NVLink on this board** — collectives run over PCIe (NCCL; custom allreduce disabled), both cards CPU-direct Gen4 x8. Adequate for the current workload; a PCIe-bound TP2 is the thing a full campaign should characterise (pending).
+- **TP2 has no NVLink on this board, and no P2P either** — measured 2026-11-07/08: `cudaDeviceCanAccessPeer` false in both directions (separate CPU root ports, IOMMU translated + ACS), so vLLM runs custom-all-reduce disabled on a PYNCCL **shared-memory** transport (standalone allreduce: 48.7 µs @32 KiB, 4.37 ms @32 MiB ≈ 7.7 GB/s). The measured 102.8 t/s at 80K with that transport shows it is an optimization opportunity, not the ceiling; the one-boot `amd_iommu=off` test is designed and shelved ([2026-11-08 report](../reports/2026-11-08-dual3090-engine-ladder-pth-int8-kv.md)).
+- **The two CPU PCIe slots are thermally asymmetric** (upper slot +10-20 °C whichever card sits there, re-confirmed 2026-11-07 by a physical swap): at the driver's 83 °C target the upper-slot card SW-thermally derates under sustained load. At the 220 W cap the effect is intermittent, not sustained; the structural fix is the open-air riser rehouse ([hardware doc](../docs/hardware/gpu-server.md)).
 - MTP requires the GGUF to include MTP heads (it does, natively for Qwen3.8).
 
 ---
 
 ## Changelog
+
+### 2026-11-07/08: engine audit — probabilistic MTP promoted, vLLM 0.32 PTH-INT8 trial live, card positions swapped
+- **`draft_sample_method=probabilistic` added to the production 0.28 dual launcher** (the recipe's own single-user launcher sets it; the dual one had omitted it, so drafts were greedy under stochastic target sampling). Measured +11-14 % on the frozen 20K/80K reasoning fixture (83.0→92.1, 77.9→88.6), canaries intact; a reduced-head "local argmax" variant A/B/A'd gave no gain and was reverted. This is the one durable production change of the audit.
+- **vLLM 0.32.0 PTH per-token-head INT8 KV kept as the live profile, as a reversible trial** (systemd drop-in; the 0.28 launcher is the one-step rollback): +29-32 % warm 80K decode vs the 0.28 baseline, full validation (vision, 8-turn agent tool replay, 150K/255K, 3×180K concurrent, prefix forks), prices: cold long-prefill −9-10 % and 4 validated concurrent sequences. Promotion (baking it into the unit + golden copy) awaits real multi-session agent use; next tuning cells: batch budget 2048→4096/8192, MAX_SEQS 8. Full numbers and the queue/acceptance analysis: [2026-11-08 report](../reports/2026-11-08-dual3090-engine-ladder-pth-int8-kv.md).
+- **The "160 vs 80 t/s" gap is closed as benchmark text, not a regression:** MTP draft acceptance is ~95 % on the low-entropy temp-0 benchmark text and ~53 % on real agent traffic (measured A/B/A on both engines); the 2026-09 campaign numbers and the live-fleet average are two regimes of the same engine. The table above is labelled accordingly, and the 16K-cells' actual prompts were ~21.8K (the client flags them off-spec; the 220/250 W and pre/post-swap runs are matched to each other).
+- **Card positions re-swapped (the 09-29 planned verification):** the heat follows the **slot**, not the card, in every layout tested — the re-pasted original (MSI VENTUS) now sits in the hot upper slot, the purchased TUF in the cooler lower one; the owner keeps the layout until the riser-rig parts arrive. Power caps stayed at **220 W** (a 250 W control: +4.4 % decode, no thermal event). Box storage: two secondary NVMe drives removed, the failed 2 TB one held in stasis ([hardware doc](../docs/hardware/gpu-server.md)).
+- **Watchdog clock-domain bug fixed:** the restart-on-unhealthy watchdog compared monotonic **microseconds** against a 900-**second** grace (and aged epoch-second markers against the µs counter) — it restarted the engine mid-load on one boot; fixed in place (one epoch-seconds domain, µs→s conversion). The 09-21 "v2" watchdog (resurrection + ad-hoc detection) was already superseded in October by an active-only script for mux compatibility; the repo copies are re-synced to the fixed live script.
 
 ### 2026-09-28/29: Re-paste done, dual engine restored, 250 W — and the "degraded card" was a hot slot
 - **The 09-26 "electrically degraded" verdict was a misdiagnosis** (supersedes the entry below): the oscillating card (300–600 MHz at 79 °C under the 180 W cap) was simply sitting in the **hotter** of the board's two CPU slots — measured 10–20 °C hotter than the second slot *whichever card occupies it*, crossing the driver's 83 °C SW-thermal target while its twin in the cooler slot held ~1800 MHz at the same budget. A post-install card swap had put the original in that slot; no cap value could "fix" a position effect.
