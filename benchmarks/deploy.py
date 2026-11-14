@@ -44,6 +44,9 @@ def build_bundle(llmlab_dir, out_dir, bench_rel="benchmarks",
         for dirpath, _, files in os.walk(src):
             if "__pycache__" in dirpath:
                 continue
+            # the runs/ directory is a run's own output, not shipped code
+            if os.path.relpath(dirpath, src).split(os.sep)[:2] == ["campaigns", "runs"]:
+                continue
             for f in files:
                 if f.endswith((".pyc",)) or f == "freeze.json":
                     continue
@@ -136,7 +139,7 @@ def remote_tree_hashes(backend, target_dir):
     """
     script = (
         f"cd {target_dir}/benchmarks 2>/dev/null || exit 3; "
-        "find . -type f -not -path '*/__pycache__/*' -not -name 'freeze.json' | sort | "
+        "find . -type f -not -path '*/__pycache__/*' -not -name 'freeze.json' -not -path './campaigns/runs/*' | sort | "
         "while read f; do h=$(sha256sum \"$f\" | cut -d' ' -f1); "
         "echo \"PF_ $f $h\"; done; "
         f"cd {target_dir}/campaigns 2>/dev/null && "

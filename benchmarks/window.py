@@ -44,6 +44,7 @@ class Window:
         deadline = int(time.time()) + int(self.deadline_h * 3600)
         prod_desc = {
             "unit": (self.p.get("prod") or {}).get("unit"),
+            "restore_cmd": (self.p.get("prod") or {}).get("restore_cmd"),
             "health_url": (self.p.get("prod") or {}).get("health_url"),
             "live_check_cmd": (self.p.get("prod") or {}).get("live_check_cmd"),
             "results_dir": self.run_dir,

@@ -53,5 +53,27 @@
       // one line per processed request: 'prompt eval time = 412.3 ms / 40832 tokens'
       "server_prompt_tokens": "prompt eval time = [0-9.]+ ms / ([0-9]+) tokens"
     }
+  },
+
+  // Strata (serve layer): one DONE line per processed request, and no per-request
+  // prompt-token count in its log, so the token concept is accepted from usage
+  // only. The log is written by the server process, never by the client, so it
+  // is independent evidence for request_seen.
+  "strata": {
+    "server_prompt_tokens": ["strata-usage"],
+    "request_seen": ["strata-server-log"],
+    "log_patterns": {
+      "request_seen": "\\[strata\\] done:"
+    }
+  },
+
+  // Project Maya: logs its own prompt-read count and a DONE line.
+  "maya": {
+    "server_prompt_tokens": ["maya-usage", "maya-server-log"],
+    "request_seen": ["maya-server-log"],
+    "log_patterns": {
+      "request_seen": "\\[maya\\] done:",
+      "server_prompt_tokens": "reading the prompt: ([0-9,]+) tokens"
+    }
   }
 }

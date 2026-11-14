@@ -253,8 +253,8 @@ def cmd_run(args):
         try:
             tar, sha = deploy.build_bundle(
                 llmlab_dir, bundle_dir,
-                campaigns_src=os.path.dirname(os.path.abspath(spec_path)),
-                spec_name=os.path.basename(spec_path))
+                campaigns_src=run_dir if prepared else os.path.dirname(os.path.abspath(spec_path)),
+                spec_name=(fz.get("spec_path") or os.path.basename(spec_path)))
             deploy.push(b, tar, target_dir, fz)
         except OSError as e:
             r.events.emit("BUNDLE_DEPLOY_FAILED", note=str(e)[:400])

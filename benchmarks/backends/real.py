@@ -280,15 +280,23 @@ class RealBackend:
             return                       # already dead: idempotent
         self.sh(f"kill -- -{pid} 2>/dev/null; kill {pid} 2>/dev/null; true", where=where)
 
-    def wait_ready(self, health_url, attempts=90, sleep=5):
+    def wait_ready(self, health_url, attempts=90, sleep=5, cmd=None):
         results = []
         for _ in range(attempts):
-            rc, out, _ = self.sh(
-                f"curl -s -o /dev/null -w '%{{http_code}}' --max-time 3 {health_url}",
-                where="target")
-            code = out.strip()
-            results.append(code == "200")          # the HTTP CODE, never the body
-            if code == "200":
+            if cmd:
+                # A serve layer answers /health with 200 long before the engine has
+                # loaded (the body carries "loaded": false), so a code-only gate
+                # measures the model load as decode time. When the profile gives a
+                # readiness command, the gate is that command's exit code.
+                rc, _, _ = self.sh(cmd, where="target")
+                ok = rc == 0
+            else:
+                rc, out, _ = self.sh(
+                    f"curl -s -o /dev/null -w '%{{http_code}}' --max-time 3 {health_url}",
+                    where="target")
+                ok = out.strip() == "200"          # the HTTP CODE, never the body
+            results.append(ok)
+            if ok:
                 break
             time.sleep(sleep)
         return results
@@ -363,6 +371,7 @@ class RealBackend:
                   "live_check_cmd": prod_desc.get("live_check_cmd"),
                   "restore_result": wd.get("restore_result"),
                   "health_wait_s": int(wd.get("health_wait_s", 1200)),
+                  "restore_cmd": prod_desc.get("restore_cmd") or "",
                   "ensure_guest": wd.get("ensure_guest_cmd", "")}
         b64 = base64.b64encode(json.dumps(params).encode()).decode()
         # undo manifest (local JSON) -> shell script on the target

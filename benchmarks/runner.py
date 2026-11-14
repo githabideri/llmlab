@@ -381,7 +381,8 @@ class Runner:
                 ready = self.backend.wait_ready(
                     f"http://127.0.0.1:{port}/health",
                     attempts=int(self.profile.get("readiness", {}).get("attempts", 6)),
-                    sleep=float(self.profile.get("readiness", {}).get("sleep", 0.3)))
+                    sleep=float(self.profile.get("readiness", {}).get("sleep", 0.3)),
+                    cmd=(self.profile.get("readiness", {}).get("cmd", "") or "").replace("{port}", str(port)))
                 # 'became ready at some point' is the contract (all() would
                 # demand every poll — including pre-load ones — to be 200)
                 if any(ready):

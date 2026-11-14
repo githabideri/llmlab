@@ -74,10 +74,18 @@ def bake(campaign_id, spec_path, spec_obj, llmlab_dir, profile_id,
 
 
 def tree_hashes(llmlab_dir, bench_rel="benchmarks"):
-    """Per-file sha256 of the benchmarks tree (excludes freeze.json — non-circular)."""
+    """Per-file sha256 of the benchmarks tree (excludes freeze.json — non-circular).
+
+    The runs/ directory is excluded: it is a run's own bookkeeping (events.jsonl,
+    per-cell evidence), not code that ships. Without this, the run writes its own
+    approval event into the tree it is about to verify against, and the bundle
+    check fails on the run's own output.
+    """
     root = os.path.join(llmlab_dir, bench_rel)
     out = {}
     for dirpath, _, files in os.walk(root):
+        if os.path.relpath(dirpath, root).split(os.sep)[:2] == ["campaigns", "runs"]:
+            continue
         for f in files:
             p = os.path.join(dirpath, f)
             if f == "freeze.json" or f.endswith(".pyc") or "__pycache__" in p:

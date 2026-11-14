@@ -329,7 +329,7 @@ class FixtureBackend:
         if srv:
             srv.stop()
 
-    def wait_ready(self, health_url, attempts=90, sleep=5):
+    def wait_ready(self, health_url, attempts=90, sleep=5, cmd=None):
         results = []
         for _ in range(attempts):
             code, _ = _http_code(health_url)

@@ -1,0 +1,153 @@
+// 2026-11-01-dual3090-maya-glm.jsonc — Project Maya concurrency and long-context
+// behaviour on the main GPU server (dual RTX 3090, PCIe 4.0 x16 cap / x8 actual).
+//
+// Question: does the pinned upstream Maya build serve concurrent requests at all
+// on this pair, and at what cost, on the GLM-5.3-Flash S24 artifact?
+//
+// The earlier night run measured this engine as serializing requests. That
+// measurement was taken on an older build and without the parallel flag, so it
+// is not a property of the engine — it is a property of the configuration that
+// was used. This campaign re-measures it with the concurrency gate (overlap
+// proof) so a serialized engine cannot score as if it were parallel.
+//
+// No roster change is claimed; this produces a candidate for review.
+{
+  "id": "2026-11-01-dual3090-maya-glm",
+  "question": "does the pinned upstream Maya build serve concurrent requests on this pair, and at what decode cost, on the GLM-5.3-Flash S24 artifact",
+  "owner": "mf",
+  "model": {
+    "name": "glm-5.3-flash-maya-s24",
+    "quant": "IQ2_XXS",
+    "artifact": {"source": "prebuilt", "sha256": "8ebd5c74bcf65ece2a8699b7b6fd2b8d177f350ed252cee252fdd99b86a0138c"}
+  },
+  "workload": {
+    "client": "openai-compatible serve layer (bench-vllm client)",
+    "notes": "Fixed seed. Decode is (completion_tokens - 1) / decode_wall. Concurrency cells require the overlap proof. Recall cells plant facts at fixed context fractions plus a negative control. The engine is configured with the parallel flag at 4 sequences; a cell where N > configured parallelism is expected to serialize and is reported as such, not as a pass."
+  },
+  "client": {
+    "script": "clients/bench-vllm.py",
+    "args": ["python3", "{bundle}/clients/bench-vllm.py",
+             "--server", "http://127.0.0.1:{port}",
+             "--model", "glm-5.3-flash",
+             "--chat", "--json-out", "{cell}/client.json"]
+  },
+  "matrix": [
+    {
+      "cell": "M0-warmup",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "glm-5.3-flash", "--mode", "warmup",
+        "--ctx-k", "2", "--ntok", "64", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/opt/maya/.venv/bin/python3", "args": [
+        "/root/maya-1.1.48/serve/server.py", "--engine", "maya",
+        "--config", "/root/campaign/cfg-maya.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 2048, "decode": 64, "reps": 1}],
+      "gates": {"min_wall_s": 1.0, "min_tokens": 32, "min_tps": 5}
+    },
+    {
+      "cell": "M1-tgen-2k",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "glm-5.3-flash", "--mode", "tgen",
+        "--ctx-k", "2", "--ntok", "128", "--reps", "3", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/opt/maya/.venv/bin/python3", "args": [
+        "/root/maya-1.1.48/serve/server.py", "--engine", "maya",
+        "--config", "/root/campaign/cfg-maya.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 2048, "decode": 128, "reps": 3}],
+      "gates": {"min_wall_s": 1.0, "min_tokens": 100, "min_tps": 15}
+    },
+    {
+      "cell": "M2-tgen-48k",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "glm-5.3-flash", "--mode", "tgen",
+        "--ctx-k", "48", "--ntok", "128", "--reps", "3", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/opt/maya/.venv/bin/python3", "args": [
+        "/root/maya-1.1.48/serve/server.py", "--engine", "maya",
+        "--config", "/root/campaign/cfg-maya.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 49152, "decode": 128, "reps": 3}],
+      "gates": {"min_wall_s": 5.0, "min_tokens": 100, "min_tps": 15}
+    },
+    {
+      "cell": "M3-conc1",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "glm-5.3-flash", "--mode", "conc",
+        "--ctx-k", "8", "--ntok", "128", "--conc", "1", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/opt/maya/.venv/bin/python3", "args": [
+        "/root/maya-1.1.48/serve/server.py", "--engine", "maya",
+        "--config", "/root/campaign/cfg-maya.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 8192, "decode": 128, "reps": 1}],
+      "gates": {"min_wall_s": 1.0, "min_tokens": 100, "min_tps": 15}
+    },
+    {
+      "cell": "M4-conc2",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "glm-5.3-flash", "--mode", "conc",
+        "--ctx-k", "8", "--ntok", "128", "--conc", "2", "--min-overlap-s", "15",
+        "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/opt/maya/.venv/bin/python3", "args": [
+        "/root/maya-1.1.48/serve/server.py", "--engine", "maya",
+        "--config", "/root/campaign/cfg-maya.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 8192, "decode": 128, "reps": 1}],
+      "gates": {"min_wall_s": 2.0, "min_tokens": 100, "min_tps": 15,
+                "require_overlap": true, "overlap_s_min": 15}
+    },
+    {
+      "cell": "M5-conc4",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "glm-5.3-flash", "--mode", "conc",
+        "--ctx-k", "8", "--ntok", "128", "--conc", "4", "--min-overlap-s", "15",
+        "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/opt/maya/.venv/bin/python3", "args": [
+        "/root/maya-1.1.48/serve/server.py", "--engine", "maya",
+        "--config", "/root/campaign/cfg-maya.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 8192, "decode": 128, "reps": 1}],
+      "gates": {"min_wall_s": 2.0, "min_tokens": 100, "min_tps": 15,
+                "require_overlap": true, "overlap_s_min": 15}
+    },
+    {
+      "cell": "M6-recall",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "glm-5.3-flash", "--mode", "recall",
+        "--ctx-k", "32", "--facts", "3", "--seed", "20261101", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/opt/maya/.venv/bin/python3", "args": [
+        "/root/maya-1.1.48/serve/server.py", "--engine", "maya",
+        "--config", "/root/campaign/cfg-maya.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 32768, "decode": 120, "reps": 1}],
+      "gates": {"min_wall_s": 1.0, "min_tokens": 40}
+    },
+    {
+      "cell": "M7-canary",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "glm-5.3-flash", "--mode", "canary",
+        "--ctx-k", "32", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/opt/maya/.venv/bin/python3", "args": [
+        "/root/maya-1.1.48/serve/server.py", "--engine", "maya",
+        "--config", "/root/campaign/cfg-maya.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 16384, "decode": 120, "reps": 1}],
+      "gates": {"min_wall_s": 1.0, "min_tokens": 40}
+    }
+  ],
+  "verdict_policy": {
+    "retry": {"max": 2, "on": ["RETRYABLE_FAILURE", "RETRYABLE_INFRA"]},
+    "stop_review": ["UNKNOWN"]
+  },
+  "repair_policy": {
+    "allowed": ["runtime_path", "command_syntax", "parser_exception",
+                "log_format_support", "missing_fixture_copy", "quoting"],
+    "requires_owner": ["metric_threshold", "workload", "expected_outcome",
+                       "model", "quant", "benchmark_duration", "build_when_scientific"],
+    "forbidden": ["delete_evidence", "invalid_to_pass", "skip_required_cell",
+                  "rewrite_previous_attempt"]
+  },
+  "stop_policy": {
+    "deadline_h": 3.0,
+    "cell_max_s": 1800,
+    "disk_free_min_gib": 2
+  }
+}

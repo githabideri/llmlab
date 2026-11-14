@@ -95,8 +95,8 @@ class Backend:
         background subshell while the parent still reported a (dead) pid."""
         return None
 
-    def wait_ready(self, health_url, attempts=90, sleep=5):
-        """Poll a /health-style endpoint. -> bool (all-ready)."""
+    def wait_ready(self, health_url, attempts=90, sleep=5, cmd=None):
+        """Poll a /health-style endpoint (or a readiness command when given). -> bool list."""
         raise NotImplementedError
 
     def run_client(self, argv, timeout=3600):

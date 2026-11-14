@@ -1,0 +1,216 @@
+// 2026-11-01-dual3090-strata-gsq.jsonc — Strata engine-version comparison on the
+// main GPU server (dual RTX 3090, PCIe 4.0 x16 cap / x8 actual, no AVX-512).
+//
+// Question: does the pinned upstream Strata build change decode speed,
+// concurrency, or long-context recall over the deployed control, on the same
+// artifact and the same serving layer?
+//
+// The control arm is the production configuration byte-for-byte (same pack, same
+// resident budget, same speculative settings) so the only variable is the engine
+// build. The candidate arm additionally gets a 128K context cell, reported as a
+// fit/no-fit result, not as a speed claim.
+//
+// No roster change is claimed by this campaign; it produces candidates for review.
+{
+  "id": "2026-11-01-dual3090-strata-gsq",
+  "question": "does the pinned upstream Strata build change decode speed, concurrency, or long-context recall over the deployed control on the same artifact",
+  "owner": "mf",
+  "model": {
+    "name": "qwen3.8-flash-next-gsq-rco",
+    "quant": "IQ2_XS",
+    "artifact": {"source": "prebuilt", "sha256": "92cee27ae5bbadcd732416a0f7a7f0acc092399dbbe8f5a5efa707c2ec0a49d7"}
+  },
+  "workload": {
+    "client": "openai-compatible serve layer (bench-vllm client)",
+    "notes": "Fixed seed. Decode is (completion_tokens - 1) / decode_wall, the platform definition, never a server-reported rate. Concurrency cells require the overlap proof: N requests must actually overlap in time, otherwise a serialized engine scores as if it were parallel. Recall cells plant facts at fixed context fractions and ask for them plus a negative control (a fact not present in the text)."
+  },
+  "client": {
+    "script": "clients/bench-vllm.py",
+    "args": ["python3", "{bundle}/clients/bench-vllm.py",
+             "--server", "http://127.0.0.1:{port}",
+             "--model", "qwen3.8-flash-next",
+             "--chat", "--json-out", "{cell}/client.json"]
+  },
+  "matrix": [
+    {
+      "cell": "S0-warmup-control",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "qwen3.8-flash-next", "--mode", "warmup",
+        "--ctx-k", "2", "--ntok", "64", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/root/Strata/.venv/bin/python3", "args": [
+        "/root/Strata/serve/server.py", "--engine", "strata",
+        "--config", "/root/campaign/cfg-ctrl.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 2048, "decode": 64, "reps": 1}],
+      "gates": {"min_wall_s": 1.0, "min_tokens": 32, "min_tps": 5}
+    },
+    {
+      "cell": "S1-tgen-2k-control",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "qwen3.8-flash-next", "--mode", "tgen",
+        "--ctx-k", "2", "--ntok", "128", "--reps", "3", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/root/Strata/.venv/bin/python3", "args": [
+        "/root/Strata/serve/server.py", "--engine", "strata",
+        "--config", "/root/campaign/cfg-ctrl.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 2048, "decode": 128, "reps": 3}],
+      "gates": {"min_wall_s": 1.0, "min_tokens": 100, "min_tps": 20}
+    },
+    {
+      "cell": "S2-tgen-48k-control",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "qwen3.8-flash-next", "--mode", "tgen",
+        "--ctx-k", "48", "--ntok", "128", "--reps", "3", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/root/Strata/.venv/bin/python3", "args": [
+        "/root/Strata/serve/server.py", "--engine", "strata",
+        "--config", "/root/campaign/cfg-ctrl.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 49152, "decode": 128, "reps": 3}],
+      "gates": {"min_wall_s": 3.0, "min_tokens": 100, "min_tps": 20}
+    },
+    {
+      "cell": "S3-conc1-control",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "qwen3.8-flash-next", "--mode", "conc",
+        "--ctx-k", "8", "--ntok", "128", "--conc", "1", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/root/Strata/.venv/bin/python3", "args": [
+        "/root/Strata/serve/server.py", "--engine", "strata",
+        "--config", "/root/campaign/cfg-ctrl.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 8192, "decode": 128, "reps": 1}],
+      "gates": {"min_wall_s": 1.0, "min_tokens": 100, "min_tps": 20}
+    },
+    {
+      "cell": "S4-conc4-control",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "qwen3.8-flash-next", "--mode", "conc",
+        "--ctx-k", "8", "--ntok", "128", "--conc", "4", "--min-overlap-s", "15",
+        "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/root/Strata/.venv/bin/python3", "args": [
+        "/root/Strata/serve/server.py", "--engine", "strata",
+        "--config", "/root/campaign/cfg-ctrl.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 8192, "decode": 128, "reps": 1}],
+      "gates": {"min_wall_s": 2.0, "min_tokens": 100, "min_tps": 20,
+                "require_overlap": true, "overlap_s_min": 15}
+    },
+
+    {
+      "cell": "S5-warmup-candidate",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "qwen3.8-flash-next", "--mode", "warmup",
+        "--ctx-k", "2", "--ntok", "64", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/root/Strata/.venv/bin/python3", "args": [
+        "/root/Strata-0.2.9/serve/server.py", "--engine", "strata",
+        "--config", "/root/campaign/cfg-029.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 2048, "decode": 64, "reps": 1}],
+      "gates": {"min_wall_s": 1.0, "min_tokens": 32, "min_tps": 5}
+    },
+    {
+      "cell": "S6-tgen-2k-candidate",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "qwen3.8-flash-next", "--mode", "tgen",
+        "--ctx-k", "2", "--ntok", "128", "--reps", "3", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/root/Strata/.venv/bin/python3", "args": [
+        "/root/Strata-0.2.9/serve/server.py", "--engine", "strata",
+        "--config", "/root/campaign/cfg-029.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 2048, "decode": 128, "reps": 3}],
+      "gates": {"min_wall_s": 1.0, "min_tokens": 100, "min_tps": 20}
+    },
+    {
+      "cell": "S7-tgen-48k-candidate",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "qwen3.8-flash-next", "--mode", "tgen",
+        "--ctx-k", "48", "--ntok", "128", "--reps", "3", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/root/Strata/.venv/bin/python3", "args": [
+        "/root/Strata-0.2.9/serve/server.py", "--engine", "strata",
+        "--config", "/root/campaign/cfg-029.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 49152, "decode": 128, "reps": 3}],
+      "gates": {"min_wall_s": 3.0, "min_tokens": 100, "min_tps": 20}
+    },
+    {
+      "cell": "S8-conc1-candidate-128k",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "qwen3.8-flash-next", "--mode", "conc",
+        "--ctx-k", "8", "--ntok", "128", "--conc", "1", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/root/Strata/.venv/bin/python3", "args": [
+        "/root/Strata-0.2.9/serve/server.py", "--engine", "strata",
+        "--config", "/root/campaign/cfg-029-128k.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 8192, "decode": 128, "reps": 1}],
+      "gates": {"min_wall_s": 1.0, "min_tokens": 100, "min_tps": 20}
+    },
+    {
+      "cell": "S9-conc4-candidate-128k",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "qwen3.8-flash-next", "--mode", "conc",
+        "--ctx-k", "8", "--ntok", "128", "--conc", "4", "--min-overlap-s", "15",
+        "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/root/Strata/.venv/bin/python3", "args": [
+        "/root/Strata-0.2.9/serve/server.py", "--engine", "strata",
+        "--config", "/root/campaign/cfg-029-128k.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 8192, "decode": 128, "reps": 1}],
+      "gates": {"min_wall_s": 2.0, "min_tokens": 100, "min_tps": 20,
+                "require_overlap": true, "overlap_s_min": 15}
+    },
+    {
+      "cell": "S10-conc8-candidate-128k",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "qwen3.8-flash-next", "--mode", "conc",
+        "--ctx-k", "8", "--ntok", "128", "--conc", "8", "--min-overlap-s", "15",
+        "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/root/Strata/.venv/bin/python3", "args": [
+        "/root/Strata-0.2.9/serve/server.py", "--engine", "strata",
+        "--config", "/root/campaign/cfg-029-128k.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 8192, "decode": 128, "reps": 1}],
+      "gates": {"min_wall_s": 2.0, "min_tokens": 100, "min_tps": 20,
+                "require_overlap": true, "overlap_s_min": 15}
+    },
+    {
+      "cell": "S11-recall-candidate-128k",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "qwen3.8-flash-next", "--mode", "recall",
+        "--ctx-k", "128", "--facts", "3", "--seed", "20261101", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/root/Strata/.venv/bin/python3", "args": [
+        "/root/Strata-0.2.9/serve/server.py", "--engine", "strata",
+        "--config", "/root/campaign/cfg-029-128k.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 131072, "decode": 120, "reps": 1}],
+      "gates": {"min_wall_s": 1.0, "min_tokens": 40}
+    },
+    {
+      "cell": "S12-canary-candidate-128k",
+      "client": {"script": "clients/bench-vllm.py", "args": [
+        "python3", "{bundle}/clients/bench-vllm.py", "--server", "http://127.0.0.1:{port}",
+        "--model", "qwen3.8-flash-next", "--mode", "canary",
+        "--ctx-k", "128", "--chat", "--json-out", "{cell}/client.json"]},
+      "launch": {"binary": "/root/Strata/.venv/bin/python3", "args": [
+        "/root/Strata-0.2.9/serve/server.py", "--engine", "strata",
+        "--config", "/root/campaign/cfg-029-128k.json", "--port", "{port}"]},
+      "requests": [{"kind": "completion", "prompt_tokens": 16384, "decode": 120, "reps": 1}],
+      "gates": {"min_wall_s": 1.0, "min_tokens": 40}
+    }
+  ],
+  "verdict_policy": {
+    "retry": {"max": 2, "on": ["RETRYABLE_FAILURE", "RETRYABLE_INFRA"]},
+    "stop_review": ["UNKNOWN"]
+  },
+  "repair_policy": {
+    "allowed": ["runtime_path", "command_syntax", "parser_exception",
+                "log_format_support", "missing_fixture_copy", "quoting"],
+    "requires_owner": ["metric_threshold", "workload", "expected_outcome",
+                       "model", "quant", "benchmark_duration", "build_when_scientific"],
+    "forbidden": ["delete_evidence", "invalid_to_pass", "skip_required_cell",
+                  "rewrite_previous_attempt"]
+  },
+  "stop_policy": {
+    "deadline_h": 3.0,
+    "cell_max_s": 1800,
+    "disk_free_min_gib": 2
+  }
+}

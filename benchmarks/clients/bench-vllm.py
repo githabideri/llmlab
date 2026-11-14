@@ -43,6 +43,14 @@ import argparse, json, math, os, random, re, statistics, sys, threading, time, u
 
 # ─────────────────────────── helpers ───────────────────────────
 
+# Endpoint dialect. The vLLM front speaks /v1/completions; the Strata and Maya
+# serve layers speak /v1/chat/completions only (no /v1/completions route), so the
+# same client must be able to speak either. Set with --chat.
+CHAT = False
+
+def ep(server):
+    return server + ("/v1/chat/completions" if CHAT else "/v1/completions")
+
 def post(url, payload, timeout=900):
     req = urllib.request.Request(url, data=json.dumps(payload).encode(),
                                  headers={"Content-Type": "application/json"})
@@ -99,15 +107,20 @@ def _find_usage(last):
 
 def stream_completions(server, model, prompt, maxtok, thinking_off=True, timeout=1800):
     """One streaming /v1/completions request; returns a record with 4 timestamps + ITL list."""
-    payload = {"model": model, "prompt": prompt, "max_tokens": maxtok,
-               "temperature": 0, "stream": True,
-               "stream_options": {"include_usage": True}}
+    if CHAT:
+        payload = {"model": model, "messages": [{"role": "user", "content": prompt}],
+                   "max_tokens": maxtok, "temperature": 0, "stream": True,
+                   "stream_options": {"include_usage": True}}
+    else:
+        payload = {"model": model, "prompt": prompt, "max_tokens": maxtok,
+                   "temperature": 0, "stream": True,
+                   "stream_options": {"include_usage": True}}
     if thinking_off:
         payload["enable_thinking"] = False
     rec = {"t_start": time.time(), "t_first": None, "t_last": None, "t_end": None,
            "itl_ms": [], "text_parts": []}
     streamed_tokens = 0
-    req = urllib.request.Request(server + "/v1/completions",
+    req = urllib.request.Request(ep(server),
                                  data=json.dumps(payload).encode(),
                                  headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -135,7 +148,9 @@ def stream_completions(server, model, prompt, maxtok, thinking_off=True, timeout
             t = ""
             chs = last.get("choices") or []
             if chs:
-                t = chs[0].get("text", "")
+                # /v1/completions sends choices[0].text; the chat dialect sends
+                # choices[0].delta.content. Same token-delta semantics.
+                t = chs[0].get("text", "") or (chs[0].get("delta") or {}).get("content", "")
             if t:
                 rec["text_parts"].append(t)
                 streamed_tokens += 1
@@ -406,6 +421,96 @@ def m_prefix(server, model, a, out):
     print(json.dumps(ttfts))
     return res
 
+def _fact_code(rng):
+    return "K%04d" % rng.randrange(10000)
+
+
+def make_recall_corpus(ctx_tokens, seed, n_facts=6, min_tokens=2048):
+    """Deterministic planted-fact corpus.
+
+    Facts are planted at fixed fractions of the context so the same seed gives
+    the same corpus at every length: a 2K corpus is a prefix of a 32K corpus,
+    which is a prefix of the full-context corpus. That is what makes the ladder
+    comparable - the fact at 25% of 32K is the same fact at 25% of 64K.
+
+    Returns (prompt, facts) where facts is a list of {code, position, query}.
+    A `negative` fact carries a code that was NOT planted: a correct answer
+    says it is not in the text, an invented answer repeats the code.
+    """
+    rng = random.Random(seed)
+    names = ["the north beacon", "a folded ledger", "the third archive", "a winter heron",
+             "the quiet harbour", "an empty platform", "the second signal", "a stone ladder"]
+    facts = []
+    for i in range(n_facts):
+        facts.append({"code": _fact_code(rng), "name": names[i % len(names)],
+                      "frac": (i + 1) / (n_facts + 1)})
+    negative = {"code": _fact_code(rng), "name": names[n_facts % len(names)],
+                "frac": 0.93, "negative": True}
+
+    # filler: deterministic pseudo-text, chunked so facts land at the fractions
+    words = ("the lighthouse keeper counted the crows that gathered on the eastern jetty "
+             "each dusk while the tide carried sand under the old bridge").split()
+    per_fact = max(1, (ctx_tokens - min_tokens) // max(1, n_facts))
+    parts, est = [], 0
+    order = sorted(facts, key=lambda f: f["frac"])
+    for f in order:
+        want = int(ctx_tokens * f["frac"]) - est
+        if want < 0:
+            want = 0
+        n = max(0, want - 12)
+        for k in range(n):
+            parts.append(words[k % len(words)])
+        est += n
+        parts.append(f"Fact {f['code']}: {f['name']} carries the marker {f['code']}.")
+        est += 12
+    if est < ctx_tokens:
+        for k in range(ctx_tokens - est):
+            parts.append(words[k % len(words)])
+    prompt = " ".join(parts)
+    return prompt, facts + [negative]
+
+
+def m_recall(server, model, a, out):
+    """Planted-fact recall at context length: correctness + timing per point.
+
+    One request per length point; the query asks for the marker of one planted
+    fact (greedy, temperature 0) and for the negative fact. A hit is the exact
+    code in the answer; a negative hit is the code appearing at all (a
+    hallucinated fact). Timing uses the same four timestamps as the other modes.
+    """
+    rows = []
+    points = [2048, int(a.ctx_k * 1024 * 0.25), int(a.ctx_k * 1024 * 0.50),
+              int(a.ctx_k * 1024 * 0.75), int(a.ctx_k * 1024) - 2048]
+    for target in points:
+        if target < 2048:
+            continue
+        prompt, facts = make_recall_corpus(target, a.seed, n_facts=a.facts)
+        for f in facts:
+            q = (f"Which marker does {f['name']} carry? If it is not in the text, say NOT PRESENT.")
+            p = prompt + "\n\nQuestion: " + q
+            r = stream_completions(server, model, p, 120, a.thinking_off, timeout=1800)
+            text = r["text"]
+            hit = f["code"] in text
+            r["fact"] = {"code": f["code"], "frac": f["frac"], "negative": f.get("negative", False)}
+            r["correct"] = (not hit) if f.get("negative") else hit
+            r["answer"] = text[:400]
+            # gate-compatible shape: the runner reads rows with wall_s /
+            # completion_tokens / decode_tps, which only finalize() derives.
+            r, flags = finalize(r, target, a.client_encoded_tokens)
+            r["flags"] = flags
+            r["frac"] = f["frac"]
+            r.update(ts4(r))
+            base = out[:-5] if out.endswith(".json") else out
+            rows.append(compact_rec(r, base, len(rows)))
+    json.dump({"rows": rows, "seed": a.seed,
+               "summary": {"points": points, "facts": len(rows),
+                           "hits": sum(1 for r in rows if r["correct"] and not r["fact"].get("negative")),
+                           "negative_ok": sum(1 for r in rows if r["correct"] and r["fact"].get("negative"))}},
+              open(out, "w"), indent=2)
+    print(json.dumps({"facts": len(rows), "hits": sum(1 for r in rows if r["correct"])}))
+    return True
+
+
 def m_canary(server, model, a, out):
     battery = [
         ("prose", "Continue this sentence naturally in exactly three short sentences: The old ferry crossed the sound at dawn, and ", 120),
@@ -419,8 +524,9 @@ def m_canary(server, model, a, out):
             payload = {"model": model, "prompt": p, "max_tokens": n, "temperature": 0}
             if a.thinking_off:
                 payload["enable_thinking"] = False
-            j = post(server + "/v1/completions", payload, timeout=300)
-            text = j["choices"][0]["text"]
+            j = post(ep(server), payload, timeout=300)
+            ch = j["choices"][0]
+            text = ch.get("text") or (ch.get("message") or {}).get("content", "")
             issues = []
             if not text.strip(): issues.append("empty")
             if len(set(text)) < 8 and len(text) > 40: issues.append("repetition")
@@ -516,7 +622,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--server", required=True)
     ap.add_argument("--mode", required=True,
-                    choices=["warmup", "tgen", "conc", "qos", "prefix", "canary", "selftest"])
+                    choices=["warmup", "tgen", "conc", "qos", "prefix", "recall", "canary", "selftest"])
     ap.add_argument("--model", default="qwen3.8-27b-dual")
     ap.add_argument("--ctx-k", type=float, default=2)
     ap.add_argument("--ntok", type=int, default=1024)
@@ -528,19 +634,35 @@ def main():
                     help="authoritative token count of the sent prompt (fixture "
                          "manifest); reported as client_encoded_tokens evidence")
     ap.add_argument("--qos-big-k", type=int, default=64)
+    ap.add_argument("--seed", type=int, default=20261101,
+                    help="recall corpus seed (fixed so runs are comparable)")
+    ap.add_argument("--facts", type=int, default=6,
+                    help="planted facts per recall point (the negative control is extra)")
     ap.add_argument("--qos-big-ntok", type=int, default=1024)
     ap.add_argument("--thinking-off", dest="thinking_off", action="store_true", default=True)
     ap.add_argument("--thinking-on", dest="thinking_off", action="store_false")
     ap.add_argument("--selftest-port", type=int, default=18099)
-    ap.add_argument("--out", default="bench-vllm.json")
+    ap.add_argument("--chat", action="store_true",
+                    help="speak /v1/chat/completions (the Strata and Maya serve layers "
+                         "have no /v1/completions route)")
+    ap.add_argument("--out", "--json-out", default="bench-vllm.json")
     a = ap.parse_args()
     rdir = os.path.dirname(a.out)
     if rdir:
         os.makedirs(rdir, exist_ok=True)
+    global CHAT
+    CHAT = a.chat
     if a.mode == "warmup":
-        j = post(a.server + "/v1/completions", {"model": a.model, "prompt": "warmup",
-               "max_tokens": 8, "enable_thinking": not a.thinking_off})
-        print("warmup ok:", j["choices"][0]["text"][:40])
+        if CHAT:
+            j = post(ep(a.server), {"model": a.model,
+                                    "messages": [{"role": "user", "content": "warmup"}],
+                                    "max_tokens": 8, "enable_thinking": not a.thinking_off})
+            text = (j["choices"][0].get("message") or {}).get("content", "")
+        else:
+            j = post(ep(a.server), {"model": a.model, "prompt": "warmup",
+                                    "max_tokens": 8, "enable_thinking": not a.thinking_off})
+            text = j["choices"][0].get("text", "")
+        print("warmup ok:", (text or "")[:40])
     elif a.mode == "tgen":
         m_tgen(a.server, a.model, a, a.out)
     elif a.mode == "conc":
@@ -549,6 +671,8 @@ def main():
         m_qos(a.server, a.model, a, a.out)
     elif a.mode == "prefix":
         m_prefix(a.server, a.model, a, a.out)
+    elif a.mode == "recall":
+        m_recall(a.server, a.model, a, a.out)
     elif a.mode == "canary":
         ok = m_canary(a.server, a.model, a, a.out)
         sys.exit(0 if ok else 3)
