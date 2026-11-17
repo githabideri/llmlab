@@ -9,5 +9,6 @@ Inference machines in the fleet, by role. Each profile covers the physical box �
 | [Laptop](laptop.md) | AMD Ryzen 7 7840U (8C/16T) | Radeon 780M iGPU | 96 GB | Vulkan / iGPU experiments | Active |
 | [Secondary GPU server](secondary-gpu-server.md) | Intel i5-7400 (4C/4T) | 1× RTX 3060 12 GB (host) + GTX 1050 + GT 1030 2 GB (VFIO → 4-vCPU VM) | 32 GB (4×8 GB) | Auxiliary GPU host: host-level llama.cpp 35B endpoint + WhisperX ASR VM | Active |
 | [Pascal laptop](pascal-laptop.md) | Intel i5-7300HQ (4C, no HT) | 1× GTX 1060 6 GB Max-Q (Pascal) | 16 GB (2×8 matched DDR4-3200 — the ~19–20 GB/s wall is CPU-side, module-independent) | 35B 96K endpoint + Pascal test bed (NixOS, AC-only) | Active |
+| [BD775i SE](bd775i.md) | AMD Ryzen 7 7745HX (8C/16T) | 1× RTX 3060 (12 GB) | 48 GB DDR5-5200 | Strata/flash-next campaign node (NixOS, AC-only, S5-WOL) | Bring-up complete 2026-11-18 (first inference verified; serving pending) |
 
 **Secondary GPU server motherboard:** Gigabyte B250-HD3P (ATX, Intel B250).
