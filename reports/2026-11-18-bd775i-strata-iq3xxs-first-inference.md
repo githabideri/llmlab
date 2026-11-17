@@ -65,9 +65,12 @@ requirement as you hit it:
 
 - Load: 39.97 GiB expert arena read in ~33 s (**1.22 GiB/s**, the NVMe's
   sustained number), 1.47 GB of dense weights in 0.2 s, PLE table (320,001,536
-  rows) mapped from shard 2, ~4.2 GB VRAM at rest. With the shipped profile and
-  `--expert-cache auto` the engine placed **4,132 expert slots** in the VRAM
-  tier and decided the residency on-device.
+  rows) mapped from shard 2. VRAM, measured with nvidia-smi around the same
+  run: **4.3 GB after the weights load, 11.2 GB during decode** (the engine's
+  own line: "expert cache 4132 slots, 6.73 GiB of VRAM", pre-filled from the
+  profile in 0.3 s at 22 GB/s), 1 MiB after the process exited — i.e. 91% of
+  the 12 GB card while generating, with the profile and `--expert-cache auto`.
+  The residency is decided on-device.
 - The 5-token prompt ("The capital of France is") produced 64 coherent,
   factually correct tokens: *" Paris. The capital of Germany is Berlin. The
   capital of Italy is Rome. The capital of Spain is Madrid. The capital of
@@ -84,14 +87,18 @@ One-shot `generate`, 5-token prompt, greedy, 64 new tokens, on the box above:
 
 | Run | Decode | Prefill (4 tok) | TTFT |
 |-----|--------|-----------------|------|
-| cold (empty page cache) | **14.45 t/s** (4,429 ms) | 8.30 t/s (482 ms) | 1.53 s |
-| warm (cache filled by a preceding run) | **14.33 t/s** (4,467 ms) | 10.77 t/s (371 ms) | 1.08 s |
+| Run 1 (page cache measured just before start: 1 GB) | **14.45 t/s** (4,429 ms) | 8.30 t/s (482 ms) | 1.53 s |
+| Run 2 (a run had just preceded; cache state at start not measured) | **14.33 t/s** (4,467 ms) | 10.77 t/s (371 ms) | 1.08 s |
 
-A shorter 32-token run measured 12.09 t/s. Cold and warm decode come out
-statistically the same here: at a 5-token context the per-token expert set is
-small (the engine reports ~6 distinct experts per layer per round) and most of
-it is served from the VRAM tier, so the disk only matters at load time and at
-prompt depth — which this test does not exercise. Take the prefill row with the
+A shorter 32-token run measured 12.09 t/s. With one run per condition, no
+statistical comparison is possible; what is defensible is run-to-run stability
+of the decode rate (14.3–14.6 t/s across the three 64-token runs) and the
+reading that at a 5-token context the per-token expert set is small (the
+engine reports ~6 distinct experts per layer per round) and mostly served from
+the VRAM tier, so the disk should matter in load time and at prompt depth
+rather than in decode. The TTFT difference (1.53 s vs 1.08 s) is consistent
+with a warm file cache but is not proven, because run 2's cache state was not
+measured; the campaign measures it explicitly. Take the prefill row with the
 same caution (N=4 tokens, one-time setup dominates).
 
 No energy figures: no wall meter on the node yet.
@@ -99,10 +106,10 @@ No energy figures: no wall meter on the node yet.
 ## Conclusion
 
 The box works: a NixOS-built, nixpkgs-CUDA Strata produces correct tokens from
-the IQ3_XXS Flash-Next on a single 12 GB 3060, with the model's 76 GB living on
-the local NVMe and ~4 GB VRAM in use — comfortably inside the engine's stated
-single-card target. Two follow-ups are queued: the campaign itself (sustained
-decode at 8K/32K/64K depth, true-cold NVMe cells, nonces, and the Q2 variant
-the CPU-side cells need), and a serve deployment (learned expert profile via
-`--expert-profile-save`, the low-RAM/mmap mode the 48 GB box needs, and the
-MTP drafter) if the node becomes an always-on endpoint.
+the IQ3_XXS Flash-Next on a single 12 GB 3060, with the model's 76 GB on the
+local NVMe and 11.2 GB of the card's 12 GB in use during decode (4.3 GB before
+the expert cache fills). Two follow-ups are queued: the campaign itself
+(sustained decode at 8K/32K/64K depth with the page-cache state measured per
+cell, true-cold NVMe cells, the bounded low-RAM mode, and the Q2 comparison),
+and a serve deployment (learned expert profile via `--expert-profile-save`,
+and the MTP drafter) if the node becomes an always-on endpoint.
