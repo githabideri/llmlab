@@ -1,0 +1,23 @@
+name: verify-research
+
+# Independent enforcement of the research-quality gates (mission 2, section 8).
+# The pre-push hook runs the same thing locally, but hooks are bypassable;
+# this workflow is the check that is not.
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: verify-research
+        run: |
+          chmod +x scripts/verify-research.sh
+          scripts/verify-research.sh

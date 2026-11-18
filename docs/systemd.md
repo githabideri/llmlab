@@ -121,7 +121,7 @@ WantedBy=multi-user.target
 
 ### Qwen3.6-35B-A3B Vision (Port 8081, Dual RTX 3060 — dismantled 2026-09-08)
 
-**Status:** ⛔ **Stopped + disabled 2026-09-08** — the 3060 pair was removed from the box (second RTX 3090 instead); the unit and preset INI are kept on the LXC as the rollback path. 35B-A3B is interim on the secondary box (see [card](../../models/qwen3.6-35b-a3b.md)). Config below frozen as found.
+**Status:** ⛔ **Stopped + disabled 2026-09-08** — the 3060 pair was removed from the box (second RTX 3090 instead); the unit and preset INI are kept on the LXC as the rollback path. 35B-A3B is interim on the secondary box (see [card](../models/qwen3.6-35b-a3b.md)). Config below frozen as found.
 
 **Service:** `llama-server-qwen3.6-vision.service`  
 **Model:** Qwen3.6-35B-A3B-UD-IQ4_XS (MTP variant) + vision F16 — mainline llama.cpp, `/opt/llama.cpp-mainline` (historical config from the 2026-08-27 optimization campaign, [report](../reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md))  

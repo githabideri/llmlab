@@ -1,0 +1,71 @@
+{
+  "schema": "llmlab.provenance/1",
+  "id": "dual3060-27b-2026-11-14-qual",
+  "machine_tag": "dual3060-27b",
+  "date": "2026-11-14",
+  "engine": {
+    "name": "llama.cpp",
+    "build": "b12383",
+    "commit": "c56be86",
+    "binary_sha256": null
+  },
+  "model": {
+    "id": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp",
+    "sha256": null
+  },
+  "config": {
+    "id": "QUAL",
+    "description": "33/33 layer split, 256K/2, MTP on (shared-weight form), q4_0 KV",
+    "flags": [
+      "-b 2048",
+      "--n-gpu-layers 33 (x2 cards)",
+      "--ctx-size 131072",
+      "--n-predict ...",
+      "--spec-type draft-mtp"
+    ]
+  },
+  "workload": {
+    "fixture": "frozen corpus (seed 102)",
+    "prompt_tokens": 116051,
+    "n_reps": 1
+  },
+  "metrics": [
+    {
+      "name": "prompt_tokens_usable",
+      "value": 116051,
+      "unit": "tokens",
+      "definition": "largest prompt that primed without eviction"
+    },
+    {
+      "name": "warm_reprefill_114k_s",
+      "value": 1.33,
+      "unit": "s",
+      "definition": "second full prefill of an 114K prefix with cache"
+    },
+    {
+      "name": "decode_120k_mtp_tok_s",
+      "value": 20.0,
+      "unit": "tok/s",
+      "definition": "solo decode at 120K with MTP on"
+    },
+    {
+      "name": "decode_120k_nomtp_tok_s",
+      "value": 11.0,
+      "unit": "tok/s"
+    },
+    {
+      "name": "concurrent_newcomer_tok_s",
+      "value": 10.5,
+      "unit": "tok/s",
+      "definition": "second consumer decoding while the long session is live"
+    },
+    {
+      "name": "cold_restart_s",
+      "value": 12.7,
+      "unit": "s"
+    }
+  ],
+  "classification": "measured",
+  "success": "pass",
+  "notes": "reports/2026-11-14-fallback-dual-3060-27b.md (QUALIFIED_FOR_FALLBACK verdict)"
+}

@@ -1,0 +1,141 @@
+{
+  "schema": "llmlab.machine-inventory/1",
+  "machine_tag": "dual3060-27b",
+  "captured_at": "2026-11-18T19:56:40Z",
+  "immutable": {
+    "cpu": {
+      "model": "i5-7400",
+      "sockets": 1,
+      "cores_per_socket": 4,
+      "threads_per_core": 1,
+      "logical_cpus": 4,
+      "features": [
+        "fma",
+        "sse4_2",
+        "avx2"
+      ],
+      "hyperthreading": false
+    },
+    "ram": {
+      "total_bytes": 33565483008,
+      "module_sizes_bytes": [
+        8589934592,
+        8589934592,
+        8589934592,
+        8589934592
+      ],
+      "swap": "NAME      TYPE      SIZE USED PRIO\n/dev/dm-0 partition   8G 1.8G   -1"
+    },
+    "gpus": [
+      {
+        "index": 0,
+        "model": "NVIDIA GeForce RTX 3060",
+        "mem_bytes": 12884901888,
+        "pci_slot": "01:00.0",
+        "pcie_gen": 3,
+        "pcie_width": 16,
+        "upstream_bridge": "unknown",
+        "driver_version": "595.71.05",
+        "compute_cap": "8.6"
+      },
+      {
+        "index": 1,
+        "model": "NVIDIA GeForce RTX 3060",
+        "mem_bytes": 12884901888,
+        "pci_slot": "07:00.0",
+        "pcie_gen": 3,
+        "pcie_width": 1,
+        "upstream_bridge": "unknown",
+        "driver_version": "595.71.05",
+        "compute_cap": "8.6"
+      }
+    ],
+    "pci_vga_all": [
+      {
+        "pci_slot": "01:00.0",
+        "description": "00.0 VGA compatible controller: NVIDIA Corporation GA106 [GeForce RTX 3060 Lite Hash Rate] (rev a1)",
+        "lnkcap": {
+          "speed_gts": 8.0,
+          "width": "x16"
+        },
+        "lnksta": {
+          "speed_gts": 2.5,
+          "width": "x16",
+          "downgraded": true,
+          "disabled": false
+        }
+      },
+      {
+        "pci_slot": "02:00.0",
+        "description": "00.0 VGA compatible controller: NVIDIA Corporation GP108 [GeForce GT 1030] (rev a1)",
+        "lnkcap": {
+          "speed_gts": 8.0,
+          "width": "x4"
+        },
+        "lnksta": {
+          "speed_gts": 2.5,
+          "width": "x4",
+          "downgraded": true,
+          "disabled": false
+        }
+      },
+      {
+        "pci_slot": "04:00.0",
+        "description": "00.0 VGA compatible controller: NVIDIA Corporation GP107 [GeForce GTX 1050] (rev a1)",
+        "lnkcap": {
+          "speed_gts": 8.0,
+          "width": "x16"
+        },
+        "lnksta": {
+          "speed_gts": 8.0,
+          "width": "x1",
+          "downgraded": true,
+          "disabled": false
+        }
+      },
+      {
+        "pci_slot": "07:00.0",
+        "description": "00.0 VGA compatible controller: NVIDIA Corporation GA106 [GeForce RTX 3060] (rev a1)",
+        "lnkcap": {
+          "speed_gts": 8.0,
+          "width": "x16"
+        },
+        "lnksta": {
+          "speed_gts": 2.5,
+          "width": "x1",
+          "downgraded": true,
+          "disabled": false
+        }
+      }
+    ],
+    "disks": [
+      {
+        "device": "sda",
+        "size_bytes": 500107862016,
+        "model": "Samsung SSD 860 EVO 500GB"
+      }
+    ]
+  },
+  "time_varying": {
+    "os": "Debian GNU/Linux 13 (trixie)",
+    "kernel": "7.0.14-12-pve",
+    "driver": "595.71.05",
+    "mounts": [
+      {
+        "source": "/dev/mapper/pve-root",
+        "size_gb": 49,
+        "avail_gb": 14
+      },
+      {
+        "source": "/dev/mapper/pve-models",
+        "size_gb": 173,
+        "avail_gb": 36
+      },
+      {
+        "source": "/dev/fuse",
+        "size_gb": 1,
+        "avail_gb": 1
+      }
+    ]
+  }
+}

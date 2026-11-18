@@ -1,0 +1,55 @@
+{
+  "schema": "llmlab.provenance/1",
+  "id": "dual3060-27b-2026-11-18-a4-mtpoff",
+  "machine_tag": "dual3060-27b",
+  "date": "2026-11-18",
+  "engine": {
+    "name": "llama.cpp",
+    "build": "b12383",
+    "commit": "c56be86",
+    "binary_sha256": null
+  },
+  "model": {
+    "id": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp",
+    "sha256": null
+  },
+  "config": {
+    "id": "A4",
+    "description": "same as A1 with MTP disabled, 167K fixture",
+    "flags": [
+      "-b 256",
+      "-ub 128",
+      "--kv-unified",
+      "--kv-unified-per-slot 262144",
+      "--cache-prompt",
+      "--cache-reuse 4096",
+      "--spec-type off"
+    ]
+  },
+  "workload": {
+    "fixture": "K2427-167k",
+    "prompt_tokens": 167116,
+    "n_reps": 1
+  },
+  "metrics": [
+    {
+      "name": "prompt_cached_tokens",
+      "value": 0,
+      "unit": "tokens"
+    },
+    {
+      "name": "followup_s",
+      "value": 385.0,
+      "unit": "s",
+      "definition": "n=2 including warm case; full re-prefill"
+    },
+    {
+      "name": "planted_code_ok",
+      "value": true,
+      "unit": "bool"
+    }
+  ],
+  "classification": "measured",
+  "success": "pass",
+  "notes": "MTP-off loses live prefix reuse at 167K; at 16K class MTP-off DOES reuse (V7A_B) \u2014 the loss is size-scoped in the current evidence"
+}

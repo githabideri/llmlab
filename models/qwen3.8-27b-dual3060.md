@@ -2,7 +2,7 @@
 
 **Model:** Qwen3.8-27B — dense ~27.3B, hybrid SSM + full attention (17 of 66 layers), native MTP head
 **Quant:** ISTA DASLab [GSQ-RCO](https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF) **IQ3_S-mtp (3.0-3.4 bpw)**, 12.1 GB, with the release's own BF16 mmproj projector (0.93 GB; served on CPU)
-**Hardware:** the secondary GPU server — Intel i5-7400 (4C/8T), 32 GB DDR4, two RTX 3060 12 GB (one on a CPU x16 slot, one on a chipset slot running x4), PHB, **no P2P**
+**Hardware:** the secondary GPU server — Intel i5-7400 (4C/4T — no hyperthreading), 32 GB DDR4, two RTX 3060 12 GB (one on a CPU x16 slot, one on a chipset slot running x4), PHB, **no P2P**
 **Runtime:** llama.cpp **b12383** (stock), `--split-mode layer`; MTP via `--spec-type draft-mtp` (shared-weight head; f16 draft KV, 1.02 GiB at 256K/2)
 **Status:** ✅ **Fallback (boot-resident card default since 2026-11-15)** — the fleet's 27B primary is the [dual-3090 vLLM endpoint](qwen3.8-27b-rtx3090.md); this box serves when that one is unavailable. The 35B brain and the 27B cannot co-reside, so this endpoint is cold-startable in ~13 s when swapped in.
 
@@ -40,3 +40,22 @@ Negative results that closed levers: the MTP draft KV cannot be moved (`--spec-d
 - **2026-11-16/17:** context-hierarchy mission (GPU→RAM→disk persistence + hub-observability scope): RAM-tier and disk-tier behavior of b12383 measured end to end (above). Production restored to P1 and live-verified at run close. The hub-observability lane (metrics/registry/alerts for the hierarchy) is the remaining piece; no production-facing change from this run beyond the P1/P2 history above.
 - **2026-11-17 (evening):** [correction](../reports/2026-11-17-dual3060-27b-ctx-hierarchy-incident-correction.md) to the day's report: the "8-hour wedged generation on a restored 171K state (MTP spec-decode hang)" was a **misread of the log's M.S.mmm uptime format** (8 min 16 s, not 8 h 16 m) — the request was a normal 531 s cold re-prefill that completed with the code exact; the real eight hours were a session-daemon freeze (unattributed mechanism) plus a 35B process holding the cards (8 h 42 min, unkillable by pattern). The disk-tier switch-survival cell is thereby a clean pass.
 - **2026-11-18:** campaign close. Isolation cells (A/B/C/D/E matrix + V6) resolved the restored-vs-live prefix-match anomaly into three measured mechanisms (capacity rejection, restore-without-reuse, MTP coupling — details in the [11-18 addendum](../reports/2026-11-17-dual3060-27b-context-hierarchy-ram-disk.md)); E1/E2 re-confirmed P2 is ~15-20% slower than P1 at 2×27K with the 11-16 225 s canary starvation not reproduced at that size (**P1 remains production**). A disk-full incident during the V6 window (root at 100%) was resolved; campaign snapshots now live on the model pool with a free-space preflight gate. The hub gained a first-class GPU-ownership monitor for this box (detect/alert/record: who holds the VRAM, what the estate expects, mismatch alert) after the 35B card-hold event; no automatic kills. Production verified after every window.
+
+## Provenance
+
+Machine-readable records for the numbers on this card (`data/provenance/`,
+schema `llmlab.provenance/1`; validated by `scripts/verify-research.sh` and
+CI). The machine inventory they point at: `hardware/inventory/`
+(schema `llmlab.machine-inventory/1`, timestamped snapshots; the 2026-11-18
+snapshot is the current hardware state of this box).
+
+- `dual3060-27b-2026-11-14-qual` — qualification: 116,051-token usable prompt, 1.33 s warm re-prefill, MTP decode 11→20 t/s at 120K, 12.7 s cold restart
+- `dual3060-27b-2026-11-15-a8` — the 60/40 memory-balanced placement (A8), 16K decode 24.82 t/s
+- `dual3060-27b-2026-11-15-182k30k` — P2's flexible shape: 182K + 30K concurrent, cached continuation 1.6–2.1 s
+- `dual3060-27b-2026-11-16-p1p2-2x27k` — P1 vs P2 at 2×27K (114 s vs 131 s)
+- `dual3060-27b-2026-11-18-a1-live` — live same-slot 167K followup, full reuse (9.88 s)
+- `dual3060-27b-2026-11-18-a4-mtpoff` — MTP-off loses reuse at 167K (385 s)
+- `dual3060-27b-2026-11-18-v6a2b` — two 167K states cannot coexist (clean 400)
+- `dual3060-27b-2026-11-18-v6a2be` — 167K disk restore: correct, 0 cached, 618 s re-prefill
+- `dual3060-27b-2026-11-18-v7a-ad` — 16K-class disk restore: full reuse, 3.74 s (MTP on)
+- `dual3060-27b-2026-11-18-v7a-b` — 16K-class disk restore with MTP off: full reuse, 12.1 s

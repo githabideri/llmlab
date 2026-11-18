@@ -1,0 +1,46 @@
+{
+  "schema": "llmlab.provenance/1",
+  "id": "dual3060-27b-2026-11-16-p1p2-2x27k",
+  "machine_tag": "dual3060-27b",
+  "date": "2026-11-16",
+  "engine": {
+    "name": "llama.cpp",
+    "build": "b12383",
+    "commit": "c56be86",
+    "binary_sha256": null
+  },
+  "model": {
+    "id": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp",
+    "sha256": null
+  },
+  "config": {
+    "id": "P1-vs-P2",
+    "description": "paired comparison, two ~27K conversations, identical corpus and order",
+    "flags": [
+      "P1: -b 256 -ub 128, non-unified 256K/2, MTP on",
+      "P2: unified 262144, ub 256, nmax 2"
+    ]
+  },
+  "workload": {
+    "fixture": "frozen corpus (seed 102)",
+    "prompt_tokens": 27000,
+    "n_reps": 1
+  },
+  "metrics": [
+    {
+      "name": "wall_p1_s",
+      "value": 114.0,
+      "unit": "s",
+      "definition": "both conversations complete, P1"
+    },
+    {
+      "name": "wall_p2_s",
+      "value": 131.0,
+      "unit": "s",
+      "definition": "both conversations complete, P2"
+    }
+  ],
+  "classification": "measured",
+  "success": "pass",
+  "notes": "the 11-16 canary window; one earlier P2 canary showed a ~225 s first-byte delay, NOT reproduced at 2x27K (UNATTRIBUTED)"
+}

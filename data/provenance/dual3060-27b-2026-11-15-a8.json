@@ -1,0 +1,49 @@
+{
+  "schema": "llmlab.provenance/1",
+  "id": "dual3060-27b-2026-11-15-a8",
+  "machine_tag": "dual3060-27b",
+  "date": "2026-11-15",
+  "engine": {
+    "name": "llama.cpp",
+    "build": "b12383",
+    "commit": "c56be86",
+    "binary_sha256": null
+  },
+  "model": {
+    "id": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp",
+    "sha256": null
+  },
+  "config": {
+    "id": "A8",
+    "description": "GPU-ordinal flip + 60/40 split + projector on CPU; the memory-balanced placement",
+    "flags": [
+      "CUDA_VISIBLE_DEVICES=1,0",
+      "-b 256",
+      "--n-gpu-layers 60",
+      "--mmproj-device none",
+      "--ctx-size 131072",
+      "--spec-type draft-mtp"
+    ]
+  },
+  "workload": {
+    "fixture": "frozen corpus (seed 102)",
+    "prompt_tokens": 16384,
+    "n_reps": 1
+  },
+  "metrics": [
+    {
+      "name": "decode_16k_tok_s",
+      "value": 24.82,
+      "unit": "tok/s",
+      "definition": "solo decode at 16K, A8 vs A0 control 24.81"
+    },
+    {
+      "name": "draft_acceptance",
+      "value": 0.4,
+      "unit": "percent"
+    }
+  ],
+  "classification": "measured",
+  "success": "pass",
+  "notes": "reports/2026-11-15-dual3060-27b-maxctx-multi-consumer.md (A-series placement cells)"
+}

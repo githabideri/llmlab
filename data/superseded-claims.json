@@ -1,0 +1,26 @@
+[
+  {
+    "id": "cpu-4c-8t",
+    "pattern": "4C/8T",
+    "superseded_on": "2026-11-18",
+    "superseded_by": "hardware/inventory/ \u2014 the i5-7400 is 4 cores, 1 thread/core (4 logical)"
+  },
+  {
+    "id": "8h-mtp-hang",
+    "pattern": "8[- ]hour[^\\n]*MTP|MTP[^\\n]*8[- ]hour|wedged 27B MTP|8 h MTP|8h MTP",
+    "superseded_on": "2026-11-17",
+    "superseded_by": "reports/2026-11-17-dual3060-27b-ctx-hierarchy-incident-correction.md (the 8-hour stall was a sessiond freeze + 35B card hold + orchestrator crash; no MTP wedge existed)"
+  },
+  {
+    "id": "no-ram-tier-api",
+    "pattern": "no RAM[- ]tier snapshot API|there is no RAM-tier",
+    "superseded_on": "2026-11-18",
+    "superseded_by": "reports/2026-11-17-dual3060-27b-context-hierarchy-ram-disk.md, 2026-11-18 addendum \u2014 b12383 DOES have an automatic internal prompt cache (the #30961 path); what it lacks is an externally controlled RAM snapshot"
+  },
+  {
+    "id": "p2-current-production",
+    "pattern": "Production:\\s*\\*\\*P2\\*\\*|P2 \\*\\*is\\*\\* the production|production default: ?\\*\\*P2\\*\\*",
+    "superseded_on": "2026-11-16",
+    "superseded_by": "models/qwen3.8-27b-dual3060.md \u2014 P1 is the production default since 2026-11-16"
+  }
+]

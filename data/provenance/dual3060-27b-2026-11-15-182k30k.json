@@ -1,0 +1,68 @@
+{
+  "schema": "llmlab.provenance/1",
+  "id": "dual3060-27b-2026-11-15-182k30k",
+  "machine_tag": "dual3060-27b",
+  "date": "2026-11-15",
+  "engine": {
+    "name": "llama.cpp",
+    "build": "b12383",
+    "commit": "c56be86",
+    "binary_sha256": null
+  },
+  "model": {
+    "id": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp",
+    "sha256": null
+  },
+  "config": {
+    "id": "P2",
+    "description": "unified 262144 pool, 2 slots, ub 256, MTP nmax 2 \u2014 the flexible-long-context configuration",
+    "flags": [
+      "-b 256",
+      "-ub 256",
+      "--spec-type draft-mtp",
+      "--spec-draft-n-max 2",
+      "--kv-unified",
+      "--kv-unified-per-slot 262144",
+      "--cache-prompt",
+      "--cache-reuse 4096"
+    ]
+  },
+  "workload": {
+    "fixture": "frozen corpus (seed 102)",
+    "prompt_tokens": 182000,
+    "n_reps": 1
+  },
+  "metrics": [
+    {
+      "name": "secondary_prompt_tokens",
+      "value": 30000,
+      "unit": "tokens",
+      "definition": "second concurrent conversation in the same pool"
+    },
+    {
+      "name": "decode_big_tok_s",
+      "value": 2.0,
+      "unit": "tok/s",
+      "definition": "large conversation co-decoding with the secondary"
+    },
+    {
+      "name": "decode_small_tok_s",
+      "value": 3.5,
+      "unit": "tok/s"
+    },
+    {
+      "name": "cached_continuation_s",
+      "value": 1.9,
+      "unit": "s",
+      "definition": "1.6-2.1 s; 21,136 tokens cached"
+    },
+    {
+      "name": "prompt_cached_tokens",
+      "value": 21136,
+      "unit": "tokens"
+    }
+  ],
+  "classification": "measured",
+  "success": "pass",
+  "notes": "reports/2026-11-15-dual3060-27b-maxctx-multi-consumer.md (the 182K+30K cell; ceiling later probed at 182K+30K on 11-16)"
+}

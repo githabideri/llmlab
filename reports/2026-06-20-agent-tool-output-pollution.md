@@ -96,6 +96,6 @@ Both browsers return clean, readable content. Agent-browser has slight edge in U
 
 ## Related
 
-- [Tool Output Context Pollution Report](../../homelab/reports/2026-06-13_report_tool-output-context-pollution.md) — Detailed incident analysis
-- [Local AI Agent Web Access Landscape](../../homelab/reports/2026-06-13_research_local-ai-agent-web-access-landscape.md) — Tooling research
-- [Websearch Toolchain](../../homelab/scripts/websearch/README.md) — Setup and usage
+- The detailed incident analysis lives in the private operations repo (not mirrored here).
+- The tooling-landscape research lives in the private operations repo (not mirrored here).
+- The websearch toolchain documentation lives in the private operations repo (not mirrored here).

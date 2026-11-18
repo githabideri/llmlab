@@ -117,6 +117,6 @@ ctx" and the 400 `exceed_context_size_error` both report the per-slot number.
 
 ## Related Documentation
 
-- **35B-A3B on the same node:** [`qwen3.6-35b-a3b.md`](qwen3.6-35b-a3b.md)
-- **27B on RTX 3090 (vLLM, text-only):** [`qwen3.8-27b-rtx3090.md`](qwen3.8-27b-rtx3090.md)
-- **Dual 3060 optimization:** [`../reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md`](../reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md)
+- **35B-A3B on the same node:** [`qwen3.6-35b-a3b.md`](../qwen3.6-35b-a3b.md)
+- **27B on RTX 3090 (vLLM, text-only):** [`qwen3.8-27b-rtx3090.md`](../qwen3.8-27b-rtx3090.md)
+- **Dual 3060 optimization:** [`../../reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md`](../../reports/2026-08-27-qwen3.6-35b-a3b-dual-3060-optimization.md)

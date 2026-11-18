@@ -1,0 +1,56 @@
+{
+  "schema": "llmlab.provenance/1",
+  "id": "dual3060-27b-2026-11-18-v7a-ad",
+  "machine_tag": "dual3060-27b",
+  "date": "2026-11-18",
+  "engine": {
+    "name": "llama.cpp",
+    "build": "b12383",
+    "commit": "c56be86",
+    "binary_sha256": null
+  },
+  "model": {
+    "id": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp",
+    "sha256": null
+  },
+  "config": {
+    "id": "V7A_AD",
+    "description": "11-16 shape, MTP on, 16K fixture (K9521, seed 101): prime, save, erase (25,182 tokens freed), restore, followup with EXPLICIT id_slot to the restored slot",
+    "flags": [
+      "-b 256",
+      "-ub 128",
+      "--kv-unified",
+      "--kv-unified-per-slot 262144",
+      "--cache-prompt",
+      "--cache-reuse 4096",
+      "--spec-type draft-mtp",
+      "--slot-save-path /vmpool/..."
+    ]
+  },
+  "workload": {
+    "fixture": "K9521-16k",
+    "prompt_tokens": 21087,
+    "n_reps": 1
+  },
+  "metrics": [
+    {
+      "name": "prompt_cached_tokens",
+      "value": 21083,
+      "unit": "tokens",
+      "definition": "of 21,117; only 34 tokens prefill'd (verbosity-5 log)"
+    },
+    {
+      "name": "followup_s",
+      "value": 3.74,
+      "unit": "s"
+    },
+    {
+      "name": "planted_code_ok",
+      "value": true,
+      "unit": "bool"
+    }
+  ],
+  "classification": "measured",
+  "success": "pass",
+  "notes": "engine log: 'selected slot by id (1)' \u2014 slot routing excluded; at 16K class the disk tier is fast AND correct"
+}

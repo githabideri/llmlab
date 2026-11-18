@@ -1,0 +1,56 @@
+{
+  "schema": "llmlab.provenance/1",
+  "id": "dual3060-27b-2026-11-18-a1-live",
+  "machine_tag": "dual3060-27b",
+  "date": "2026-11-18",
+  "engine": {
+    "name": "llama.cpp",
+    "build": "b12383",
+    "commit": "c56be86",
+    "binary_sha256": null
+  },
+  "model": {
+    "id": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp",
+    "sha256": null
+  },
+  "config": {
+    "id": "A1",
+    "description": "11-16 pool shape (per-slot 262144), MTP on, fresh boot, 167K fixture",
+    "flags": [
+      "-b 256",
+      "-ub 128",
+      "--kv-unified",
+      "--kv-unified-per-slot 262144",
+      "--cache-prompt",
+      "--cache-reuse 4096",
+      "--spec-type draft-mtp",
+      "--slot-save-path DIR"
+    ]
+  },
+  "workload": {
+    "fixture": "K2427-167k (seed 102, 713,803 chars, sha256-verified)",
+    "prompt_tokens": 167116,
+    "n_reps": 1
+  },
+  "metrics": [
+    {
+      "name": "prompt_cached_tokens",
+      "value": 167116,
+      "unit": "tokens"
+    },
+    {
+      "name": "followup_s",
+      "value": 9.88,
+      "unit": "s",
+      "definition": "same-slot live followup, full prefix reuse"
+    },
+    {
+      "name": "planted_code_ok",
+      "value": true,
+      "unit": "bool"
+    }
+  ],
+  "classification": "measured",
+  "success": "pass",
+  "notes": "live same-slot reuse works (the control for all restore cells)"
+}

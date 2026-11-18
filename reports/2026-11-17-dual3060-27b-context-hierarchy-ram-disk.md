@@ -8,7 +8,7 @@ switches. This is the follow-up to the 2026-11-15 max-context campaign on the
 same box; the engine, model, and layout are frozen from that report (llama.cpp
 b12383 / commit c56be86, Qwen3.8-27B GSQ-RCO IQ3_S with its built-in MTP
 draft, CPU projector, the A8 GPU-order-flip layout, 2 slots). The box: a
-consumer desktop, Intel i5-7400 (4C/8T), 32 GB DDR4, B250 board, two RTX 3060
+consumer desktop, Intel i5-7400 (4C/4T — no hyperthreading), 32 GB DDR4, B250 board, two RTX 3060
 12 GB cards (one at x16, one electrically x16-but-pegged-to-x4 by the slot,
 no P2P, no NVLink), running the server directly on the Proxmox host.
 
