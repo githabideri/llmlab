@@ -120,6 +120,15 @@ second (~1.2 GB/s off the box's root disk). `erase` clears the slot's state
 | file sizes for the storage budget | 25K-token state ≈ 1.12 GB; 171K-token state ≈ 4.19 GB (KV q8_0/q4_0 plus draft state plus checkpoints). A few snapshots fit on any disk; the binding constraints are restore time (~1 s per GB) and disk I/O, not capacity |
 | corrupt-file handling (truncated / missing snapshot) | not exercised in this run (the window closed before that cell); the server validates filenames on save and the restore call returns a structured error object, but we did not measure the truncated-file path |
 
+> **SUPERSEDED (2026-11-18).** The incident reconstruction re-dated this event:
+it was not an eight-hour generation hang. The window's 4-hour watchdog had
+fired and killed the scratch server; a manual follow-up sent against the dead
+endpoint blocked for ~8.1 hours against a 1440 s read timeout, and that
+block is what the session experienced. The server was never hung. The
+"MTP draft-decode hang on a restored state" hypothesis is **retracted**.
+
+Original text preserved for the record:
+
 **A wedged generation, found by accident.** The follow-up sent immediately
 after the post-switch restore never finished: the slot reported
 `is_processing: true` with 152,576 of 152,618 prompt tokens processed for
@@ -225,30 +234,93 @@ anomaly. All numbers below are measured.
    original "42 cached" reading was a virgin slot receiving the followup:
    only the residual system-template prefix matched (42 then, 0 in later
    runs; the residue is incidental).
-2. **Restore succeeds but is invisible to the prefix cache** (the one genuine
-   engine bug). Erasing the source slot first, the restore returns 200 and
-   the slot is correct (it answers the frozen question verbatim), but the
-   restored state is not registered with the prompt cache: the followup
-   re-prefills the full 167K tokens in 618 s with 0 cached, versus 9.9 s /
-   167,116 cached for a live same-slot followup. Identical in the newer build
-   (which contains the "prompt running hash" change), so that change is not
-   the mechanism. Correctness survives; performance does not. This matches
-   upstream issue #30961's territory.
-3. **MTP coupling.** With the MTP speculator disabled, even a *live*
-   same-slot followup gets 0 cached and re-prefills in ~385 s (n=2); with it
-   enabled the same slot reuses the full prefix. The prompt-cache hit path
-   is entangled with the speculative-decode path in b12383.
+2. **Restore succeeds, but prefix reuse is size-dependent (the real engine
+   behavior).** When the pool is freed first (erase the source slot), the
+   restore returns 200 and the slot is correct (it answers the frozen
+   question verbatim), but at 167K the followup does not get the prefix:
+   it re-prefills the full 167K tokens in 618 s with 0 cached, versus 9.9 s
+   / 167,116 cached for a live same-slot followup. The verbosity-5 log of
+   that request shows why: the restored state **is** a registered prompt-
+   cache entry (4,240.755 MiB), but the engine logs "making room for prompt
+   cache entry, removing oldest entry" for the followup — the ~4 GB entry
+   does not survive the new request's allocation and its chunk key never
+   matches, so the prefix is rebuilt from scratch. At the 16K-class size
+   the same sequence keeps the entry and reuses the full prefix (the V7
+   isolation window, below). Identical in the newer build (which contains
+   the "prompt running hash" change), so that change is not the mechanism.
+   Correctness survives at all sizes; performance does not, for large
+   states.
+3. **MTP-off cache loss (large states).** With the MTP speculator
+   disabled, a *167K-class live* same-slot followup gets 0 cached and
+   re-prefills in ~385 s (n=2); with it enabled the same slot reuses the
+   full prefix. At the 16K class, MTP off does **not** lose reuse (V7A_B
+   below). The current evidence scopes this to large states; production
+   (MTP on) is unaffected.
 
 **Practical consequence for the persistence hierarchy:** the disk tier is
-durable (snapshots survive restarts and model switches; a 167K state saves
-in ~1–4 s to a ~4 GB file), but returning to a restored conversation costs a
-full re-prefill (~10 min at 167K) until mechanism 2 is fixed upstream. On
-this box the practical shape is **one large live conversation (≤ ~167K) plus
-N small ones (2×27K measured, both complete in ~2 min)**; a second large
-conversation must wait on disk. A true RAM-tier snapshot API does not exist
-in b12383 (`--cache-ram` is the prompt-cache budget, not a checkpoint store),
-so the "RAM restore failure" section above is retired as a framing: those
-cells exercised the file-restore path.
+durable and correct (snapshots survive restarts and model switches; a 167K
+state saves in ~1–4 s to a ~4 GB file, and restore returns the correct state),
+but returning to a restored conversation costs a full re-prefill (~10 min at
+167K) until mechanism 2 is understood upstream. On this box the practical
+shape is **one large live conversation (the 167K fixture; the demonstrated
+ceiling is higher — 182K + 30K under the 11-15 P2 shape) plus N small ones
+(2×27K measured, both complete in ~2 min)**; a second large conversation
+must wait on disk. On the RAM tier, the precise statement: b12383 *does* have
+an internal, automatic prompt cache (idle-slot state is parked in a bounded
+RAM store and the server tries to reload it on the next request; `--cache-ram`
+is that store's budget, not a checkpoint store) — the 2026-11-16 R window
+measured that path failing for large states, and upstream #30961 is about it.
+What b12383 lacks is an *externally controlled* RAM snapshot: there is no
+`?action=save` equivalent that parks a state in RAM by choice; the file tier
+is the only externally controlled one.
+
+**Cell completeness and the "maximum context" caveat (stated once).**
+Executed and recorded: A1, A2, A4, B1, B2, B3, C1, D1, D2, E1, E2 (11-17),
+V6A2B, V6A2BE (11-18), plus the 11-18 V7 isolation window (below). Executed
+but the record lost to the 11-18 disk-full incident: C2 (the cell ran and
+its log shows a ~1.6 s 167K-cached follow-up; the JSON record could not be
+written, so no number from it is used anywhere). The 167K (171,215-token)
+fixture is the campaign's frozen corpus (seed 102): a workload chosen for
+reproducibility across boots, **not** a measured server ceiling — the
+demonstrated per-slot capacity is the 182,010 + 30,386 prime-plus-followup
+of the 11-15 P2 shape in the same 262K pool.
+
+**The V7 isolation window (11-18 morning, 16K-class states, the 11-16
+engine shape, verbosity-5 logs) tested the one remaining hypothesis — that
+the followup was being routed to the wrong slot — and ruled it out:**
+
+| test | MTP | routing (engine log) | followup after erase+restore |
+|---|---|---|---|
+| explicit `id_slot` to the restored slot | on | "selected slot by id (1)" | **3.74 s, 21,083/21,117 cached, exact code** |
+| explicit `id_slot` to the restored slot | **off** | "selected slot by id (1)" | **12.1 s (34-token prefill), full reuse, exact code** |
+| no `id_slot`; one live + one restored identical state | on | "selected slot by LCP similarity, f_sim_best = 0.999" → the **live** twin | 3.68 s, full reuse (of the live twin, not the restore) |
+
+So: explicit slot targeting is honored exactly (the 0-cached result is not
+a request landing on a different slot); automatic routing in this build is
+**LCP-similarity based** and is demonstrable line-by-line in the log; and
+at the 16K class the disk tier is **fast as well as durable** (save ~1 s,
+restore ~1 s, return 4–12 s, MTP on or off). The 167K failure is a
+size/eviction property of the prompt-cache entry, not a registration or
+routing failure. (The 11-18 first boot of that window was invalid by
+construction — the prime auto-routed to a different slot than the cell
+pinned — and is excluded from all conclusions.)
+
+**Upstream status (2026-11-18).** #30961 (automatic prompt-cache restore
+before competing idle slots are cleared) remains the closest open issue but
+is a different path (the automatic RAM store, not explicit disk restore);
+#27148/#29324 remain open; PR 26004 (KV rebase on cache restore, draft) is
+in the build pipeline; the "prompt running hash" change demonstrably does
+not alter the behavior. A drafted issue for the size-dependent restore-
+reuse symptom is held in the private campaign record pending the owner's
+filing decision; it is deliberately not filed as a duplicate of #30961.
+
+**Storage hygiene (11-18).** The 11-18 window filled the 49 GB host root to
+100% (two cell records lost; 167K-class snapshots are ~4 GB each). All
+campaign snapshots now write to the 173 GB model pool behind a fail-closed
+free-space preflight (≥10 GB on `/`, ≥15 GB on the snapshot filesystem),
+with per-boot archival; the 11-16 9.5 GB evidence moved off the root
+(checksum-verified). A production host's root filesystem at 100% is treated
+as a campaign-inflicted incident, not a footnote.
 
 **P2 (unified + ub256 + nmax2) vs P1 (non-unified + ub128) concurrency:**
 at 2×27K both complete every request (no starvation, no early close); P2 is
