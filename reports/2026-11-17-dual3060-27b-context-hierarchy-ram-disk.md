@@ -208,3 +208,51 @@ that run. The two budgets were run as separate boots with identical flags
 except `--cache-ram`; cells were run sequentially per boot in the order
 16K → 64K → 128K → 180K → contamination probe, 4096 MiB boot first, then
 128K/180K repeated at 8192 MiB.
+
+## Addendum 2026-11-18: the 42-token anomaly is resolved (supersedes the "isolated, under investigation" status above)
+
+A 16-cell controlled matrix (frozen deterministic corpus, sha256-verified; one
+variable at a time; two engine builds) resolved the restored-vs-live prefix
+anomaly. All numbers below are measured.
+
+**The anomaly was three separate mechanisms, not one cache bug:**
+
+1. **Pool-capacity rejection.** Two ~167K-token states cannot coexist in the
+   unified pool on a 2×12 GB box (334K tokens of KV on top of the 11.5 GB
+   model). The restore into the second slot returns a clean 400
+   ("No available space in KV cache") — reproduced with both pool shapes
+   tested (262144/slot, the original incident shape, and 200000/slot). The
+   original "42 cached" reading was a virgin slot receiving the followup:
+   only the residual system-template prefix matched (42 then, 0 in later
+   runs; the residue is incidental).
+2. **Restore succeeds but is invisible to the prefix cache** (the one genuine
+   engine bug). Erasing the source slot first, the restore returns 200 and
+   the slot is correct (it answers the frozen question verbatim), but the
+   restored state is not registered with the prompt cache: the followup
+   re-prefills the full 167K tokens in 618 s with 0 cached, versus 9.9 s /
+   167,116 cached for a live same-slot followup. Identical in the newer build
+   (which contains the "prompt running hash" change), so that change is not
+   the mechanism. Correctness survives; performance does not. This matches
+   upstream issue #30961's territory.
+3. **MTP coupling.** With the MTP speculator disabled, even a *live*
+   same-slot followup gets 0 cached and re-prefills in ~385 s (n=2); with it
+   enabled the same slot reuses the full prefix. The prompt-cache hit path
+   is entangled with the speculative-decode path in b12383.
+
+**Practical consequence for the persistence hierarchy:** the disk tier is
+durable (snapshots survive restarts and model switches; a 167K state saves
+in ~1–4 s to a ~4 GB file), but returning to a restored conversation costs a
+full re-prefill (~10 min at 167K) until mechanism 2 is fixed upstream. On
+this box the practical shape is **one large live conversation (≤ ~167K) plus
+N small ones (2×27K measured, both complete in ~2 min)**; a second large
+conversation must wait on disk. A true RAM-tier snapshot API does not exist
+in b12383 (`--cache-ram` is the prompt-cache budget, not a checkpoint store),
+so the "RAM restore failure" section above is retired as a framing: those
+cells exercised the file-restore path.
+
+**P2 (unified + ub256 + nmax2) vs P1 (non-unified + ub128) concurrency:**
+at 2×27K both complete every request (no starvation, no early close); P2 is
+~15–20% slower per request (wall 131 s vs 114 s). The single 225 s
+starvation seen in the earlier canary did not reproduce at this size and
+remains unattributed. **P1 remains the recommended production default; P2 is
+shelved.**
