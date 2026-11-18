@@ -160,3 +160,24 @@ Production was restored to its pre-campaign configuration after each window and 
 Every cell planted a 5-character code in a generated word corpus (3.9 chars/token) and retrieved it by asking for a ~350-word story ending in the code — correctness at depth, not just throughput. Cells were run cold (unique nonce per run) through the OpenAI-compatible endpoint with streaming and usage; decode t/s from first-to-last token; draft acceptance from the build's `print_timing` lines at `-lv 5`; VRAM by `nvidia-smi` at idle and post-cell; PCIe by 1 Hz `dmon` samples. Repetition: finalists measured 5× (the 288K finalist 3×). Windows were guarded by a detached systemd timer that kills the scratch ports and restarts + live-verifies production regardless of what the campaign session does; both windows closed well inside the guard with production restored and verified within minutes. Raw logs (server output at `-lv 5`, dmon captures, per-cell JSON) are kept in the private repo under the campaign directory.
 
 **Corrections carried from this campaign:** the 11-14 report's §2 listed the Unsloth directory's projector hash; the served file is the GSQ-RCO release's own BF16 mmproj (`13cb7be…`). Its "33/33 layer split" description of the production config is the effective layer split of the 1,1 ratio on this model, and its card-1 headroom figure (35-41 MiB) re-measures as 40-92 MiB on the 595.71 driver. See the append to that report.
+
+## Addendum 2026-11-18 (PCIe link correction)
+
+The machine description's “GPU 1 (EVGA PX1) on a chipset x16 slot
+electrically running at x4” is corrected by the 2026-11-18 link
+investigation (model card Provenance): the slot's port is ×4-capable, but
+the card's **negotiated** width has never been recorded as ×4 and is
+measured **Gen3 ×1 (0.75 GB/s)**; it has most likely been ×1 since the
+11-14 installation. Consequences:
+
+- The “PCIe was checked under load: the x4 card peaks around 0.3–0.9
+  GB/s (roughly a quarter of a gen3 x4 link) … the x4 link is not the
+  demonstrated constraint” analysis is **unsupported as stated**: those
+  bursts sit at or above the measured ×1 clean ceiling, so prefill may
+  have been link-limited on the second card. The measured tok/s numbers
+  stand as ×1-condition results; the ×4 potential is unmeasured (a small
+  matched re-run after any physical repair is the only way to size it).
+- **Preserved:** the placement conclusions (A0 vs A8 VRAM balance), the
+  matched 16K decode result (24.8 tok/s in both), and the memory/ceiling
+  findings — decode moves ~4% of even a ×1 link, so width does not enter
+  them.

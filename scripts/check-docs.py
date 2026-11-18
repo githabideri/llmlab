@@ -88,8 +88,22 @@ def check_hardware():
         for m in re.finditer(r"(\d+)\s*GB\s*DDR4", text):
             if mod_gb and int(m.group(1)) != mod_gb:
                 err("%s: RAM %s GB contradicts inventory modules (%d GB)" % (rel, m.group(1), mod_gb))
-        for g in inv["immutable"]["gpus"]:
-            pass  # gpu count/width checks stay manual until the x1 question is settled
+        link = inv["immutable"].get("pcie_link")
+        if link:
+            hwline = ""
+            for line in text.splitlines():
+                if line.strip().startswith("**Hardware:**"):
+                    hwline = line
+            hw_unquoted = re.sub(r"\u201c[^\u201d]*\u201d", "", hwline)  # quoted retraction phrases are not claims
+            cur_x4 = re.search(r"running (?:at )?x4|pegged to x4|electrically[^,]*x4|gen3 x4", hw_unquoted, re.I)
+            for slot, info in link.items():
+                if not (isinstance(info, dict) and "negotiated" in info):
+                    continue
+                neg = info["negotiated"]
+                mw = re.search(r"x(\d+)", neg)
+                if mw and int(mw.group(1)) == 1 and cur_x4:
+                    err("%s: hardware line makes a current-tense x4 claim but inventory %s shows negotiated %s — distinguish slot wiring (LnkCap/silkscreen), endpoint capability (card LnkCap) and negotiated width (LnkSta/nvidia-smi under load); only the last is proof"
+                        % (rel, slot, neg))
 
 
 def load_claims():

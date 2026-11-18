@@ -76,7 +76,9 @@ def main():
         if r.get("machine_tag") not in inv_tags:
             err("%s: machine_tag %r has no inventory snapshot" % (rel, r.get("machine_tag")))
         eng = r.get("engine", {})
-        if not HEX40.match(eng.get("commit", "")):
+        if str(eng.get("name", "")).startswith("n/a"):
+            pass  # hardware-only records (no engine involved): commit/build not applicable
+        elif not HEX40.match(eng.get("commit", "") or ""):
             err("%s: engine.commit must be 7-40 hex chars" % rel)
         for h in (eng.get("binary_sha256"), r.get("model", {}).get("sha256")):
             if h is not None and not HEX64.match(h):
