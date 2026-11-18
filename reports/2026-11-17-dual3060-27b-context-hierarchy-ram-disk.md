@@ -332,11 +332,14 @@ shelved.**
 ## Addendum 2026-11-18, part 3 (PCIe link correction)
 
 - The machine line “one electrically x16-but-pegged-to-x4 by the slot” is
-  corrected: the negotiated width of that card is **measured Gen3 ×1**
-  (2026-11-18; model card Provenance `dual3060-27b-2026-11-18-pcie-x1`),
-  and has most likely been ×1 since the 11-14 installation. Nothing in
-  this report's findings depends on the link width (slot persistence is
-  GPU-side), so all results stand as measured under the ×1 condition.
+  corrected: the negotiated width of that card is **measured Gen3 ×1 on
+  2026-11-18** (model card Provenance
+  `dual3060-27b-2026-11-18-pcie-x1`); the historical width across the
+  single continuous boot since the 11-14 installation is unverified (a
+  link can retrain without a reboot), probably ×1. Nothing in this
+  report's findings depends on the link width (slot persistence is
+  GPU-side), so all results stand as measured under the probably-×1
+  condition.
 - Retracting this addendum's earlier sentence “the 11-15 PCIe bandwidth
   measurements are historical (x4 era)”: there was no ×4 era for this
   card. ×4 was verified on that port only with the previous card

@@ -1,72 +1,72 @@
 {
-  "schema": "llmlab.provenance/1",
-  "id": "dual3060-27b-2026-11-18-pcie-x1",
-  "machine_tag": "dual3060-27b",
-  "date": "2026-11-18",
-  "engine": {
-    "name": "n/a (host hardware investigation, read-only)",
-    "build": null,
-    "commit": null,
-    "binary_sha256": null
+ "schema": "llmlab.provenance/1",
+ "id": "dual3060-27b-2026-11-18-pcie-x1",
+ "machine_tag": "dual3060-27b",
+ "date": "2026-11-18",
+ "engine": {
+  "name": "n/a (host hardware investigation, read-only)",
+  "build": null,
+  "commit": null,
+  "binary_sha256": null
+ },
+ "model": {
+  "id": "n/a",
+  "sha256": null
+ },
+ "config": {
+  "id": "n/a",
+  "description": "read-only PCIe investigation on the secondary GPU server (GA-B250-HD3P-CF, BIOS F8): lspci LnkCap/LnkSta/LnkSta2 + AER on both ends, nvidia-smi link state at idle and under the live 27B workload, sysfs, 128 MiB cuMemcpy x12; single continuous host boot since 2026-11-14 (the dual-3060 installation). No register writes, no resets, no rebinds.",
+  "flags": []
+ },
+ "workload": {
+  "fixture": "128MiB cuMemcpy; nvidia-smi under the live 27B endpoint load",
+  "prompt_tokens": 0,
+  "n_reps": 12
+ },
+ "metrics": [
+  {
+   "name": "chipset_card_negotiated_width",
+   "value": 1,
+   "unit": "count",
+   "definition": "RTX 3060 (EVGA PX1) on the chipset PCIEX4_1 slot (PCH port 00:1d.0, LnkCap x4): negotiated Gen3 x1, measured 2026-11-18 at idle and under load. Historical width across the single continuous boot since 2026-11-14 is unverified (a link can retrain without a reboot); probably x1. The same port verified Gen3 x4 on 2026-08-17/09-06 with the previous card (GTX 1050, via ribbon riser) in it."
   },
-  "model": {
-    "id": "n/a",
-    "sha256": null
+  {
+   "name": "chipset_card_h2d_gbps",
+   "value": 0.746,
+   "unit": "GB/s",
+   "definition": "median of 12 128 MiB cuMemcpy host-to-device (x1 Gen3 ceiling)"
   },
-  "config": {
-    "id": "n/a",
-    "description": "read-only PCIe investigation on the secondary GPU server (GA-B250-HD3P-CF, BIOS F8): lspci LnkCap/LnkSta/LnkSta2 + AER on both ends, nvidia-smi link state at idle and under the live 27B workload, sysfs, 128 MiB cuMemcpy x12; single continuous host boot since 2026-11-14 (the dual-3060 installation). No register writes, no resets, no rebinds.",
-    "flags": []
+  {
+   "name": "chipset_card_d2h_gbps",
+   "value": 0.752,
+   "unit": "GB/s"
   },
-  "workload": {
-    "fixture": "128MiB cuMemcpy; nvidia-smi under the live 27B endpoint load",
-    "prompt_tokens": 0,
-    "n_reps": 12
+  {
+   "name": "cpu_slot_card_negotiated_width",
+   "value": 16,
+   "unit": "count",
+   "definition": "RTX 3060 LHR on the CPU x16 slot: Gen3 x16; 8.446/8.110 GB/s H2D/D2H"
   },
-  "metrics": [
-    {
-      "name": "chipset_card_negotiated_width",
-      "value": 1,
-      "unit": "count",
-      "definition": "RTX 3060 (EVGA PX1) on the chipset PCIEX4_1 slot (PCH port 00:1d.0, LnkCap x4): negotiated Gen3 x1 at idle and under load; the same port verified Gen3 x4 on 2026-08-17/09-06 with the previous card (GTX 1050, via ribbon riser) in it. The card itself has no x4 record; the 'x4 era' wording in the November reports is retracted."
-    },
-    {
-      "name": "chipset_card_h2d_gbps",
-      "value": 0.746,
-      "unit": "GB",
-      "definition": "median of 12 128 MiB cuMemcpy host-to-device (x1 Gen3 ceiling)"
-    },
-    {
-      "name": "chipset_card_d2h_gbps",
-      "value": 0.752,
-      "unit": "GB"
-    },
-    {
-      "name": "cpu_slot_card_negotiated_width",
-      "value": 16,
-      "unit": "count",
-      "definition": "RTX 3060 LHR on the CPU x16 slot: Gen3 x16; 8.446/8.110 GB/s H2D/D2H"
-    },
-    {
-      "name": "gtx1050_negotiated_width",
-      "value": 1,
-      "unit": "count",
-      "definition": "moved to an x1 slot (PCH 00:1c.6, DMI J8B4, LnkCap x1) during the 2026-11-14 installation; Gen3 x1 = slot-limited, not degraded (it did x4 in PCIEX4_1 in Aug/Sep)"
-    },
-    {
-      "name": "gt1030_negotiated_width",
-      "value": 4,
-      "unit": "count",
-      "definition": "on the second chipset x4 slot (00:1b.0), unchanged since August"
-    },
-    {
-      "name": "aer_errors",
-      "value": 0,
-      "unit": "count",
-      "definition": "corrected and uncorrected AER counters clean on the chipset card; a stable x1 link can train without errors, so this does not prove the link intended x4"
-    }
-  ],
-  "classification": "measured",
-  "success": "pass",
-  "notes": "open question (case A vs B): the manual limits PCIEX4_1 to x1 only when the PCIEX1_2 x1 slot is populated, but the owner's installation photo shows the riser in the upper x1 (PCIEX1_1), which has no documented sharing rule. If the riser is actually in PCIEX1_2 the x1 is by design; otherwise it is a physical signal/seating issue. Onsite check only."
+  {
+   "name": "gtx1050_negotiated_width",
+   "value": 1,
+   "unit": "count",
+   "definition": "moved to an x1 slot (PCH 00:1c.6, DMI J8B4, LnkCap x1) during the 2026-11-14 installation; Gen3 x1 = slot-limited, not degraded (it did x4 in PCIEX4_1 in Aug/Sep)"
+  },
+  {
+   "name": "gt1030_negotiated_width",
+   "value": 4,
+   "unit": "count",
+   "definition": "on the second chipset x4 slot (00:1b.0), unchanged since August"
+  },
+  {
+   "name": "aer_errors",
+   "value": 0,
+   "unit": "count",
+   "definition": "corrected and uncorrected AER counters clean on the chipset card; a stable x1 link can train without errors, so this does not prove the link intended x4"
+  }
+ ],
+ "classification": "measured",
+ "success": "pass",
+ "notes": "Owner installation knowledge (2026-11-18): the ribbon-riser card sits in PCIEX1_1, next to the CPU; the manual says PCIEX1_1 does not share lanes with PCIEX4_1, so the x1 is not by design. Physical cause unresolved (seating/signal/slot); remote fix not possible, onsite checklist in the private diagnosis report."
 }

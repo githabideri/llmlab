@@ -167,8 +167,9 @@ The machine description's “GPU 1 (EVGA PX1) on a chipset x16 slot
 electrically running at x4” is corrected by the 2026-11-18 link
 investigation (model card Provenance): the slot's port is ×4-capable, but
 the card's **negotiated** width has never been recorded as ×4 and is
-measured **Gen3 ×1 (0.75 GB/s)**; it has most likely been ×1 since the
-11-14 installation. Consequences:
+measured **Gen3 ×1 (0.75 GB/s)** on 2026-11-18; the historical width
+across the single continuous boot since the 11-14 installation is
+unverified (a link can retrain without a reboot), probably ×1. Consequences:
 
 - The “PCIe was checked under load: the x4 card peaks around 0.3–0.9
   GB/s (roughly a quarter of a gen3 x4 link) … the x4 link is not the
@@ -180,4 +181,7 @@ measured **Gen3 ×1 (0.75 GB/s)**; it has most likely been ×1 since the
 - **Preserved:** the placement conclusions (A0 vs A8 VRAM balance), the
   matched 16K decode result (24.8 tok/s in both), and the memory/ceiling
   findings — decode moves ~4% of even a ×1 link, so width does not enter
-  them.
+  them. The November throughput numbers stand as probably-×1-condition
+  measurements; a matched re-run under the same (x1) condition is in
+  flight (2026-11-18 window), and a ×4 comparison requires the physical
+  fix, which is offsite (the box is in Freistadt).

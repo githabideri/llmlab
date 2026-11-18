@@ -25,7 +25,7 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-UNITS = {"s", "ms", "tokens", "tok/s", "bytes", "MiB", "GiB", "GB", "bool", "count", "percent"}
+UNITS = {"s", "ms", "tokens", "tok/s", "bytes", "MiB", "GiB", "GB", "bool", "count", "percent", "GB/s", "MB/s"}
 RANGES = {
     "s": (0, 10800),
     "ms": (0, 10_800_000),
@@ -97,6 +97,8 @@ def main():
             u = m.get("unit")
             if u not in UNITS:
                 err("%s: metric %s has disallowed unit %r" % (rel, m.get("name"), u))
+            elif re.search(r"bandwidth|tput|rate|bps", m.get("name", ""), re.I) and not str(u).endswith("/s"):
+                err("%s: metric %s looks like a rate but has non-rate unit %r (dimensional check)" % (rel, m.get("name"), u))
             v = m.get("value")
             if u == "bool":
                 if not isinstance(v, bool):

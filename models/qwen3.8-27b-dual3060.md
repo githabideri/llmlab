@@ -2,7 +2,7 @@
 
 **Model:** Qwen3.8-27B — dense ~27.3B, hybrid SSM + full attention (17 of 66 layers), native MTP head
 **Quant:** ISTA DASLab [GSQ-RCO](https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF) **IQ3_S-mtp (3.0-3.4 bpw)**, 12.1 GB, with the release's own BF16 mmproj projector (0.93 GB; served on CPU)
-**Hardware:** the secondary GPU server — Intel i5-7400 (4C/4T — no hyperthreading), 32 GB DDR4, two RTX 3060 12 GB (one on a CPU x16 slot at Gen3 x16; one on a chipset PCIEX4_1 slot **measured negotiating Gen3 ×1 since the 2026-11-14 installation** — the November reports’ x4 wording is retracted, see Provenance), PHB, **no P2P**
+**Hardware:** the secondary GPU server — Intel i5-7400 (4C/4T — no hyperthreading), 32 GB DDR4, two RTX 3060 12 GB (one on a CPU x16 slot at Gen3 x16; one on a chipset PCIEX4_1 slot **measured negotiating Gen3 ×1 on 2026-11-18** — historical width across the November boot: unverified, probably ×1 (one continuous boot; a link can retrain without a reboot); the ribbon-riser card sits in PCIEX1_1 next to the CPU, which per the manual does not share lanes with this slot, so the ×1 is not by design; the November reports’ x4 wording is retracted, see Provenance), PHB, **no P2P**
 **Runtime:** llama.cpp **b12383** (stock), `--split-mode layer`; MTP via `--spec-type draft-mtp` (shared-weight head; f16 draft KV, 1.02 GiB at 256K/2)
 **Status:** ✅ **Fallback (boot-resident card default since 2026-11-15)** — the fleet's 27B primary is the [dual-3090 vLLM endpoint](qwen3.8-27b-rtx3090.md); this box serves when that one is unavailable. The 35B brain and the 27B cannot co-reside, so this endpoint is cold-startable in ~13 s when swapped in.
 
@@ -58,5 +58,5 @@ snapshot is the current hardware state of this box).
 - `dual3060-27b-2026-11-18-v6a2b` — two 167K states cannot coexist (clean 400)
 - `dual3060-27b-2026-11-18-v6a2be` — 167K disk restore: correct, 0 cached, 618 s re-prefill
 - `dual3060-27b-2026-11-18-v7a-ad` — 16K-class disk restore: full reuse, 3.74 s (MTP on)
-- `dual3060-27b-2026-11-18-pcie-x1` — the chipset card's negotiated link width: measured Gen3 ×1 (0.75 GB/s); ×4 was verified on that port only with the previous card (2026-08-17/09-06); the November measurements stand as ×1-condition results
+- `dual3060-27b-2026-11-18-pcie-x1` — the chipset card's negotiated link width: measured Gen3 ×1 (0.75 GB/s) on 2026-11-18; historical width across the November boot unverified (probably ×1); ×4 verified on that port only with the previous card (2026-08-17/09-06); the November measurements stand as probably-×1-condition results
 - `dual3060-27b-2026-11-18-v7a-b` — 16K-class disk restore with MTP off: full reuse, 12.1 s

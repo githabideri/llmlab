@@ -32,10 +32,7 @@
     "model": "NVIDIA GeForce RTX 3060",
     "mem_bytes": 12884901888,
     "pci_slot": "01:00.0",
-    "pcie_gen": 3,
-    "pcie_width": 16,
     "upstream_bridge": "00:01.0 (CPU x16 port)",
-    "driver_version": "595.71.05",
     "compute_cap": "8.6"
    },
    {
@@ -43,10 +40,7 @@
     "model": "NVIDIA GeForce RTX 3060",
     "mem_bytes": 12884901888,
     "pci_slot": "07:00.0",
-    "pcie_gen": 3,
-    "pcie_width": 1,
     "upstream_bridge": "00:1d.0 (PCH, LnkCap x4 \u2014 PCIEX4_1 per manual; shares with PCIEX1_2/SATA Express)",
-    "driver_version": "595.71.05",
     "compute_cap": "8.6"
    }
   ],
@@ -114,47 +108,7 @@
     "size_bytes": 500107862016,
     "model": "Samsung SSD 860 EVO 500GB"
    }
-  ],
-  "board": {
-   "model": "Gigabyte B250-HD3P-CF (CF variant of GA-B250-HD3P Rev 1.0; manual is the retail reference)",
-   "bios_version": "F8",
-   "boot_continuous_since": "2026-11-14T01:31 (the dual-3060 installation window; no reboot since)",
-   "dmi_slots": {
-    "J6B2": "PCIEX16 (00:01.0, x16) \u2014 LHR",
-    "J8B4": "x1 (00:1c.6, LnkCap x1) \u2014 GTX 1050 (ribbon riser per owner's installation photo; slot identity PCIEX1_1 vs PCIEX1_2 unresolved remotely)",
-    "J6B1": "x1 (00:1c.3, DMI 'In Use', no OS device)",
-    "J6D1": "x1 (00:1c.4, DMI 'In Use', no OS device)",
-    "J7B1": "x1 (00:1c.5, DMI 'In Use', no OS device)"
-   },
-   "empty_ports": [
-    "00:1c.0 (x1, ASMedia USB)",
-    "00:1c.7 (x4, empty \u2014 likely the SATA Express/M.2 sharing port; no M.2, no SATA Express device)"
-   ],
-   "aer": "clean on 07:00.0 (CESta/UESta all clear); a stable x1 link can train without errors"
-  },
-  "pcie_link": {
-   "verified_at": "2026-11-18T20:53:18Z",
-   "method": "lspci LnkCap/LnkSta both ends + nvidia-smi at idle and under live 27B load (12 samples) + 128 MiB cuMemcpy x12 (median); single continuous boot since 2026-11-14T01:31",
-   "07:00.0": {
-    "negotiated": "Gen3 x1",
-    "bandwidth_h2d_gbps": 0.746,
-    "bandwidth_d2h_gbps": 0.752,
-    "note": "port is x4-capable (PCIEX4_1). x4 verified on this port only with the previous card (GTX 1050 via riser, 2026-08-17/09-06). Manual: PCIEX4_1 is limited to x1 iff PCIEX1_2 is populated, to x2 iff SATA Express is populated \u2014 the owner's photo places the riser in PCIEX1_1 (no documented sharing), so the x1 is an open case A/B question; remote fix not possible, onsite action list in the 2026-11-18 diagnosis report (private repo)"
-   },
-   "01:00.0": {
-    "negotiated": "Gen3 x16",
-    "bandwidth_h2d_gbps": 8.446,
-    "bandwidth_d2h_gbps": 8.11
-   },
-   "02:00.0": {
-    "negotiated": "Gen1 x4 (idle) \u2014 slot-limited x4 port",
-    "note": "GT 1030, not driven by the host driver (Pascal, VM 135)"
-   },
-   "04:00.0": {
-    "negotiated": "Gen3 x1 \u2014 slot-limited (root port LnkCap x1); the card itself is x16-capable; did Gen3 x4 in PCIEX4_1 in Aug/Sep",
-    "note": "GTX 1050, not driven by the host driver"
-   }
-  }
+  ]
  },
  "time_varying": {
   "os": "Debian GNU/Linux 13 (trixie)",
@@ -176,6 +130,33 @@
     "size_gb": 1,
     "avail_gb": 1
    }
-  ]
+  ],
+  "driver_version": "595.71.05 (both 3060s, as of 2026-11-18)",
+  "pcie_link": {
+   "captured_at": "2026-11-18T20:53:18Z (a per-boot state: a link can retrain at power management without a reboot; re-measure before quoting)",
+   "method": "lspci LnkCap/LnkSta both ends + nvidia-smi at idle and under live 27B load (12 samples) + 128 MiB cuMemcpy x12 (median); single continuous host boot since 2026-11-14T01:31 (the dual-3060 installation)",
+   "07:00.0": {
+    "negotiated": "Gen3 x1",
+    "bandwidth_h2d_gbps": 0.746,
+    "bandwidth_d2h_gbps": 0.752,
+    "note": "port x4-capable (PCIEX4_1). The ribbon-riser card is in PCIEX1_1 next to the CPU (owner, 2026-11-18), which the manual says does not share lanes with PCIEX4_1, so the x1 is not by design; physical cause unresolved. x4 on this port verified only with the previous card (2026-08-17/09-06, GTX 1050 via riser). Historical width across the November boot: unverified, probably x1."
+   },
+   "01:00.0": {
+    "negotiated": "Gen3 x16",
+    "bandwidth_h2d_gbps": 8.446,
+    "bandwidth_d2h_gbps": 8.11
+   },
+   "02:00.0": {
+    "negotiated": "Gen1 x4 (idle) \u2014 slot-limited x4 port",
+    "note": "GT 1030, not driven by the host driver (Pascal, VM 135)"
+   },
+   "04:00.0": {
+    "negotiated": "Gen3 x1 \u2014 slot-limited (root port LnkCap x1, DMI J8B4; the card itself is x16-capable; did Gen3 x4 in PCIEX4_1 in Aug/Sep)",
+    "note": "GTX 1050 on the ribbon riser in PCIEX1_1 (owner), not driven by the host driver"
+   },
+   "aer": "clean on 07:00.0 (CESta/UESta all clear); a stable x1 link can train without errors, so this does not prove the link intended x4"
+  },
+  "bios_version": "F8 (as of 2026-11-18; changes on BIOS updates)",
+  "boot_continuous_since": "2026-11-14T01:31 (the dual-3060 installation window; no reboot since \u2014 but a link can retrain within a boot)"
  }
 }

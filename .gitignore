@@ -18,3 +18,9 @@ scripts/.env.local
 
 # per-window generated campaign run state (frozen bundles, briefs, evidence) — keep out of the public repo
 benchmarks/campaigns/runs/
+
+# generated / local-env files (added 2026-11-18 after 39f5bd0 hygiene review)
+__pycache__/
+*.pyc
+.env.local
+.env.*.local
