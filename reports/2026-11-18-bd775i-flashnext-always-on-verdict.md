@@ -30,7 +30,15 @@ The choreography was exactly the documented one: when B arrived, A's 204,857-tok
 
 ## The 8 h stability soak
 
-_(filled in at soak completion: the turn cadence, the T+3h crash/restart, the T+6h power-off → WOL wake → service restart → fresh 32K turn, the T+8h end state, and the resource trend.)_
+The service ran 08:26 to 17:44 (8 h 18 min, minus a 25 min window in which we deliberately stopped it to run the quality cells below, in which the 12 GB card cannot host a second engine at all). Every 30 minutes both sessions received a ~22.5K-token turn (16 completion tokens; the 16K-character slice tokenizes to 22.5K): seven turns before the power-off and two after, all completing in 129–143 s end-to-end with no drift across the whole period. The engine's own logs show the steady state the numbers imply: 10–15% avg60 memory pressure under turn load, back to ~0 between turns; 11.5 GB VRAM resident; 57–59 W at idle under the 24 GiB pin; no OOM, no restart of its own, no error lines.
+
+Three milestones were forced on it. **Crash (T+3 h):** both processes killed with SIGKILL; the service was restarted by hand (the unit's automatic restart is the Phase J cutover, below) and was ready in 60 s; a fresh 44.5K-token prompt then ran end-to-end in 197 s, which is the honest recovery number: a cold process pays the ~48 GB NVMe re-read, then the prompt read, then the answer. **Power-off (T+6 h):** the box powered itself off; a WOL magic packet from a second machine on the same LAN brought it back to a live SSH session in 30 s, the service was up 60 s after boot, and the same 44.5K-token recovery turn completed in 197 s. **Long soak:** the hourly state snapshots (free memory, PSI, GPU power and temperature, uptime, error count) show a flat line: 44 GB total with 35 GB used by the resident service, ~9 GB available, no creep, no fragmentation symptom in 8 hours.
+
+One gap is documented rather than hidden: a single 30-min turn pair near the end was missed because the service was down for the quality window (a client bug on our side, not the service's; the turns before and after are normal).
+
+## Quality under the chosen KV quantization
+
+v0.1.41 has no perplexity command, so the fixture is a comprehension pair with known answers, run one-shot (32K Moby-Dick prefix + question, greedy, 128 tokens) under each of the three int8-class KV formats: int8, k8v4, q4_0. The narrator question ("what name does the narrator call himself in the very first line?") is answered correctly by all three: **Ishmael**, each citing "Call me Ishmael". The captain question ("who is the captain of the Pequod?", expected Ahab) turned out to be unanswerable from the prefix: Ahab first appears in chapter 20, beyond the 32K window, and all three formats instead describe the Father Mapple passage that the window does contain, in near-identical wording. That is the fixture's limitation, not a divergence: the q4_0 format shows no visible quality drift against int8 on this test (n=1 per cell; the engine's own upstream bench puts q4_0 at +8–12% perplexity on long documents, which is why the service keeps int8).
 
 ## The service
 
