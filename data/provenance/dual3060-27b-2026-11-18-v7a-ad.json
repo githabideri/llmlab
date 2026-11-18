@@ -7,11 +7,11 @@
     "name": "llama.cpp",
     "build": "b12383",
     "commit": "c56be86",
-    "binary_sha256": null
+    "binary_sha256": "809a4e91467c40798b274825f2cb9e2b2ed742de6c0613313fdbd4e7751957c3"
   },
   "model": {
     "id": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp",
-    "sha256": null
+    "sha256": "58fd826723939933dc86f45b7fe04545cbc2de1c70f6fe2cdd3858c87a98c12f"
   },
   "config": {
     "id": "V7A_AD",

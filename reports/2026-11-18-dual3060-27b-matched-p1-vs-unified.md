@@ -109,4 +109,85 @@ the whole window, **10/10 code-recall answers correct, zero failed turns**.
 
 Raw per-cell JSON, both `-lv 3` server logs, the window log and the progress
 trace are kept in the private repo (campaign `m3-*` files). Provenance:
-`data/provenance/dual3060-27b-2026-11-18-m3-matched.json`.
+`data/provenance/dual3060-27b-2026-11-18-m3-matched.json` (binary and model
+SHA-256 filled in the 2026-11-18 correction; all other records on this card
+filled the same day).
+
+## Addendum (2026-11-18 evening): decode-accounting correction and wording fixes
+
+An independent review of this report found a benchmark-accounting
+inconsistency in the decode rows. It was real. The corrections below amend
+verdicts 2, 4 and 5; verdicts 1 and 3 stand unchanged.
+
+**The decode cells are not comparable, and this report withdraws the
+comparison it drew from them.** The raw cells show: the solo decode in boot
+A generated **256 tokens** (the max-token cap) in 8.99 s of evaluation time
+(10.68 s end-to-end, which includes the ~1.7 s prompt-processing phase);
+boot B's solo decode **stopped on its own after 105 tokens** in 4.47 s
+(6.18 s end-to-end). The two numbers printed in the table, 28.4 and
+23.3 tok/s, are evaluation-window rates computed over **different amounts
+of work and different token ranges** — dividing them by the printed
+end-to-end times gives different rates still (24.0 and 17.3 tok/s), which
+is exactly the non-reconciliation the review flagged. The two-agent decode
+wall times are the same artifact at a coarser scale: boot A's agents
+stopped after 58 and 11 tokens, boot B's after 103 and 121, and the wall
+is set by whichever agent generates longest. The stopping points diverged
+because greedy decoding on these GPUs is not bit-reproducible across
+process runs: identical prompts took different sampling paths (the recorded
+response tails differ in content, not just length), so one run happened to
+reach the cap and the other stopped early. The response tails in both
+boots also show these continuation prompts did not elicit the planted-code
+answer shape, so the code-recall score for the decode cells is null — the
+10/10 figure covers the prefill cells only, as the Results section states.
+
+What the window does establish, unchanged: cold-prefill throughput and
+in-pool prefix reuse are neutral with respect to the unified KV pool at
+11.8K–47.2K (verdicts 1 and 3). What it does **not** establish, and what
+this addendum corrects: any decode-speed difference in either direction,
+and any claim that this window speaks to the P2-regression question. That
+question rests on the 2026-11-15 E1/E2 comparison (2×27K prefill walls,
+114 s vs 131 s — deterministic prompt lengths, so that one was clean), and
+the next window re-tests decoding with a protocol that fixes the generated
+length in both arms (identical prompt, forced length, per-token streaming
+timestamps, stop reason recorded), so a decode comparison can actually be
+drawn.
+
+**Fixture count.** The window used five of the nine prepared fixtures
+(three cold sizes, two 23.6K agent documents). The other four (32K-class,
+seeded) were prepared the same day for the M2 workload windows and were
+deployed to the box but not exercised here; the report's setup section
+should be read as "five used, nine prepared".
+
+**PCIe wording (verdict 4 amended).** The original sentence "no event in
+the interval that can retrain a link" was too strong: PCIe links can
+change during normal operation without any host-visible event being logged.
+What is actually known: the negotiated width was measured immediately
+before the window (21:53) and shortly after it (22:49:02, the external
+5-minute monitor's first clean tick, 12 s after close), ×1 in both; the
+in-window negotiated width was **not measured** (the per-cell sampler had a
+field-name bug and collected nothing). The window therefore ran under the
+**very-likely-×1, not-proven** condition. The per-cell sampler is fixed
+and validated ahead of the next window; every cell will record a
+timestamped width/generation sample, and a missing sample is explicitly
+marked as a coverage failure rather than silently omitted. A same-evening
+refinement from the 5-minute pciewatch series: the two bracketing
+measurements were both **Gen3** (8 GT/s), so the window's condition is
+more precisely **Gen3 ×1**; five minutes after the window closed, both
+3060 links downgraded to **Gen1** with no kernel AER or retrain events in
+the entire boot's journal (an unattributed, driver-side re-init
+coinciding with the 22:48:50 production reload). The box is therefore
+serving at Gen1 ×1 today (compute-bound inference unaffected; cold loads
+and the prefill bandwidth ceiling at a quarter of the Gen3 figure), and
+any future window must state its generation as well as its width. The
+0.3–0.9 GB/s dmon bursts of 2026-11-15 come from an era whose generation
+is unverified, which that reconciliation now has to cover.
+
+**Long-prefill classification (verdict 5 amended).** The 167K-class
+prefill question is re-classified from "probably link-limited at ×1" to
+**"possible, unconfirmed"**: the 0.3–0.9 GB/s figures from the 2026-11-15
+`nvidia-smi dmon` window are utilization bursts sampled by a different
+method than the 0.75 GB/s DMA transfer-rate measurement taken on 2026-11-18
+(dmon reads the link's instantaneous bandwidth counter periodically; the
+DMA test transfers a fixed 128 MiB block and divides), and the two have not
+yet been reconciled directionally or by sampling method. The post-fix ×4
+re-run with in-window transfer counters is the planned way to settle it.

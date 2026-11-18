@@ -1,132 +1,158 @@
 {
-  "schema": "llmlab.provenance/1",
-  "id": "dual3060-27b-2026-11-18-m3-matched",
-  "machine_tag": "dual3060-27b",
-  "date": "2026-11-18",
-  "engine": {
-    "name": "llama.cpp",
-    "build": "b12383",
-    "commit": "c56be86",
-    "binary_sha256": null
+ "schema": "llmlab.provenance/1",
+ "id": "dual3060-27b-2026-11-18-m3-matched",
+ "machine_tag": "dual3060-27b",
+ "date": "2026-11-18",
+ "engine": {
+  "name": "llama.cpp",
+  "build": "b12383",
+  "commit": "c56be86",
+  "binary_sha256": "809a4e91467c40798b274825f2cb9e2b2ed742de6c0613313fdbd4e7751957c3"
+ },
+ "model": {
+  "id": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp",
+  "sha256": "58fd826723939933dc86f45b7fe04545cbc2de1c70f6fe2cdd3858c87a98c12f"
+ },
+ "config": {
+  "id": "M3_A_vs_M3_B",
+  "description": "matched window, one variable: A = P1 as-is (production launch.sh verbatim: A8 flip, 60/40 layer split, mmproj CPU, ctx 262144/2 non-unified, q4_0 KV, -b 256 -ub 128 -t 4, draft-mtp default depth, jinja, load-mode none); B = same + --kv-unified --kv-unified-per-slot 262144. Both at the measured Gen3 x1 condition on the second 3060's chipset port. Scratch port 8128, scope-isolated, watchdog 5400 s, production stopped/restore-live-verified around the window (22:36:34-22:48:50, rc=0).",
+  "flags": [
+   "-b 256",
+   "-ub 128",
+   "-t 4",
+   "--spec-type draft-mtp",
+   "--ctx-size 262144",
+   "--parallel 2",
+   "--cache-type-k q4_0",
+   "--cache-type-v q4_0",
+   "--split-mode layer",
+   "--tensor-split 60,40",
+   "--mmproj-device none",
+   "--load-mode none",
+   "--jinja",
+   "--metrics",
+   "B only: --kv-unified --kv-unified-per-slot 262144"
+  ]
+ },
+ "workload": {
+  "fixture": "seeded pseudo-text 16k/32k/64k (11827/23594/47241 tok) + agent pair 2x23.6K, planted-code recall; cold->warm repeats, solo decode 256 tok, two-agent concurrent prefill and decode; n=1 per cell per boot",
+  "prompt_tokens": 47241,
+  "n_reps": 1
+ },
+ "metrics": [
+  {
+   "name": "prefill_tps_A_11827",
+   "value": 494,
+   "unit": "tok/s"
   },
-  "model": {
-    "id": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp",
-    "sha256": null
+  {
+   "name": "prefill_tps_B_11827",
+   "value": 495,
+   "unit": "tok/s"
   },
-  "config": {
-    "id": "M3_A_vs_M3_B",
-    "description": "matched window, one variable: A = P1 as-is (production launch.sh verbatim: A8 flip, 60/40 layer split, mmproj CPU, ctx 262144/2 non-unified, q4_0 KV, -b 256 -ub 128 -t 4, draft-mtp default depth, jinja, load-mode none); B = same + --kv-unified --kv-unified-per-slot 262144. Both at the measured Gen3 x1 condition on the second 3060's chipset port. Scratch port 8128, scope-isolated, watchdog 5400 s, production stopped/restore-live-verified around the window (22:36:34-22:48:50, rc=0).",
-    "flags": [
-      "-b 256",
-      "-ub 128",
-      "-t 4",
-      "--spec-type draft-mtp",
-      "--ctx-size 262144",
-      "--parallel 2",
-      "--cache-type-k q4_0",
-      "--cache-type-v q4_0",
-      "--split-mode layer",
-      "--tensor-split 60,40",
-      "--mmproj-device none",
-      "--load-mode none",
-      "--jinja",
-      "--metrics",
-      "B only: --kv-unified --kv-unified-per-slot 262144"
-    ]
+  {
+   "name": "prefill_tps_A_23594",
+   "value": 467,
+   "unit": "tok/s"
   },
-  "workload": {
-    "fixture": "seeded pseudo-text 16k/32k/64k (11827/23594/47241 tok) + agent pair 2x23.6K, planted-code recall; cold->warm repeats, solo decode 256 tok, two-agent concurrent prefill and decode; n=1 per cell per boot",
-    "prompt_tokens": 47241,
-    "n_reps": 1
+  {
+   "name": "prefill_tps_B_23594",
+   "value": 466,
+   "unit": "tok/s"
   },
-  "metrics": [
+  {
+   "name": "prefill_tps_A_47241",
+   "value": 416,
+   "unit": "tok/s"
+  },
+  {
+   "name": "prefill_tps_B_47241",
+   "value": 414,
+   "unit": "tok/s"
+  },
+  {
+   "name": "warm_ttft_A_47241",
+   "value": 0.578,
+   "unit": "s"
+  },
+  {
+   "name": "warm_ttft_B_47241",
+   "value": 0.573,
+   "unit": "s"
+  },
+  {
+   "name": "warm_prompt_processed_tokens",
+   "value": 4,
+   "unit": "tokens"
+  },
+  {
+   "name": "two_agent_prefill_wall_A",
+   "value": 101.4,
+   "unit": "s"
+  },
+  {
+   "name": "two_agent_prefill_wall_B",
+   "value": 106.2,
+   "unit": "s"
+  },
+  {
+   "name": "code_recall_correct",
+   "value": 10,
+   "unit": "count"
+  },
+  {
+   "name": "pcie_width_07_00_0",
+   "value": 1,
+   "unit": "count"
+  },
+  {
+   "name": "solo_decode_eval_tps_A",
+   "value": 28.37,
+   "unit": "tok/s"
+  },
+  {
+   "name": "solo_decode_eval_tps_B",
+   "value": 23.26,
+   "unit": "tok/s"
+  },
+  {
+   "name": "solo_decode_tokens_out_A",
+   "value": 256,
+   "unit": "tokens"
+  },
+  {
+   "name": "solo_decode_tokens_out_B",
+   "value": 105,
+   "unit": "tokens"
+  },
+  {
+   "name": "two_agent_decode_wall_A",
+   "value": 4.45,
+   "unit": "s"
+  },
+  {
+   "name": "two_agent_decode_wall_B",
+   "value": 7.09,
+   "unit": "s"
+  }
+ ],
+ "classification": "measured",
+ "success": "pass",
+ "notes": "9-cell matched matrix; window 2026-11-18T22:36:34..22:48:50 local CET (12 min 16 s); condition: PCIe Gen3 x1 on the EVGA link (bracketed by the 21:53 pre-window lspci 8 GT/s and the 22:49:02 pciewatch tick; no in-window sample; both links then downgraded to Gen1 five minutes post-window, unattributed, no kernel events). Cold prefill identical to <1%. Warm prefix reuse identical at both 12K and 47K (4 tokens recomputed, 0.45-0.58 s). Solo-decode cells are NOT a speed comparison: GPU greedy sampling is not bit-reproducible across boots (256 vs 105 tokens; 58/11 vs 103/121 two-agent), so wall times measured different work and the eval-window rates covered different token ranges. Two-agent prefill wall 101.4 vs 106.2 s (n=1, not statistically established). Fixture set: the four 16K m3-* files (3 of 9 prepared; the four m2-* 32K files staged for the multi-agent workload). No failed turns; code recall 10/10 in both boots. Verdict: unified KV performance-neutral for cold prefill and prefix reuse in this regime; P1 stays production; the P2 regression question remains with the 2026-11-15 E1/E2 prefill-wall pair pending a fixed-length decode protocol.",
+ "time_varying": [
+  {
+   "name": "pcie_gen_width_EVGA_link",
+   "values": [
     {
-      "name": "prefill_tps_A_11827",
-      "value": 494,
-      "unit": "tok/s"
+     "window": "2026-11-18T22:36:34..22:48:50 (window, bracketed)",
+     "value": "gen3/x1"
     },
     {
-      "name": "prefill_tps_B_11827",
-      "value": 495,
-      "unit": "tok/s"
-    },
-    {
-      "name": "prefill_tps_A_23594",
-      "value": 467,
-      "unit": "tok/s"
-    },
-    {
-      "name": "prefill_tps_B_23594",
-      "value": 466,
-      "unit": "tok/s"
-    },
-    {
-      "name": "prefill_tps_A_47241",
-      "value": 416,
-      "unit": "tok/s"
-    },
-    {
-      "name": "prefill_tps_B_47241",
-      "value": 414,
-      "unit": "tok/s"
-    },
-    {
-      "name": "warm_ttft_A_47241",
-      "value": 0.578,
-      "unit": "s"
-    },
-    {
-      "name": "warm_ttft_B_47241",
-      "value": 0.573,
-      "unit": "s"
-    },
-    {
-      "name": "warm_prompt_processed_tokens",
-      "value": 4,
-      "unit": "tokens"
-    },
-    {
-      "name": "solo_decode_tps_A",
-      "value": 28.4,
-      "unit": "tok/s"
-    },
-    {
-      "name": "solo_decode_tps_B",
-      "value": 23.3,
-      "unit": "tok/s"
-    },
-    {
-      "name": "two_agent_prefill_wall_A",
-      "value": 101.4,
-      "unit": "s"
-    },
-    {
-      "name": "two_agent_prefill_wall_B",
-      "value": 106.2,
-      "unit": "s"
-    },
-    {
-      "name": "two_agent_decode_wall_A",
-      "value": 4.45,
-      "unit": "s"
-    },
-    {
-      "name": "two_agent_decode_wall_B",
-      "value": 7.09,
-      "unit": "s"
-    },
-    {
-      "name": "code_recall_correct",
-      "value": 10,
-      "unit": "count"
-    },
-    {
-      "name": "pcie_width_07_00_0",
-      "value": 1,
-      "unit": "count"
+     "window": "2026-11-18T22:54.. (current)",
+     "value": "gen1/x1"
     }
-  ],
-  "classification": "measured",
-  "success": "pass",
-  "notes": "Unified KV is neutral vs P1 for cold prefill (<1% at all sizes) and prefix reuse (identical warm behavior); solo-decode and two-consumer differences are single-run, directionally consistent with the 2026-11-15 E1/E2 and 2026-11-17 P2-regression findings. P1 remains the production default. No in-window PCIe transfer-rate sampling (sampler bug, recorded in the private report); the 167K-class prefill link-utilization question (2026-11-15 dmon 0.3-0.9 GB/s at the measured x1 ceiling) stays open for the post-fix comparison. Units are bare per the schema; qualifiers: decode/concurrency cells n=1 per boot; code_recall_correct is 10 of 10 with 0 failed or incorrect turns; pcie_width_07_00_0 is x1 Gen3, measured before and after the window with no in-window sample."
+   ],
+   "how_measured": "lspci LnkSta before/after (pre 21:53 CET, post 22:49:02 pciewatch tick); nvidia-smi pcie.link.{gen,width}.current; no in-window sample (sampler bug, since fixed)"
+  }
+ ]
 }
