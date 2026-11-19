@@ -29,7 +29,7 @@ UNITS = {"s", "ms", "tokens", "tok/s", "bytes", "MiB", "GiB", "GB", "bool", "cou
 RANGES = {
     "s": (0, 10800),
     "ms": (0, 10_800_000),
-    "tok/s": (0, 500),
+    "tok/s": (0, 700),  # calibrated 2026-11-19: 40K cold prefill on the dual-3060 at the Gen3 x4 condition measured 581-583 tok/s (dual3060-27b-2026-11-19-m2-m2fix); unit-mistake detection preserved
     "tokens": (0, 2_000_000),
     "percent": (0, 100),
 }

@@ -1,0 +1,174 @@
+{
+ "schema": "llmlab.provenance/1",
+ "id": "dual3060-27b-2026-11-19-m2-m2fix",
+ "machine_tag": "dual3060-27b",
+ "date": "2026-11-19",
+ "engine": {
+  "name": "llama.cpp",
+  "build": "b12383",
+  "commit": "c56be86",
+  "binary_sha256": "809a4e91467c40798b274825f2cb9e2b2ed742de6c0613313fdbd4e7751957c3"
+ },
+ "model": {
+  "id": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp",
+  "sha256": "58fd826723939933dc86f45b7fe04545cbc2de1c70f6fe2cdd3858c87a98c12f"
+ },
+ "config": {
+  "id": "M2_b1_and_M2FIX_f1_f2",
+  "description": "M2 window 2026-11-19T01:29:31..01:36:28 (4 boots: P1 verbatim + --slot-save-path; +--cache-ram 16384 SKIPPED by the 24GiB RAM gate with the 5-guest set; --spec-type none; the d92ea9bb1 build) and the M2-FIX window 02:03:36..02:05:58 (2 boots of the P1+slot-save-path shape: an action-contract probe, then the save/park/restore live path and the fresh-process restore path), 40K-token reproducer fixture (36,979 tok, planted code), scratch port 8128, scope-isolated, watchdogs armed/disarmed, production stopped and live-verified around each window (both rc=0).",
+  "flags": [
+   "-b 256",
+   "-ub 128",
+   "-t 4",
+   "--spec-type draft-mtp",
+   "--ctx-size 262144",
+   "--parallel 2",
+   "--cache-type-k q4_0",
+   "--cache-type-v q4_0",
+   "--split-mode layer",
+   "--tensor-split 60,40",
+   "--mmproj-device none",
+   "--load-mode none",
+   "--jinja",
+   "--metrics",
+   "--slot-save-path <scratch dir>"
+  ]
+ },
+ "workload": {
+  "fixture": "seeded pseudo-text 40K (36,979 tok, planted code KGYVU); cold prefill; warm/identical followups; 120 s idle then followup; save (1.15 GB snapshot, target + MTP draft checkpoints) -> 40 s idle park -> explicit restore -> followup; fresh-process restore of the same file -> followup; n=1 per cell per boot",
+  "prompt_tokens": 36979,
+  "n_reps": 1
+ },
+ "metrics": [
+  {
+   "name": "cold_prefill_tps_b12383_40k",
+   "value": 581.0,
+   "unit": "tok/s"
+  },
+  {
+   "name": "cold_prefill_tps_mtpoff_40k",
+   "value": 581.4,
+   "unit": "tok/s"
+  },
+  {
+   "name": "cold_prefill_tps_d92_40k",
+   "value": 582.9,
+   "unit": "tok/s"
+  },
+  {
+   "name": "cold_prefill_tps_m3_47k_gen3_x1_reference",
+   "value": 415,
+   "unit": "tok/s"
+  },
+  {
+   "name": "save_bytes_40k_snapshot",
+   "value": 1153722076,
+   "unit": "bytes"
+  },
+  {
+   "name": "save_ms_40k",
+   "value": 479.9,
+   "unit": "ms"
+  },
+  {
+   "name": "restore_ms_40k_live_after_park",
+   "value": 505.0,
+   "unit": "ms"
+  },
+  {
+   "name": "restore_ms_40k_fresh_process",
+   "value": 493.8,
+   "unit": "ms"
+  },
+  {
+   "name": "restore_followup_cached_tokens",
+   "value": 36990,
+   "unit": "tokens"
+  },
+  {
+   "name": "restore_followup_prompt_tokens",
+   "value": 4,
+   "unit": "tokens"
+  },
+  {
+   "name": "restore_followup_wall_total",
+   "value": 0.78,
+   "unit": "s"
+  },
+  {
+   "name": "restore_followup_code_recall_correct",
+   "value": 2,
+   "unit": "count"
+  },
+  {
+   "name": "idle120_resume_first_token",
+   "value": 0.39,
+   "unit": "s"
+  },
+  {
+   "name": "pcie_gen_link01_00_0",
+   "value": 3,
+   "unit": "count"
+  },
+  {
+   "name": "pcie_width_link01_00_0",
+   "value": 16,
+   "unit": "count"
+  },
+  {
+   "name": "pcie_gen_link07_00_0",
+   "value": 3,
+   "unit": "count"
+  },
+  {
+   "name": "pcie_width_link07_00_0",
+   "value": 4,
+   "unit": "count"
+  }
+ ],
+ "classification": "measured",
+ "success": "pass",
+ "notes": "Three findings. (1) Width effect: at the measured Gen3 condition, 40K cold prefill is 581-583 tok/s (three engines, <0.4% spread) vs the 2026-11-18 M3 window's 414-416 tok/s for a 47K fixture at Gen3 x1 on the same engine class — the chipset card's x1 width cost about 40% of prefill throughput (x4 width now measured; the card's device LnkCap is x16, the port's is x4). Engine delta b12383 vs d92ea9bb1 ~0.3% (d92 stays a comparison build); MTP-off has no prefill effect. (2) The 40K-class disk tier is fast and correct end to end: a 1.15 GB / 37,001-token snapshot (target + MTP draft checkpoints) saves in 0.48 s, restores in 0.49-0.50 s both after a 40 s idle park in the same process and into a virgin process, and the followup reuses the restored state fully (36,990/4 tokens) with correct planted-code recall in <0.8 s total. The fast-persistence size boundary sits between 1.15 GB (works) and 4.19 GB (128K: silent full re-prefill, 531 s; the 1.8-3.3 GB RAM-tier loads fail outright) — the threshold is unmapped. (3) PCIe retrain fingerprint (both windows, per-cell sampling, full coverage): every driver-init/model-load event on this stack (nvidia 595.71.05 on a Proxmox VE 9.2 / kernel 7.0.14 host) de-trains both 3060 links to Gen1 (width preserved); every unload/stop re-trains to Gen3; every power-on negotiates Gen3 x16/x4 — the load path is the de-trainer. The 01:29 window's save-erase-restore cells were voided by a harness bug (the b12383 save action requires a JSON {filename} body; empty body = 400; erase clears registered cache entries, not the slot's live KV) and were re-run correctly in M2-FIX. A harness-state failure (stale armed-watchdog marker after a killed window) left production down ~10 min (01:56-02:06) before manual restore; no data loss.",
+ "time_varying": [
+  {
+   "name": "pcie_gen_width_both_3060_links",
+   "values": [
+    {
+     "window": "2026-11-19T01:29:31..01:36:13 (M2 window, per-cell samples)",
+     "value": "gen3/x16 + gen3/x4"
+    },
+    {
+     "window": "2026-11-19T01:36:28 (production restore = model load)",
+     "value": "gen1 (x16 / x4)"
+    },
+    {
+     "window": "2026-11-19T02:03:37..02:05 (M2-FIX window, pciewatch 02:04:47)",
+     "value": "gen3/x16 + gen3/x4"
+    },
+    {
+     "window": "2026-11-19T02:05:58 (production restore) .. current",
+     "value": "gen1/x16 + gen1/x4"
+    }
+   ],
+   "how_measured": "per-cell lspci LnkSta + nvidia-smi pcie.link.{gen,width}.current before/after every cell (both sources, explicit coverage markers); adminbox pciewatch v4 60-120 s ticks (cross-checked); 3 cold-boot pre-driver captures (journal-preserved)"
+  },
+  {
+   "name": "boot_epoch",
+   "values": [
+    {
+     "window": "2026-11-19T00:45:44..~01:02 (reboot #1)",
+     "value": "gen3 power-on -> gen1 after driver init"
+    },
+    {
+     "window": "2026-11-19T01:12:02..~01:16 (reboot #2)",
+     "value": "gen3 power-on -> gen1 after driver init"
+    },
+    {
+     "window": "2026-11-19T01:24:23.. (reboot #3, current epoch; kernel 01:24:27)",
+     "value": "gen3 power-on (capture during early driver probing) -> gen1 after full init + first model load"
+    }
+   ],
+   "how_measured": "uptime -s; kernel journal (module load 01:24:29, nvidia_uvm 01:24:41); sysinit-time lspci captures (journal-preserved; the capture unit's files never landed — quoting bug)"
+  }
+ ]
+}
