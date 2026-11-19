@@ -15,7 +15,7 @@
  },
  "config": {
   "id": "n/a",
-  "description": "read-only PCIe investigation on the secondary GPU server (GA-B250-HD3P-CF, BIOS F8): lspci LnkCap/LnkSta/LnkSta2 + AER on both ends, nvidia-smi link state at idle and under the live 27B workload, sysfs, 128 MiB cuMemcpy x12; single continuous host boot since 2026-11-14 (the dual-3060 installation). No register writes, no resets, no rebinds.",
+  "description": "read-only PCIe investigation on the secondary GPU server (GA-B250-HD3P-CF, BIOS F8): lspci LnkCap/LnkSta/LnkSta2 + AER on both ends, nvidia-smi link state at idle and under the live 27B workload, sysfs, 128 MiB cuMemcpy x12; initially a single continuous host boot since 2026-11-14. 2026-11-19: three owner-authorized reboots (power-cycle experiments, overriding the original read-only constraint) plus a sysinit-time pre-driver lspci capture. No register writes, no resets, no rebinds.",
   "flags": []
  },
  "workload": {
@@ -68,5 +68,38 @@
  ],
  "classification": "measured",
  "success": "pass",
- "notes": "Owner installation knowledge (2026-11-18): the ribbon-riser card sits in PCIEX1_1, next to the CPU; the manual says PCIEX1_1 does not share lanes with PCIEX4_1, so the x1 is not by design. Physical cause unresolved (seating/signal/slot); remote fix not possible, onsite checklist in the private diagnosis report."
+ "notes": "Owner installation knowledge (2026-11-18): the ribbon-riser card sits in PCIEX1_1, next to the CPU; the manual says PCIEX1_1 does not share lanes with PCIEX4_1, so the x1 is not by design. 2026-11-19 (reboot experiment, owner-authorized): the physical layer trains Gen3 at full width on every cold boot (pre-driver capture, 3/3 boots); the NVIDIA driver's post-init path de-trains both links to Gen1 within ~2 minutes of boot, silently (no kernel PCIe events), reproducibly. The chipset card's x1 was an in-epoch width degradation; cold boots negotiate x4. Root cause reclassified to the driver's link-speed management (PVE nvidia module 595.71.05); physical reseat downgraded to a secondary onsite check. The 0.746/0.752 GB/s cuMemcpy figures are Gen3 x1-era measurements (2026-11-18 21:5x) and do not describe the current Gen1 x1/x4 state. Open discriminator tests (owner decision): pcie_aspm=off, driver version, BIOS PCIe settings.",
+ "time_varying": {
+  "negotiated_state_per_boot_epoch": [
+   {
+    "epoch": "2026-11-14 01:31 boot (continuous through 2026-11-18 23:37)",
+    "cpu_slot_card": "gen3 x16 (measured 21:53 and 22:49:02 on 11-18, bracketing the M3 window)",
+    "chipset_slot_card": "gen3 x1 (measured 21:53; the x1 width persisted until 22:54)",
+    "note": "the x1 width appeared somewhere inside this epoch and survived until the 22:48:50 production reload"
+   },
+   {
+    "epoch": "2026-11-18 22:54 - 2026-11-19 00:45 (end of the 11-14 epoch)",
+    "cpu_slot_card": "gen1 x16",
+    "chipset_slot_card": "gen1 x1",
+    "note": "both links downgraded Gen3->Gen1 with no kernel events, coinciding with the 22:48:50 reload (UNATTRIBUTED mechanism at the time); a single transient Gen3 x16/x1 sample at 00:40:5x after stopping the server (driver still loaded via persistenced), back to Gen1 within 3 minutes"
+   },
+   {
+    "epoch": "2026-11-19 00:48 boot #1",
+    "cpu_slot_card": "gen1 x16",
+    "chipset_slot_card": "gen1 x4",
+    "note": "width restored x1 -> x4 (port maximum) on the cold boot"
+   },
+   {
+    "epoch": "2026-11-19 01:14 boot #2",
+    "cpu_slot_card": "gen1 x16",
+    "chipset_slot_card": "gen1 x4"
+   },
+   {
+    "epoch": "2026-11-19 01:24 boot #3 (current)",
+    "cpu_slot_card": "gen3 x16 pre-driver -> gen1 x16 post-driver",
+    "chipset_slot_card": "gen3 x4 pre-driver -> gen1 x4 post-driver",
+    "note": "the decisive boot: pre-driver lspci capture proves the BIOS trains full Gen3; the driver-era de-training to Gen1 reproduces on every boot"
+   }
+  ]
+ }
 }
