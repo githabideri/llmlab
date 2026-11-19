@@ -194,3 +194,42 @@ Consequences:
   spreads (three engines in M2; two boots in M3) are <0.5%, which is
   what makes the condition comparisons (×4 vs ×1; 1.15 GB vs 4.19 GB)
   meaningful despite n=1.
+
+## Addendum (2026-11-19 evening, per review of 6c3676d)
+
+Two corrections to the interpretation. The measurements stand as recorded;
+what changes is what they do and do not establish.
+
+**1. The ×1-vs-×4 comparison is not an isolated width penalty.** The
+581–583 tok/s cells (40K fixture, 36,979 tokens, Gen3 ×4) and the
+414–416 tok/s cells (47,241 tokens, Gen3 ×1, M3 window) differ in
+**both** the negotiated width and the prompt length, so the ~29% rate
+difference cannot be attributed to width alone. It is reported here as
+an observed difference between two conditions, not as a quantified width
+tax. Directionally it is consistent with ×1 being a prefill constraint
+(the ×4 condition delivered a higher rate at a *shorter* prompt), but
+that is not a controlled conclusion. The title's "width tax is
+quantified" and the "≈40%" figures are **retracted** until the
+isolated cell lands: the same 47,241-token M3 fixture run in the next
+window under the same engine and flags, at the ×4 condition the window
+naturally runs at.
+
+**2. Post-load Gen1 is not established as a driver defect.** The
+fingerprint in section 3 (load → Gen1, unload → Gen3, power-on → Gen3,
+no kernel events in any direction) is a **reliably observed state
+transition**. The review correctly points out that NVIDIA link
+management reduces the link generation while a device is idle, and the
+observations were all taken in the quiescent state after a load — so
+they are equally consistent with ordinary idle power management. This
+report's and the model card's "driver fault / actively de-trains"
+wording is therefore downgraded to a **hypothesis**: the driver-managed
+link state after load is not shown to be a defect, because no
+throughput under active traffic has been measured. The discriminator
+(planned, no reboot, no kernel-parameter change): sample link
+generation, width, GPU utilization and PCIe transfer simultaneously
+during (a) the idle period after a load and (b) a sustained 40K+
+prefill, and check whether the link re-trains under traffic. The
+earlier `pcie_aspm=off` reboot proposal is withdrawn (NO-GO per
+review); the on-site physical check remains the only other open
+question and is now the *primary* remaining one, since the
+driver-fault story no longer claims the explanation.
