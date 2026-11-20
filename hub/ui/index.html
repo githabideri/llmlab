@@ -54,6 +54,20 @@
   .state.busy     { color:var(--warn); }
   .state.degraded { color:var(--err); font-weight:700; }
   .desc { color:var(--dim); font-size:12px; margin-top:2px; }
+  /* identity chips (2026-11-20 picker revamp): site + GPU, replacing the
+     long free-form server description on migrated cards */
+  .chips { display:flex; gap:5px; flex-wrap:wrap; margin-top:3px; }
+  .chip { font-size:10px; color:var(--dim); border:1px solid var(--line);
+          border-radius:3px; padding:1px 6px; text-transform:uppercase;
+          letter-spacing:.05em; }
+  /* a mux-owned profile switch in flight: the state word pulses */
+  .ms.switching { color:var(--warn); animation:mswitch 1.2s ease-in-out infinite; }
+  @keyframes mswitch { 50% { opacity:.4; } }
+  .btn[disabled] { opacity:.4; cursor:default; }
+  /* compact picker line for an inactive model (the card shows the active
+     profile in full; the others are one line each until expanded) */
+  .mdl.picker-line { font-size:11px; }
+  .mdl.picker-line .mtx { color:var(--warn); }
 
   .gpus { display:grid; gap:5px; }
   .gpu { display:grid; grid-template-columns:2ch 118px 1fr 40px 108px 86px;
@@ -612,19 +626,39 @@ function card(s) {
                                 .filter(Boolean).join(' · ')}</span>
         </div>`).join("") + '</div>'
     : (s.gpus_stale ? '<div class="gmiss">gpu sidecar unreachable / error</div>' : "");
+  const chips = [];
+  if (s.site) chips.push(`<span class="chip">${esc(s.site)}</span>`);
+  if (s.gpus && s.gpus[0] && s.gpus[0].name)
+    chips.push(`<span class="chip">${esc(s.gpus[0].name.replace("NVIDIA GeForce ", ""))}</span>`);
+  const chipsHtml = chips.length ? `<div class="chips">${chips.join("")}</div>` : "";
+  const activeId = s.models.find(m => m.loaded) ? s.models.find(m => m.loaded).id : null;
   const rows = s.models.map(m => {
     const key = s.name + "|" + m.id;
-    const now = nowBlock(m);
+    const switching = m.status_raw === "switching";
+    const hasStructured = !!(m.quant || m.measured || m.identity);
+    const pickerCollapsed = !m.loaded && !expanded.has(key) && hasStructured;
+    const now = (pickerCollapsed || m.stale) ? '<span class="mdl">—</span>' : nowBlock(m);
     const state = m.stale ? '<span class="ms stale">stale</span>'
+      : switching ? '<span class="ms switching">switching…</span>'
       : `<span class="ms ${m.loaded ? "loaded" : "idle"}">${m.loaded ? "loaded" : "idle"}</span>`;
-    const note = (m.desc ? `<div class="mdl">${esc(m.desc)}</div>`
-      : (!isRouter ? `<div class="mdl">managed by the vLLM service</div>` : ""))
-      + (m.loaded && m.metrics_ok === false
-         ? `<div class="mdl" style="color:var(--warn)">metrics degraded — engine counter names changed?</div>` : "");
+    let note;
+    if (pickerCollapsed) {
+      // one compact line: what it is, what it does, how it relates to the
+      // active profile (the tested matrix, from the config hint)
+      const bits = [m.quant, ctxFmt(m.ctx), m.measured].filter(Boolean);
+      const mtx = (activeId && m.matrix && m.matrix[activeId]) || "";
+      note = `<div class="mdl picker-line">${esc(bits.join(" · "))}`
+        + (mtx ? ` · <span class="mtx">${esc(mtx)}</span>` : "") + "</div>";
+    } else {
+      note = (m.desc ? `<div class="mdl">${esc(m.desc)}</div>`
+        : (!isRouter ? `<div class="mdl">managed by the vLLM service</div>` : ""))
+        + (m.loaded && m.metrics_ok === false
+           ? `<div class="mdl" style="color:var(--warn)">metrics degraded — engine counter names changed?</div>` : "");
+    }
     const btns = isRouter && !m.stale
       ? `<button class="btn ${m.loaded ? "unload" : "load"}"
                  data-server="${esc(s.name)}" data-model="${esc(m.id)}"
-                 data-action="${m.loaded ? "unload" : "load"}">${m.loaded ? "unload" : "load"}</button>`
+                 data-action="${m.loaded ? "unload" : "load"}"${switching ? " disabled" : ""}>${switching ? "…" : (m.loaded ? "unload" : "load")}</button>`
       : "";
     const diag = `<tr class="diagrow" ${expanded.has(key) ? "" : "hidden"}>
       <td colspan="4">${diagHtml(s, m)}</td></tr>`;
@@ -641,7 +675,8 @@ function card(s) {
       <span class="kind">[${esc(s.kind)}]</span>
       <span class="state ${st}">${st}</span>
     </div>
-    <div class="desc">${esc(s.description)}</div>
+    ${chipsHtml}
+    ${(!s.site && s.description) ? `<div class="desc">${esc(s.description)}</div>` : ""}
     ${gpus ? '<div class="label">gpu</div>' : ""}${gpus}
     <div class="label">models</div>
     <table>
@@ -760,6 +795,7 @@ grid.addEventListener("click", e => {
     if (expanded.has(k)) expanded.delete(k); else expanded.add(k);
     const d = tr.nextElementSibling;
     if (d && d.classList.contains("diagrow")) d.hidden = !expanded.has(k);
+    refresh();   // the picker line <-> full desc note is render-time state
   }
 });
 
@@ -805,7 +841,7 @@ async function refresh() {
   }
   j.servers.forEach(s => { lastSpark[s.name] = s.spark; lastKind[s.name] = s.kind; });
   const struct = JSON.stringify(j.servers.map(s => [s.name, s.kind, s.online,
-    s.models.map(m => [m.id, m.loaded, m.stale]), s.gpus.length]));
+    s.models.map(m => [m.id, m.loaded, m.stale, m.status_raw]), s.gpus.length]));
   // Re-render on structural change, or every tick — EXCEPT while the cursor
   // sits on the grid (swapping a card under the cursor kills :hover and can
   // interrupt a click). That skip is time-bounded: after 10 s the card

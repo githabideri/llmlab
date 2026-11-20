@@ -69,6 +69,31 @@ expanding shows the full diagnostics block. Node state is
 summarized as `offline`, `idle`, `active`, `busy`, or `degraded`; detailed
 diagnostics remain collapsed until needed.
 
+### The picker card (2026-11-20)
+
+The card shows the **active** profile in full (description, rates, sparkline,
+diagnostics, load/unload) and each **inactive** profile as one compact *picker*
+line: quant · ctx · last measured rate · and the tested-matrix relation to the
+active profile (e.g. `exclusive (one 12 GB card)`). Clicking a picker line
+expands the full row; clicking again collapses it. Two config-driven fields make
+this work:
+
+- a server-level `site` — when present the card head renders identity chips
+  (site + GPU from the sidecar) and the free-form server `description` is
+  withheld from the UI (it stays in the config and on `GET /api/models` for
+  agents). Cards without `site` render the description as before, so the new
+  layout degrades gracefully for unmigrated servers;
+- per-model hints `identity`, `quant`, `measured` (the last measured facts,
+  UI-facing) and `matrix` (a map of row-id → tested relation to that row).
+  Where present the UI renders these instead of the prose `desc`; the `desc`
+  remains the agent-facing string on `GET /api/models` and the fallback for
+  unmigrated rows.
+
+A switch in flight (a mux-owned profile change: the upstream reports its
+`status` as `switching`, surfaced verbatim as `status_raw` on every model row,
+router and mux kinds alike) renders as a pulsing `switching…` state with the
+button disabled; the existing 202-ack + state-polling contract is unchanged.
+
 The 30-minute sparkline has three independently scaled lanes — tok/s, pp/s,
 gpu % (each lane labels its own 0–max scale). TTFT p95 is kept in the ring
 data and the hover tooltip (vLLM) rather than a lane: it is a 5-min-window
@@ -425,7 +450,14 @@ Per-model hints are supported via a `models` object on a server entry:
 ```
 
 `ctx` is otherwise taken from the router's `--ctx-size` launch args when
-available.
+available. The same object accepts the **picker-card** fields (optional; see
+"the picker card" above): `identity` (the model name/size line), `quant`,
+`measured` (a short string of last-measured facts) and `matrix`
+(`{"<row-id>": "<tested relation to that row>"}`). Servers may carry a
+`site` string for the card-head chip. Model rows additionally expose
+`status_raw` in the API: the upstream `status.value` verbatim (`loaded`,
+`unloaded`, `idle`, or a mux's `switching`).
+
 
 ### Environment overrides (testing)
 

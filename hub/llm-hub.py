@@ -475,12 +475,25 @@ def _parallel_from_args(entry):
 # Server
 # ---------------------------------------------------------------------------
 
+def _apply_structured_hints(st, hint):
+    """Structured UI fields (2026-11-20 picker revamp): the card renders
+    these instead of the prose desc where present. The desc remains the
+    agent-facing string on /api/models and the fallback for cards that
+    have not been migrated yet (graceful degradation)."""
+    for f in ("identity", "quant", "measured"):
+        if hint.get(f):
+            st[f] = hint[f]
+    if hint.get("matrix"):
+        st["matrix"] = hint["matrix"]
+
+
 class Server:
     def __init__(self, cfg):
         self.name = cfg["name"]
         self.kind = cfg["kind"]            # llama-router | vllm | gpu-only
         self.url = cfg.get("url")          # gpu-only servers have none
         self.desc = cfg.get("description", "")
+        self.site = cfg.get("site", "")            # UI identity chip (optional)
         self.model_hints = cfg.get("models", {})   # per-model ctx/desc hints
         self.sidecar_url = cfg.get("sidecar")     # per-server override
         # per-model opt-in list: which model ids get the dual-clock stall
@@ -1055,6 +1068,8 @@ class Server:
                     "ctx": hint.get("ctx"), "desc": hint.get("desc", ""),
                 })
                 st["loaded"] = loaded
+                st["status_raw"] = "loaded" if loaded else "idle"
+                _apply_structured_hints(st, hint)
                 if hint.get("ctx"):
                     st["ctx"] = hint["ctx"]
                 if hint.get("desc"):
@@ -1159,6 +1174,13 @@ class Server:
                 st["input_modalities"] = list(mods) if isinstance(mods, list) else None
                 st["parallelism"] = par
                 st["desc"] = hint.get("desc") or st.get("desc") or ""
+                # the upstream status value verbatim (loaded / unloaded /
+                # switching / ...): the UI renders a live "switching"
+                # state for mux-owned profile switches instead of a bare
+                # idle flip.
+                st["status_raw"] = ((entry.get("status") or {}).get("value")
+                                    or ("loaded" if loaded else "unloaded"))
+                _apply_structured_hints(st, hint)
                 if not loaded or p is None:
                     st.update({"tgen": None, "tpp": None, "spec_accept": None,
                                "cache_hit": None, "n_proc": None,
@@ -1326,7 +1348,8 @@ class Server:
             spark = [[int(t), g, u, l, p] for (t, g, u, l, p) in self.ring]
         return {
             "name": self.name, "kind": self.kind, "url": self.url,
-            "description": self.desc, "online": self.online,
+            "description": self.desc, "site": self.site,
+            "online": self.online,
             "last_seen": self.last_seen, "last_err": self.last_err,
             "gpus": self.gpus, "gpus_stale": self.gpus_stale,
             "models": models, "spark": spark,
