@@ -626,11 +626,6 @@ function card(s) {
                                 .filter(Boolean).join(' · ')}</span>
         </div>`).join("") + '</div>'
     : (s.gpus_stale ? '<div class="gmiss">gpu sidecar unreachable / error</div>' : "");
-  const chips = [];
-  if (s.site) chips.push(`<span class="chip">${esc(s.site)}</span>`);
-  if (s.gpus && s.gpus[0] && s.gpus[0].name)
-    chips.push(`<span class="chip">${esc(s.gpus[0].name.replace("NVIDIA GeForce ", ""))}</span>`);
-  const chipsHtml = chips.length ? `<div class="chips">${chips.join("")}</div>` : "";
   const activeId = s.models.find(m => m.loaded) ? s.models.find(m => m.loaded).id : null;
   const rows = s.models.map(m => {
     const key = s.name + "|" + m.id;
@@ -675,8 +670,6 @@ function card(s) {
       <span class="kind">[${esc(s.kind)}]</span>
       <span class="state ${st}">${st}</span>
     </div>
-    ${chipsHtml}
-    ${(!s.site && s.description) ? `<div class="desc">${esc(s.description)}</div>` : ""}
     ${gpus ? '<div class="label">gpu</div>' : ""}${gpus}
     <div class="label">models</div>
     <table>

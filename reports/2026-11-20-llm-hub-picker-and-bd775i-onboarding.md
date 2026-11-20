@@ -125,3 +125,26 @@ the two new BD775i descs pass it at 174/177 characters.
 - The hub still never sits in the inference path (consumers talk to the
   node's port directly); the mux is the node's own, in the fleet's
   established pattern, so a hub outage degrades to monitoring, not service.
+
+
+## Addendum (same day, after the owner looked at the live card)
+
+Two corrections, both about identity labels, both mine:
+
+1. **The site chip is gone.** The card head briefly showed a `site` label chip
+   plus the GPU name; the owner's reaction ("Freistadt? wtf?") was the correct
+   one, for two reasons. The label was noise on a card whose identity is the
+   name plus the models, and the value was *wrong*: the sites had been
+   derived from the LAN address prefix, but the estate's two sites run
+   separate physical LANs that share the same 0.x space, so the prefix
+   carries no site information. The corrected assignment came from the
+   estate's machine curation (this node is on the site the rest of its
+   fleet neighbours live on). The chip is removed from the UI entirely
+   (the field stays in the config and on the API, where it is data, not
+   display), and with it the last free-form line of the card head: the
+   server description is now never rendered in the UI, only on
+   `GET /api/models`.
+2. **State is what a card should show, not geography.** The one thing the
+   owner actually needed to know — *which profile is live right now, and
+   what the other one costs* — is exactly the loaded/idle column plus the
+   picker line; that part of the revamp stood up to the look and stays.

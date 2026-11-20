@@ -78,11 +78,12 @@ active profile (e.g. `exclusive (one 12 GB card)`). Clicking a picker line
 expands the full row; clicking again collapses it. Two config-driven fields make
 this work:
 
-- a server-level `site` — when present the card head renders identity chips
-  (site + GPU from the sidecar) and the free-form server `description` is
-  withheld from the UI (it stays in the config and on `GET /api/models` for
-  agents). Cards without `site` render the description as before, so the new
-  layout degrades gracefully for unmigrated servers;
+- the card head is name + kind + state only (the GPU row from the sidecar
+  follows it). The free-form server `description` is **never rendered in the
+  UI**: it is config prose for agents and stays on `GET /api/models`.
+  (A brief revision tried an optional server-level `site` chip here; the
+  owner removed it after seeing it — site labels are not the card's
+  identity — and with it the last prose line of the head.)
 - per-model hints `identity`, `quant`, `measured` (the last measured facts,
   UI-facing) and `matrix` (a map of row-id → tested relation to that row).
   Where present the UI renders these instead of the prose `desc`; the `desc`
