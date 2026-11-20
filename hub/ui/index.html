@@ -68,6 +68,21 @@
      profile in full; the others are one line each until expanded) */
   .mdl.picker-line { font-size:11px; }
   .mdl.picker-line .mtx { color:var(--warn); }
+  .mdl.picker-line .mtx.co { color:#6fa8d0; }
+  .mdl.picker-line .mtx.un { color:var(--dim); }
+  .panel-h { font-size:11px; color:var(--dim); margin:8px 0 2px; line-height:1.5; }
+  .panel-h .mtx.co { color:#6fa8d0; font-style:normal; }
+  .panel-h .mtx { color:var(--warn); font-style:normal; }
+  .panel-h .mtx.un { color:var(--dim); font-style:normal; }
+  .btn.ghost { float:right; font-size:10px; padding:2px 8px; background:none;
+    border:1px solid var(--line); color:var(--dim); border-radius:3px; cursor:pointer; }
+  .btn.ghost:hover { color:var(--fg); border-color:var(--dim); }
+  .cap { display:flex; align-items:center; gap:8px; margin:6px 0 2px; }
+  .capbar { flex:1; height:6px; background:#1d2023; border:1px solid var(--line); }
+  .capbar div { height:100%; }
+  .capbar .ok { background:#3f9e5f; }
+  .capbar .warm { background:#d69a3d; }
+  .capbar .hot { background:#c94f4f; }
 
   .gpus { display:grid; gap:5px; }
   .gpu { display:grid; grid-template-columns:2ch 118px 1fr 40px 108px 86px;
@@ -479,6 +494,8 @@ function nowBlock(m) {
 
 // expanded diagnostics
 const expanded = new Set();   // "server|model" — survives the 2 s rebuilds
+const switchSaw = new Map();  // "server|model" -> ms when the row first showed switching (elapsed counter)
+const panelOpen = new Set();  // server name — the "switch model" panel is open (2026-11-20 picker)
 function diagHtml(s, m) {
   const bits = [];
   if (m.kind === "vllm") {
@@ -607,6 +624,27 @@ function diagHtml(s, m) {
                      : `<div class="diag-x">no diagnostics yet (wait for the first window)</div>`;
 }
 
+// measured-load bar (2026-11-20 doctrine): the MEASURED VRAM totals of the
+// currently loaded selection vs the card's measured pool (from the pre-test
+// windows — deliberately not the live reading; that is the gpu row above).
+// Rendered only when the config carries a capacity block; a loaded model
+// without a measured total marks the bar partial rather than guessing.
+function capBar(s) {
+  const c = s.capacity;
+  if (!c || c.total_mib == null) return "";
+  const mm = c.measured_mib || {};
+  let sum = 0, n = 0, miss = 0;
+  for (const m of s.models) if (m.loaded) {
+    if (mm[m.id] != null) { sum += mm[m.id]; n++; } else miss++;
+  }
+  const pct = Math.min(100, sum / c.total_mib * 100);
+  const cls = pct >= 95 ? "hot" : pct >= 75 ? "warm" : "ok";
+  return `<div class="cap" title="${esc(c.note || "measured totals, not a live reading")}">` +
+    `<span class="label">measured load</span>` +
+    `<div class="capbar"><div class="${cls}" style="width:${pct}%"></div></div>` +
+    `<span class="gstat">${n ? sum.toLocaleString() : 0} / ${c.total_mib.toLocaleString()} MiB${miss ? " (partial)" : ""}</span></div>`;
+}
+
 function card(s) {
   const el = document.createElement("div");
   const st = nodeState(s);
@@ -626,15 +664,36 @@ function card(s) {
                                 .filter(Boolean).join(' · ')}</span>
         </div>`).join("") + '</div>'
     : (s.gpus_stale ? '<div class="gmiss">gpu sidecar unreachable / error</div>' : "");
-  const activeId = s.models.find(m => m.loaded) ? s.models.find(m => m.loaded).id : null;
-  const rows = s.models.map(m => {
+  const active = s.models.find(m => m.loaded) || null;
+  const activeId = active ? active.id : null;
+  const open = panelOpen.has(s.name);
+  // the picker (2026-11-20 doctrine): the default view is the ACTIVE profile
+  // only; "switch model" opens the panel with every loadable row, matrix-
+  // gated. A card with nothing loaded has no active profile to hide the
+  // roster for — the roster IS the useful view there.
+  const visible = (open || !active) ? s.models
+    : s.models.filter(m => m.loaded || m.status_raw === "switching");
+  const rows = visible.map(m => {
     const key = s.name + "|" + m.id;
     const switching = m.status_raw === "switching";
+    let swTxt = "switching…";
+    if (switching) {
+      // switch progress (2026-11-20 spec): the mux's phase when it reports
+      // one ("stopping dual … 42 s"), else a client-side elapsed counter
+      // (first observed -> now; the 2 s poll resolution is the floor)
+      const nowMs = Date.now();
+      if (!switchSaw.has(key)) switchSaw.set(key, nowMs);
+      const el = Math.floor((nowMs - switchSaw.get(key)) / 1000);
+      const ph = (s.switch && s.switch.to === m.id) ? s.switch.phase : null;
+      swTxt = ph ? `${ph}… ${el}s` : `switching… ${el}s`;
+    } else {
+      switchSaw.delete(key);
+    }
     const hasStructured = !!(m.quant || m.measured || m.identity);
     const pickerCollapsed = !m.loaded && !expanded.has(key) && hasStructured;
     const now = (pickerCollapsed || m.stale) ? '<span class="mdl">—</span>' : nowBlock(m);
     const state = m.stale ? '<span class="ms stale">stale</span>'
-      : switching ? '<span class="ms switching">switching…</span>'
+      : switching ? `<span class="ms switching">${esc(swTxt)}</span>`
       : `<span class="ms ${m.loaded ? "loaded" : "idle"}">${m.loaded ? "loaded" : "idle"}</span>`;
     let note;
     if (pickerCollapsed) {
@@ -642,18 +701,26 @@ function card(s) {
       // active profile (the tested matrix, from the config hint)
       const bits = [m.quant, ctxFmt(m.ctx), m.measured].filter(Boolean);
       const mtx = (activeId && m.matrix && m.matrix[activeId]) || "";
+      const mtxCls = mtx.startsWith("coexist") ? "co" : mtx.startsWith("untested") ? "un" : "";
       note = `<div class="mdl picker-line">${esc(bits.join(" · "))}`
-        + (mtx ? ` · <span class="mtx">${esc(mtx)}</span>` : "") + "</div>";
+        + (mtx ? ` · <span class="mtx ${mtxCls}">${esc(mtx)}</span>` : "") + "</div>";
     } else {
       note = (m.desc ? `<div class="mdl">${esc(m.desc)}</div>`
         : (!isRouter ? `<div class="mdl">managed by the vLLM service</div>` : ""))
         + (m.loaded && m.metrics_ok === false
            ? `<div class="mdl" style="color:var(--warn)">metrics degraded — engine counter names changed?</div>` : "");
     }
+    const rel = (activeId && m.matrix && m.matrix[activeId]) || "";
+    // tested-only doctrine (2026-11-20 spec): a row whose relation to the
+    // active profile is untested is not selectable — the button is there to
+    // show the gating, not to start a combination nobody measured.
+    const untested = rel.toLowerCase().startsWith("untested");
     const btns = isRouter && !m.stale
       ? `<button class="btn ${m.loaded ? "unload" : "load"}"
                  data-server="${esc(s.name)}" data-model="${esc(m.id)}"
-                 data-action="${m.loaded ? "unload" : "load"}"${switching ? " disabled" : ""}>${switching ? "…" : (m.loaded ? "unload" : "load")}</button>`
+                 data-action="${m.loaded ? "unload" : "load"}"
+                 ${(switching || untested) ? " disabled" : ""}
+                 ${untested ? ' title="untested — not selectable (tested-only doctrine)"' : ""}>${switching ? "…" : (m.loaded ? "unload" : "load")}</button>`
       : "";
     const diag = `<tr class="diagrow" ${expanded.has(key) ? "" : "hidden"}>
       <td colspan="4">${diagHtml(s, m)}</td></tr>`;
@@ -669,14 +736,20 @@ function card(s) {
       <h2>${esc(s.name)}</h2>
       <span class="kind">[${esc(s.kind)}]</span>
       <span class="state ${st}">${st}</span>
+      ${isRouter && s.models.length
+        ? `<button class="btn ghost" data-panel="${esc(s.name)}" title="open the panel with every model loadable on this card (tested-matrix gated)">${open ? "close panel ▴" : "switch model ▾"}</button>`
+        : ""}
     </div>
     ${gpus ? '<div class="label">gpu</div>' : ""}${gpus}
+    ${open ? `<div class="panel-h">loadable on ${esc(s.name)} — ${s.models.length} model${s.models.length === 1 ? "" : "s"} · selection is gated by the tested matrix: <span class="mtx co">coexists</span> loads alongside, <span class="mtx">exclusive</span> replaces (with the measured reason), <span class="mtx un">untested</span> is not selectable</div>` : ""}
+    ${capBar(s)}
     <div class="label">models</div>
     <table>
       <colgroup><col class="cg-model"><col class="cg-ctx">
         <col class="cg-now"><col class="cg-act"></colgroup>
       <tr><th>model</th><th>ctx</th><th>now</th><th>state</th></tr>
-      ${rows || (s.models.length === 0 ? '<tr><td colspan="4" class="mdl">no models seen yet</td></tr>' : "")}
+      ${rows || (s.models.length === 0 ? '<tr><td colspan="4" class="mdl">no models seen yet</td></tr>'
+        : '<tr><td colspan="4" class="mdl">nothing loaded — open "switch model" to see the roster</td></tr>')}
     </table>
     <div class="spark-head"><span class="label">last 30 min</span></div>
     <canvas id="spark-${s.name.replace(/[^a-zA-Z0-9_-]/g, '_')}"
@@ -777,6 +850,17 @@ function drawSpark(name, spark, isVllm, hoverX) {
 
 // ---- delegated clicks: buttons (load/unload) and model rows (diagnostics)
 grid.addEventListener("click", e => {
+  const p = e.target.closest("button[data-panel]");
+  if (p) {
+    const n = p.dataset.panel;
+    if (panelOpen.has(n)) panelOpen.delete(n); else panelOpen.add(n);
+    // the render skip-while-hovered (cursor protection above) would hide
+    // the toggle: the panel state is not part of the structural signature.
+    // Force the next render to happen regardless of cursor position.
+    grid.dataset.struct = "";
+    refresh();   // instant feedback; the 2 s poll keeps it in sync
+    return;
+  }
   const b = e.target.closest("button.btn");
   if (b && b.dataset.server) {
     act(b.dataset.server, b.dataset.model, b.dataset.action);

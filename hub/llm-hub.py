@@ -494,6 +494,8 @@ class Server:
         self.url = cfg.get("url")          # gpu-only servers have none
         self.desc = cfg.get("description", "")
         self.site = cfg.get("site", "")            # UI identity chip (optional)
+        self.capacity = cfg.get("capacity")        # measured VRAM bar (optional)
+        self.switch = None            # in-flight mux profile switch (optional)
         self.model_hints = cfg.get("models", {})   # per-model ctx/desc hints
         self.sidecar_url = cfg.get("sidecar")     # per-server override
         # per-model opt-in list: which model ids get the dual-clock stall
@@ -1113,9 +1115,15 @@ class Server:
         if status != 200 or not body:
             raise RuntimeError(f"/v1/models HTTP {status or 'timeout'}")
         try:
-            listing = json.loads(body).get("data", [])
+            parsed = json.loads(body)
         except json.JSONDecodeError:
             raise RuntimeError("/v1/models bad json")
+        listing = parsed.get("data", [])
+        # the mux's in-flight profile switch (2026-11-20 picker progress):
+        # optional {"from","to","phase","t0"} in the same document — the
+        # picker line renders "stopping <a> … N s" instead of a bare
+        # switching word. Absent on plain routers and when no switch runs.
+        self.switch = parsed.get("switch") or None
         fetched = []
         for m in listing:
             mid = m.get("id")
@@ -1351,6 +1359,7 @@ class Server:
             "description": self.desc, "site": self.site,
             "online": self.online,
             "last_seen": self.last_seen, "last_err": self.last_err,
+            "capacity": self.capacity, "switch": self.switch,
             "gpus": self.gpus, "gpus_stale": self.gpus_stale,
             "models": models, "spark": spark,
         }

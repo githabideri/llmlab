@@ -148,3 +148,32 @@ Two corrections, both about identity labels, both mine:
    owner actually needed to know — *which profile is live right now, and
    what the other one costs* — is exactly the loaded/idle column plus the
    picker line; that part of the revamp stood up to the look and stays.
+
+## Addendum 2 (same day, correcting addendum 1)
+
+The explanation in addendum 1 was wrong and is corrected: the estate's two
+sites do **not** share an address space. Vienna's LAN is the 192.168.0/24
+and Freistadt's is the 192.168.178/24 — separate /24s, so the address prefix is a
+perfectly good site signal. The actual error was an inverted map (0.x was
+attributed to Freistadt instead of Vienna); the site values in the config
+and on the card were corrected against the estate's inventory and are right,
+but the "shared 0.x space" sentence above is false and should be read as
+retracted.
+
+## Addendum 3 (picker v2: active-only default, the panel, the bar)
+
+After seeing the first version, the owner pointed at the design this picker
+had been waiting for since the doctrine was written: the card's default view
+is the **active profile only**; a **"switch model"** button opens the
+**panel** with every model loadable on the card, and each row carries its
+tested-matrix relation to what is running — `coexists` loads alongside,
+`exclusive` replaces (with the measured reason), `untested` is explicitly
+not selectable. The doctrine's **measured-load bar** landed too: a per-server
+`capacity` config block (measured VRAM totals against the measured pool,
+from the pre-test windows) renders above the roster; it is hidden on cards
+without measured totals rather than estimated. The switch-progress line
+carries the mux's phase and elapsed seconds where the mux reports them,
+otherwise a client-side elapsed counter. One interaction subtlety was fixed
+along the way: the grid deliberately skips re-rendering while the cursor
+sits on it, which silently swallowed the first panel toggles — the toggle
+now forces the next render explicitly.

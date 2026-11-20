@@ -69,31 +69,39 @@ expanding shows the full diagnostics block. Node state is
 summarized as `offline`, `idle`, `active`, `busy`, or `degraded`; detailed
 diagnostics remain collapsed until needed.
 
-### The picker card (2026-11-20)
+### The picker card (2026-11-20, v2: active-only + panel)
 
-The card shows the **active** profile in full (description, rates, sparkline,
-diagnostics, load/unload) and each **inactive** profile as one compact *picker*
-line: quant · ctx · last measured rate · and the tested-matrix relation to the
-active profile (e.g. `exclusive (one 12 GB card)`). Clicking a picker line
-expands the full row; clicking again collapses it. Two config-driven fields make
-this work:
-
-- the card head is name + kind + state only (the GPU row from the sidecar
-  follows it). The free-form server `description` is **never rendered in the
-  UI**: it is config prose for agents and stays on `GET /api/models`.
-  (A brief revision tried an optional server-level `site` chip here; the
-  owner removed it after seeing it — site labels are not the card's
-  identity — and with it the last prose line of the head.)
-- per-model hints `identity`, `quant`, `measured` (the last measured facts,
-  UI-facing) and `matrix` (a map of row-id → tested relation to that row).
-  Where present the UI renders these instead of the prose `desc`; the `desc`
-  remains the agent-facing string on `GET /api/models` and the fallback for
-  unmigrated rows.
+The card's default view shows the **active profile in full** (description,
+rates, sparkline, diagnostics, load/unload) and nothing else — a card with
+nothing loaded shows its whole roster instead, because an idle card has no
+active profile to hide it for. The **"switch model"** button in the card head
+opens the **panel**: every model loadable on the card, one compact *picker*
+line each (quant · ctx · last measured facts · tested-matrix relation to the
+active profile), full row on click. Selection is gated by the tested matrix
+(the llm-hub skill's doctrine, `references/pretest-protocol.md`):
+`coexists (measured)` rows are loadable alongside the active one, `exclusive`
+rows replace it (with the measured reason), and `untested` rows are
+disabled with an explicit "untested — not selectable" state — never a
+silent absence. A server-level `capacity` config block (measured VRAM
+totals per model plus the measured pool) renders the **measured-load bar**
+above the roster (green/orange/red; loaded models without a measured total
+mark the bar *partial* rather than guessing); cards without measured totals
+hide the bar. Two per-model hint fields feed the picker: `identity`,
+`quant`, `measured` (UI-facing facts; the prose `desc` remains the
+agent-facing string on `GET /api/models` and the fallback for unmigrated
+rows) and `matrix` (row-id → tested relation to that row).
 
 A switch in flight (a mux-owned profile change: the upstream reports its
-`status` as `switching`, surfaced verbatim as `status_raw` on every model row,
-router and mux kinds alike) renders as a pulsing `switching…` state with the
-button disabled; the existing 202-ack + state-polling contract is unchanged.
+`status` as `switching`, surfaced verbatim as `status_raw` on every model
+row) renders as a live progress line — the mux's phase and elapsed seconds
+(`stopping … 42 s` → `loading … 96 s`; a mux that reports a `switch`
+object in its `/v1/models` document supplies the phase, otherwise the UI
+counts elapsed time from first observation) with the button disabled;
+the 202-ack + state-polling contract is unchanged. One UI subtlety worth
+knowing: the grid skips re-rendering while the cursor sits on it (a hover
+protection), and the panel state is not part of the render's structural
+signature — toggling the panel therefore forces the next render explicitly,
+or the click would appear dead until the mouse moved off the card.
 
 The 30-minute sparkline has three independently scaled lanes — tok/s, pp/s,
 gpu % (each lane labels its own 0–max scale). TTFT p95 is kept in the ring
@@ -455,9 +463,15 @@ available. The same object accepts the **picker-card** fields (optional; see
 "the picker card" above): `identity` (the model name/size line), `quant`,
 `measured` (a short string of last-measured facts) and `matrix`
 (`{"<row-id>": "<tested relation to that row>"}`). Servers may carry a
-`site` string for the card-head chip. Model rows additionally expose
-`status_raw` in the API: the upstream `status.value` verbatim (`loaded`,
-`unloaded`, `idle`, or a mux's `switching`).
+`site` string (API-facing; the UI never renders it — see the picker-card
+note) and a `capacity` block for the measured-load bar:
+`{"total_mib": <measured pool>, "measured_mib": {"<row-id>": <measured VRAM
+total>}, "note": "..."}` — present only where the pre-test windows measured
+the totals; the bar is hidden on servers without one, never estimated.
+Model rows additionally expose `status_raw` in the API: the upstream
+`status.value` verbatim (`loaded`, `unloaded`, `idle`, or a mux's
+`switching`), and `/api/servers` carries the mux's optional in-flight
+`switch` object (`from` / `to` / `phase` / `t0`) while a profile switch runs.
 
 
 ### Environment overrides (testing)
