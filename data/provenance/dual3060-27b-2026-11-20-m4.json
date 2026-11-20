@@ -1,0 +1,186 @@
+{
+  "schema": "llmlab.provenance/1",
+  "id": "dual3060-27b-2026-11-20-m4",
+  "machine_tag": "dual3060-27b",
+  "date": "2026-11-20",
+  "engine": {
+    "name": "llama.cpp",
+    "build": "b12383",
+    "commit": "c56be86",
+    "binary_sha256": "809a4e91467c40798b274825f2cb9e2b2ed742de6c0613313fdbd4e7751957c3"
+  },
+  "model": {
+    "id": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp",
+    "sha256": "58fd826723939933dc86f45b7fe04545cbc2de1c70f6fe2cdd3858c87a98c12f",
+    "projector_sha256": "13cb7bebccbd04afc8f4090cb949ecf8937cdf7377c5799b1a0c594e7c0d3e16"
+  },
+  "config": {
+    "id": "M4_P2_RC1",
+    "description": "Mission 4 (2026-11-20): five windows on scratch port 8124 \u2014 M4A baseline (00:53:33-01:13:32), M4B tuning, 6 boots (01:20:45-01:40:41), M4C-1 fixture-bug window (01:40:41-01:51:36), M4C-2 ceiling (01:55:09-02:51:38), M4E multi-agent winner (02:54:54-03:08:11). Production (P1 non-unified) restored and live-verified after every window; P1 remained production throughout.",
+    "flags": [
+      "--ctx-size",
+      "262144",
+      "--parallel",
+      "2",
+      "--kv-unified",
+      "--kv-unified-per-slot",
+      "245000",
+      "--cache-type-k",
+      "q4_0",
+      "--cache-type-v",
+      "q4_0",
+      "--cache-prompt",
+      "--cache-reuse",
+      "4096",
+      "-b",
+      "256",
+      "-ub",
+      "256",
+      "--spec-type",
+      "draft-mtp",
+      "--spec-draft-n-max",
+      "2",
+      "--split-mode",
+      "layer",
+      "--tensor-split",
+      "60,40",
+      "--mmproj-device",
+      "none",
+      "-t",
+      "4",
+      "--load-mode",
+      "none",
+      "--jinja",
+      "--metrics"
+    ],
+    "notes": "A8 layout, CPU projector, CUDA_VISIBLE_DEVICES=1,0. Windows M4A/M4B/M4C ran the same layout with per-variable deltas (M4B: n-max 2/3/5 and ub 128/256; M4C: per-slot cap 245000). M4E ran the RC1 winner (n-max 2 + ub 256)."
+  },
+  "workload": {
+    "fixture": "seeded deterministic corpora (planted verification codes): frozen-corpus-102 (167,079 tok, K2427, sha256 3e345845...), cold-16k (11,827 tok, 6806948d...), cold-64k = 47,241 tok M3 fixture (9d62d84c...), m4c-200k (200,643 tok, K9201, 1fe7ddcf...), m4c-216k (216,709 tok, K9202, 8607ff15...), m4c-232k (232,717 tok, K9203, 904f8506...), ag1-129k (122,255 tok, 59c6d5a8...), ag2-48k/ag3-24k/ag4-12k/ag5-8k (3119b620/d4001803/b3e03203/c3207934). M4C-1 first generation of the deep fixtures was 269,519/291,408/317,309 tok (density estimate error) and was rejected by the engine with 400s before prefill.",
+    "prompt_tokens": 232717,
+    "n_reps": 1,
+    "notes": "n_reps=1 for the deep depths; cold 16K prefills triplicated per M4B boot. Token counts and t/s from the engine's print_timing lines; TTFT from client timing. MTP draft acceptance from per-task print_timing."
+  },
+  "metrics": [
+    {
+      "name": "prefill_tps_11827tok",
+      "value": 507.8,
+      "unit": "tok/s"
+    },
+    {
+      "name": "prefill_tps_47241tok",
+      "value": 434.2,
+      "unit": "tok/s"
+    },
+    {
+      "name": "prefill_tps_122255tok",
+      "value": 321.2,
+      "unit": "tok/s"
+    },
+    {
+      "name": "prefill_tps_167079tok",
+      "value": 277.4,
+      "unit": "tok/s"
+    },
+    {
+      "name": "prefill_tps_200643tok",
+      "value": 251.9,
+      "unit": "tok/s"
+    },
+    {
+      "name": "prefill_tps_216709tok",
+      "value": 241.2,
+      "unit": "tok/s"
+    },
+    {
+      "name": "prefill_tps_232717tok",
+      "value": 231.4,
+      "unit": "tok/s"
+    },
+    {
+      "name": "warm_repost_ttft_s_all_depths",
+      "value": 0.24,
+      "unit": "s",
+      "notes": "4 new tokens at every depth; 0.24-0.81 s across windows"
+    },
+    {
+      "name": "decode_tps_16k_nmax5_ub128",
+      "value": 27.7,
+      "unit": "tok/s"
+    },
+    {
+      "name": "decode_tps_16k_nmax3_ub128",
+      "value": 28.8,
+      "unit": "tok/s"
+    },
+    {
+      "name": "decode_tps_16k_nmax2_ub128",
+      "value": 30.6,
+      "unit": "tok/s"
+    },
+    {
+      "name": "decode_tps_16k_nmax5_ub256",
+      "value": 29.5,
+      "unit": "tok/s"
+    },
+    {
+      "name": "decode_tps_16k_nmax2_ub256_recommended",
+      "value": 30.8,
+      "unit": "tok/s"
+    },
+    {
+      "name": "mtp_acceptance_nmax2",
+      "value": 61.0,
+      "unit": "percent"
+    },
+    {
+      "name": "mtp_acceptance_nmax5",
+      "value": 42.0,
+      "unit": "percent"
+    },
+    {
+      "name": "largest_verified_single_session_tokens",
+      "value": 232717,
+      "unit": "tokens"
+    },
+    {
+      "name": "largest_verified_two_consumer_aggregate_tokens",
+      "value": 248544,
+      "unit": "tokens",
+      "notes": "232,717 + 15,827 (16K consumer) in the 262K unified pool; deep session survived and re-answered in 2.8 s"
+    },
+    {
+      "name": "vram_headroom_at_259k_pooled_mib",
+      "value": 1564,
+      "unit": "MiB",
+      "notes": "primary card; secondary card 919 MiB (M4E final)"
+    },
+    {
+      "name": "first_pass_retrieval_correctness",
+      "value": 90.0,
+      "unit": "percent",
+      "notes": "9/10 first-pass cold planted-code retrievals; the one miss (167K, first fresh boot of the day) did not reproduce in 2 later fresh-boot samples"
+    }
+  ],
+  "classification": "measured",
+  "success": "pass",
+  "notes": "PCIe: a 2 s sampler across the entire M4A window recorded both links at 8 GT/s (Gen3) during all cold prefills and decodes; Gen1 (2.5 GT/s) occurs only in the idle state after a model load (load/unload fingerprint, see 2026-11-19 report). The unified pool is pre-reserved at boot (headroom identical at 167K and 232K); per-slot caps are accounting gates. Over-cap requests (269K/291K/317K) were rejected with clean 400s; no corruption in any window. The 48K/24K/8K fixtures with the planted-code question produced deterministic zero-token generations (first sample EOS, 4/4); their prefill/cached timings are valid, their decode is not measured. Production P1 (non-unified 256K/2) remained live before, between, and after all windows.",
+  "time_varying": [
+    {
+      "name": "pcie_gen_width_both_3060_links",
+      "values": [
+        {
+          "window": "2026-11-20T00:53:33..01:13:32 (M4A, 2 s sampler, whole window)",
+          "value": "gen3/x16 + gen3/x4 at all times; gpu util peaks 100%",
+          "how_measured": "lspci LnkSta + nvidia-smi utilization, 2 s cadence"
+        },
+        {
+          "window": "2026-11-20T01:13:32.. (production reload, idle)",
+          "value": "gen1/x16 + gen1/x4 (load-time transient, re-confirmed fingerprint)",
+          "how_measured": "lspci LnkSta at window close"
+        }
+      ]
+    }
+  ],
+  "evidence": "private campaign store (homelab repo, gitignored): temp/campaigns/qwen38-27b-ctx-hierarchy-2026-11-16/m4a-2026-11-20/, m4b-2026-11-20/, m4c-2026-11-20/, m4e-2026-11-20/ (cells.stdout, *-summary.json, server logs, pcie-sampler.csv, window logs)"
+}
