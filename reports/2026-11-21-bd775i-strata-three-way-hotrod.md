@@ -62,19 +62,43 @@ Cached follow-ups are sub-second on all arms (the prefix path is healthy everywh
 
 ### H-ablation (attribution of HotRod's long-context deficit)
 
-Early reading (128K, 2 reps each; the full 12-cell matrix follows in the next report): H0 (stand-in off, exact routing) 15.7 / 18.0 t/s ≈ H2 (full) 16.6–18.1. Disabling the approximation does **not** recover the deficit — the 128K gap to v0.1.41 exists in the fork's exact-routing mode too, so it is structural to the fork's engine on this node, not an artifact of approximate routing. (H0 also being only ≈ H2 says the stand-in mechanism is not what the fork buys you here at all.)
+**Correction (2026-11-21 evening, after a third-party review):** the first 12-cell run used
+`STRATA_ROUTE_BUDGET=0` and `STRATA_FRAGILE_RECHECK=0` as the "stand-in off" and
+"re-check off" conditions. Code inspection of the fork's route-resident config parsing
+(`src/core/verify.cpp`) shows both are **already the current defaults** (the
+missed-pick budget is off unless explicitly set; the fragile re-check became opt-in on
+9 Nov), so all twelve cells ran in default mode. They are valid as additional
+**default-mode replicates** (128K: 18.1, 16.1, 16.6, 15.7, 18.0, 17.0 t/s; 200K: 11.2,
+11.8, 11.1, 11.3, 11.1) — tightening the default mode to ≈16–17 t/s at 128K and ≈11
+t/s at 200K — but they are **not** an ablation, and the "structural, not
+approximation" reading in the conclusion below was based on them and is withdrawn
+pending the corrected run. The corrected ablation (exact routing with the stand-in
+rank range disabled, validated by token-level agreement with the v0.1.41 build on
+short prompts / default / re-check on / maximum stand-in) runs next; its result
+replaces this section in the follow-up report.
 
 ### The 2026-11-19 null, explained
 
-The 11-19 engine comparison measured 0.1.45 as a null on this box — in a one-shot shape (no kv-resident pool, no MTP, 40K context cap). That shape is not where the 0.1.45 delta lives: in the production serve shape it is +23–39% across all depths, with the gap *widening* with context. The version delta is real, shape-dependent, and was missed by the wrong test shape.
+The 11-19 engine comparison measured 0.1.45 as a null on this box — in a one-shot shape (no kv-resident pool, no MTP, 40K context cap). **Working hypothesis** (not an isolated mechanism): that shape is not where the 0.1.45 delta lives — in the production serve shape it is +23–39% across all depths, with the gap *widening* with context. The two campaigns also differed in expert-pin budget (24 GiB vs 32 GiB) and I/O policy, so what is established is that the 0.1.45 benefit is **configuration-dependent**; which factor (the MTP drafter change, KV residency, pin budget, or an interaction) produces it is not isolated and is left as future work (it does not gate the deployment decision).
 
 ## Conclusion
 
-- **v0.1.45 (B) clears the pre-registered adoption bar on speed** at every depth (+38 / +39 / +23), with unusually stable long-context numbers. The remaining gates before the production swap are the quality battery (math/code probe set, paired per-probe deltas, no material regression) and the 6 h soak; the swap itself is a one-line flake pin change in the solo unit with a one-line rollback. The MTP draft-acceptance rate is lower in 0.1.45 than in 0.1.41 (43–60% vs 53–61% at 32K), which the net decode still beats — recorded so the acceptance metric is not misread in production logs.
-- **HotRod (C) fails on this node at long context**: −21% at 128K, −51% at 200K, stable across all three orderings, and not attributable to its approximation mode. Its 32K gain (+12%) is below the bar. What it does have — 2–3× one-shot batched prefill and a fast cold start — is a genuine asset for batch/RAG-style workloads on this class of machine, and is recorded here even though it does not offset the solo-decode regression for the production lane.
+- **v0.1.45 (B) clears the pre-registered adoption bar on speed** at every depth (+38 / +39 / +23), with unusually stable long-context numbers. The remaining gates before the production swap are the quality battery (math/code probe set, paired per-probe deltas, every disagreement inspected, no material regression) and a stability soak; per a third-party review of this report, the originally registered 6 h pre-production soak may be replaced for this single-user service by a **monitored 24 h production probation** (objective health checks, tested rollback, no reliance on unattended manual intervention) — recorded here as an explicit deviation from the pre-registered protocol. The swap itself is a one-line flake pin change in the solo unit, with rollback verified, not merely described. The MTP draft-acceptance rate is lower in 0.1.45 than in 0.1.41 (43–60% vs 53–61% at 32K), which the net decode still beats — recorded so the acceptance metric is not misread in production logs.
+- **HotRod (C) fails on this node at long context**: −21% at 128K, −51% at 200K, stable across all three orderings (six further default-mode replicates tighten these to ≈16–17 t/s and ≈11 t/s); attribution of the deficit (approximation machinery vs engine structure) is pending the corrected ablation. Its 32K gain (+12%) is below the bar. What it does have — 2–3× one-shot batched prefill and a fast cold start — is a genuine asset for batch/RAG-style workloads on this class of machine, and is recorded here even though it does not offset the solo-decode regression for the production lane.
 - **IQ3_S on-label**: the 83.6 GB on-label quant (ISTA GSQ-RCO) pack is on the box's NVMe and will run as a separate result family (0.1.45 vs HotRod vs 0.1.41 on the on-label quant, with HotRod's shipped IQ3_S predictor) after this campaign closes.
 - **Scope**: single-concurrency results, 48 GB regime, one 12 GB card. Nothing here claims multi-client behavior, and the 96 GB re-test may shift the trade (the arena-vs-pin balance flips there, per the 11-19 series).
 
 ## Update (post-publication append)
 
-The full H0/H1/H2 matrix (128K and 200K, 2 reps each mode) and the quality-battery result land in the follow-up report; the 128K early reading above is the only ablation data in this snapshot.
+Methodological notes (third-party review, 2026-11-21 evening): (a) the three orderings
+(ABC / CAB / BAC) are position-balanced for arm B (it ran 1st, 2nd and 3rd once each),
+but A ran 2nd twice and 3rd never, and C ran 3rd twice and 2nd never; a full 3x3 Latin
+square (ABC / BCA / CAB) is used for all subsequent runs. (b) The B-32K value is the
+median of **two** observations (one ordering was lost to a harness crash before that
+cell; the measurement was never taken); the margin is large enough that a third
+ordinary result cannot overturn it. (c) A successful speed benchmark is not a
+production-qualified engine: B's qualification (quality battery, probation, verified
+rollback) is still open. (d) Raw per-run records (all serve, one-shot, agent and
+ablation cells) are kept in the estate's private repo; a sanitized extract is available
+on request. The corrected H-ablation and the quality-battery result land in the
+follow-up report.
