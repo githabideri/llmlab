@@ -261,3 +261,14 @@ one hover affordance rule, the glossary out of the way)
   one-liner; click expands). The always-visible line keeps the
   operational facts: the hub is observability only, never in the
   inference path; poll cadence; the API as source of truth.
+
+## Addendum 7 (the measured-load explanation is gone from the cards)
+
+The one-line "no measured-load bar yet…" that addendum 5 added to
+unmeasured llama/strata cards is gone too (owner: it read as clutter in
+the same way as the vLLM variant it was left for). No card carries
+explanation prose any more: a measured bar appears when the data exists,
+nothing otherwise, and the collapsible glossary now carries the
+measured-load entry (what the bar is, that it is never estimated, and
+why vLLM engines have no bar). The four showcase screenshots were
+recaptured to match.

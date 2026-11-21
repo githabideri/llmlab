@@ -78,8 +78,6 @@
     border:1px solid var(--line); color:var(--dim); border-radius:3px; cursor:pointer; }
   .btn.ghost:hover { color:var(--fg); border-color:var(--dim); }
   .cap { display:flex; align-items:center; gap:8px; margin:6px 0 2px; }
-  .cap.dim { opacity:.55; }
-  .cap.dim .gstat { flex:1; white-space:normal; font-size:10px; line-height:1.35; }
   .capbar { flex:1; height:6px; background:#1d2023; border:1px solid var(--line); }
   .capbar div { height:100%; }
   .capbar .ok { background:#3f9e5f; }
@@ -272,6 +270,11 @@
   <b>prefill Ns…</b> a request is in the PREFILL phase — this vLLM build exposes no
   token counters until first token, so there is no in-flight rate to show; the timer
   and kv/req cells are the live signals ·
+  <b>measured load</b> the bar, when present, is measured profile VRAM totals against the
+  card's GPU capacity — numbers from the pre-test window, never estimates. It appears once
+  a card's first profile totals are measured. vLLM engines get no bar: the engine sizes its
+  own pool to the cards at startup, so a per-profile bar would be a constant and the live
+  pressure is the kv cell in its model rows ·
   <b>what each card kind carries</b> — vLLM cards: kv (pool occupancy), req, ttft/tpot,
   phase; strata cards (the 48 GiB box, the 35B on the laptop): ctx (deepest prompt),
   mtp draft acceptance, cache; plain llama.cpp builds (the 27B on the dual-3060, the
@@ -669,19 +672,7 @@ const CAP_EXPLAIN = "Measured VRAM totals of the loaded profiles vs the card's m
   "would sit red permanently); the live pressure there is the KV% in the model rows.";
 function capBar(s) {
   const c = s.capacity;
-  if (!c || c.total_mib == null) {
-    // vLLM cards get no line at all: the pool-sizing explanation was more
-    // prose than the card was worth (owner: it bloated the card); the kv
-    // cell and its hover already carry the live pressure. Unmeasured
-    // llama/strata cards keep the quiet one-liner — there the bar's
-    // absence is a measurement gap, not a design constant.
-    if (s.kind === "vllm" || s.kind === "vllm-mux") return "";
-    const why = ("no measured-load bar yet: it appears once this card's profile VRAM " +
-        "totals are measured in a pre-test window (the bar is never estimated)");
-    return `<div class="cap dim" title="${esc(CAP_EXPLAIN)}">` +
-      `<span class="label" title="${esc(CAP_EXPLAIN)}">measured load</span>` +
-      `<span class="gstat" title="${esc(CAP_EXPLAIN)}">— ${esc(why)}</span></div>`;
-  }
+  if (!c || c.total_mib == null) return "";  // no measured data: no line at all (owner: the explanation text bloated the card; the glossary carries it)
   const mm = c.measured_mib || {};
   let sum = 0, n = 0, miss = 0;
   for (const m of s.models) if (m.loaded) {
