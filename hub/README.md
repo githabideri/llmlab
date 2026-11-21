@@ -109,10 +109,18 @@ signature — toggling the panel therefore forces the next render explicitly,
 or the click would appear dead until the mouse moved off the card.
 
 The 30-minute sparkline has three independently scaled lanes — tok/s, pp/s,
-gpu % (each lane labels its own 0–max scale). TTFT p95 is kept in the ring
-data and the hover tooltip (vLLM) rather than a lane: it is a 5-min-window
-percentile sampled every 2 s, so it is step-flat on a 30-min axis and reads
-better as an on-demand exact value.
+gpu % (each lane labels its own 0–max scale). The pp lane shows the
+**phase-clock prefill speed** on both engine families: llama.cpp as a
+continuous child-clock rate while prefills run; vLLM as the last *completed*
+prefill's speed held for 2 min (its computed-token counter is flat during a
+chunked prefill, so there is no honest in-flight rate — the live-prefill
+timer cell covers that interval). Lane and row cell therefore show the same
+number. (An earlier revision fed the vLLM lane from a 1-min work-rate
+window; a 9 s prefill at 700 t/s diluted to ~100/s over 60 s, which read
+"off" against the 700 in the cell — the owner's catch.) TTFT p95 is kept in
+the ring data and the hover tooltip (vLLM) rather than a lane: it is a
+5-min-window percentile sampled every 2 s, so it is step-flat on a 30-min
+axis and reads better as an on-demand exact value.
 
 ### State derivation
 

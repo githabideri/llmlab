@@ -1986,12 +1986,25 @@ def poller():
                     except Exception as e:
                         s.last_err = f"poller exception: {e}"[:200]
                 tgen_sum = sum(m.get("tgen") or 0 for m in s.models.values())
-                # sparkline pp lane: llama.cpp child-clock rate; vLLM the 1-min
-                # prompt-compute throughput (the headline cell is the separate
-                # phase-clock prefill speed — the two branches stay separate)
-                tpp_sum = sum(((m.get("pp_tput_1m") if m.get("kind") == "vllm"
-                                else m.get("tpp")) or 0)
-                              for m in s.models.values())
+                # sparkline pp lane: llama.cpp child-clock rate (continuous
+                # during a prefill). vLLM: the PHASE-CLOCK speed of the last
+                # completed prefill, held 120 s after completion — the 1-min
+                # work-rate that fed this lane before is a window-diluted
+                # number (a 9 s prefill at 700 t/s reads ~105/s over 60 s),
+                # which read "off" next to the 700 t/s the row cell shows;
+                # the phase speed is the same quantity the cell shows, so
+                # lane and cell now agree. In-flight prefills have no honest
+                # rate (the computed-token counter is flat until first
+                # token) — the live-prefill timer cell covers that, and the
+                # 1-min work-rate stays in the cell for the work question.
+                def _lane_pp(m):
+                    if m.get("kind") == "vllm":
+                        age = m.get("prefill_speed_age")
+                        if age is not None and age < 120:
+                            return m.get("tpp")
+                        return None
+                    return m.get("tpp")
+                tpp_sum = sum((_lane_pp(m) or 0) for m in s.models.values())
                 gpu_max = max((g.get("util_pct") or 0) for g in s.gpus) if s.gpus else None
                 ttft_p95_ms = None
                 for m in s.models.values():

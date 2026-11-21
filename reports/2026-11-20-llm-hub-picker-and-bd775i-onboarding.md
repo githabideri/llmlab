@@ -207,3 +207,33 @@ Three fixes landed in the same deploy:
   `wantedBy` symlinks flipped — the unit bodies are byte-identical, so
   a rebuild never restarts a running profile; the two-consumer dual
   profile stays one switch away.
+
+## Addendum 5 (measured-load tooltips; the vLLM pp lane shows the phase speed;
+fpx2 reports both of its 3060s again)
+
+- **The measured-load bar now explains itself.** On cards that have the bar,
+  the label's hover tooltip spells out what it is (measured per-profile VRAM
+  totals against the measured pool, shown only where a pre-test window
+  measured them, never estimated; *partial* = a loaded profile without a
+  total) and why vLLM cards don't have one (the engine sizes its pool to
+  the cards at startup, so the bar would be a permanent red carrying no
+  information — the live pressure there is the KV% in the model rows). On
+  cards without the bar, a quiet hoverable line takes the bar's place with
+  the card-specific reason ("measured in a pre-test window" for the
+  llama/strata cards; the pool-sizing explanation for vLLM).
+- **The vLLM pp lane now shows the same number as the row cell.** It was
+  fed by a 1-min work-rate window, which dilutes: a 9 s prefill at 700 t/s
+  reads ~100/s over 60 s — the owner saw "100 in the chart, 700 in the
+  cell" and was right to call it off. The lane now carries the
+  phase-clock speed of the last *completed* prefill, held for 2 min
+  (during a chunked prefill the computed-token counter is flat, so there
+  is no honest in-flight rate; the live-prefill timer covers that
+  interval). Verified live: a prefill completing at 447.5 t/s shows
+  447.5 across the lane for the hold, where the work-rate window read 9.1.
+- **The dual-3060 machine's sidecar reported one card again.** Its
+  per-host GPU index filter was stale (written before the second 3060
+  existed), so the board showed a single 12 GB row and read as "one
+  3060". The filter now lists both indices; the board shows both cards
+  again (both holding the 27B's VRAM). Both links are currently at the
+  degraded Gen1 (x16 and x1) per the 2026-11-18 v4 note — a reboot
+  restores the negotiated generation.

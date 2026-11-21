@@ -78,6 +78,8 @@
     border:1px solid var(--line); color:var(--dim); border-radius:3px; cursor:pointer; }
   .btn.ghost:hover { color:var(--fg); border-color:var(--dim); }
   .cap { display:flex; align-items:center; gap:8px; margin:6px 0 2px; }
+  .cap.dim { opacity:.55; }
+  .cap.dim .gstat { flex:1; white-space:normal; font-size:10px; line-height:1.35; }
   .capbar { flex:1; height:6px; background:#1d2023; border:1px solid var(--line); }
   .capbar div { height:100%; }
   .capbar .ok { background:#3f9e5f; }
@@ -629,9 +631,27 @@ function diagHtml(s, m) {
 // windows — deliberately not the live reading; that is the gpu row above).
 // Rendered only when the config carries a capacity block; a loaded model
 // without a measured total marks the bar partial rather than guessing.
+const CAP_EXPLAIN = "Measured VRAM totals of the loaded profiles vs the card's measured pool — " +
+  "shown only where a pre-test window measured per-profile totals (never estimated); " +
+  "the bar is informational, the tested matrix is the gate.\u201cpartial\u201d = a loaded " +
+  "profile lacks a measured total. vLLM cards have no bar: that engine sizes its " +
+  "memory pool to the cards at startup, so the number is a design constant (the bar " +
+  "would sit red permanently); the live pressure there is the KV% in the model rows.";
 function capBar(s) {
   const c = s.capacity;
-  if (!c || c.total_mib == null) return "";
+  if (!c || c.total_mib == null) {
+    // cards without measured totals: a quiet, hoverable explanation instead of
+    // a silent absence (owner: the bar's *disappearance* was the confusing part)
+    const why = (s.kind === "vllm" || s.kind === "vllm-mux")
+      ? "no measured-load bar: this engine sizes its own memory pool to the " +
+        "cards at startup, so a per-profile bar would be a constant (always red) " +
+        "and carry no information; the live pressure here is the KV% in the model rows"
+      : "no measured-load bar yet: it appears once this card's profile VRAM " +
+        "totals are measured in a pre-test window (the bar is never estimated)";
+    return `<div class="cap dim" title="${esc(CAP_EXPLAIN)}">` +
+      `<span class="label">measured load</span>` +
+      `<span class="gstat">— ${esc(why)}</span></div>`;
+  }
   const mm = c.measured_mib || {};
   let sum = 0, n = 0, miss = 0;
   for (const m of s.models) if (m.loaded) {
@@ -639,7 +659,7 @@ function capBar(s) {
   }
   const pct = Math.min(100, sum / c.total_mib * 100);
   const cls = pct >= 95 ? "hot" : pct >= 75 ? "warm" : "ok";
-  return `<div class="cap" title="${esc(c.note || "measured totals, not a live reading")}">` +
+  return `<div class="cap" title="${esc(CAP_EXPLAIN)}">` +
     `<span class="label">measured load</span>` +
     `<div class="capbar"><div class="${cls}" style="width:${pct}%"></div></div>` +
     `<span class="gstat">${n ? sum.toLocaleString() : 0} / ${c.total_mib.toLocaleString()} MiB${miss ? " (partial)" : ""}</span></div>`;
