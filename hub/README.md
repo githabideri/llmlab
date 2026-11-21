@@ -54,10 +54,10 @@ pp window, which self-clears after 15 s; offline servers are probed at
 most once every 15 s on their own clock, in parallel with the live ones):
 
 - **llama.cpp routers**: generation throughput (t/s) and
-  prompt-processing throughput (pp/s), speculative-decoding (MTP)
+  prompt-processing throughput (pp/s), speculative-decoding (MTP), and — on strata cards — a live **ctx** cell (deepest prompt in flight or among the last few completed requests, from the engine's JSON dashboard; the llama-side counterpart of the kv cell)
   acceptance, prompt-cache hit rate (5-min window), in-flight and deferred
   requests, busy decode slots, and model load state.
-- **vLLM**: generation throughput and **real** prompt-processing throughput
+- **vLLM**: generation throughput, the **kv** pool-occupancy cell (any occupancy; tokens + pool + peaks on hover) and **real** prompt-processing throughput
   (prefix-cache hits excluded), rolling p50/p95/p99 percentiles for TTFT,
   **per-request** TPOT, token-weighted ITL, E2E and queue time, per-request
   prefill/decode phase stats (avg times + real prefill/decode speeds over

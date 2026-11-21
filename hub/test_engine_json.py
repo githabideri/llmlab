@@ -45,9 +45,24 @@ class TestAdapter(unittest.TestCase):
         self.assertEqual(
             p["llamacpp:spec_decode_num_accepted_tokens_total"], 5.0)
         self.assertEqual(p["llamacpp:requests_processing"], 2.0)
-        # get_metric() must find every key (prefix probing)
+        # get_metric() must find every counter key (prefix probing)
         for k in p:
-            self.assertIsNotNone(hub.get_metric(p, k[len("llamacpp:"):]))
+            if k.startswith("llamacpp:"):
+                self.assertIsNotNone(hub.get_metric(p, k[len("llamacpp:"):]))
+        # the side-channel ctx field: absent when the dashboard reports no
+        # prompt depth anywhere
+        self.assertIsNone(p["__engine_json_ctx"])
+
+    def test_ctx_depth_from_live_and_requests(self):
+        p = hub.parse_engine_json(json.dumps({
+            "totals": {"prompt_tokens": 1000, "reused": 400, "output_tokens": 50,
+                       "prompt_ms": 120.0, "decode_ms": 30.0},
+            "live": {"state": "generating", "prompt_tokens": 150000,
+                     "generated": 50, "tok_s_mean": 20.0},
+            "requests": [{"prompt_tokens": 190000}, {"prompt_tokens": 80000}],
+        }))
+        # deepest of: the in-flight prompt, the last few completed requests
+        self.assertEqual(p["__engine_json_ctx"], 190000.0)
 
     def test_rejects_prom_text(self):
         prom = ("llamacpp:tokens_predicted_total{model=\"M\"} 42\n"

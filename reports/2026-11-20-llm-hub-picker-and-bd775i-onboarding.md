@@ -237,3 +237,27 @@ fpx2 reports both of its 3060s again)
   again (both holding the 27B's VRAM). Both links are currently at the
   degraded Gen1 (x16 and x1) per the 2026-11-18 v4 note — a reboot
   restores the negotiated generation.
+
+## Addendum 6 (row parity: the kv cell, a live ctx cell for strata cards,
+one hover affordance rule, the glossary out of the way)
+
+- **The vLLM kv cell is back in the row and now carries its context**:
+  shown at any occupancy (a near-empty long-context pool is a fact, not
+  noise), with the tokens, the pool size in concurrent contexts, and the
+  10m/30m/1h/24h peaks in the hover.
+- **Card parity.** Each card kind now shows what its engine honestly
+  measures: vLLM cards keep kv/req/tpot/ttft/phase; the strata cards
+  (the 48 GiB box, the 35B on the laptop) gain a live **ctx** cell —
+  the deepest prompt in flight or among the last few completed requests,
+  straight from the engine's dashboard — which is the llama-side
+  counterpart of the KV cell (for kv-resident profiles, depth past the
+  resident window means RAM streaming); plain llama.cpp builds expose no
+  KV-pool meter and no per-request dashboard, and the glossary says so
+  instead of inventing one.
+- **One affordance rule for hover explanations**: anything carrying a
+  tooltip shows the question-mark help cursor — the measured-load label
+  included, where it was missing while the row labels had it.
+- **The footer's glossary is collapsed by default** (a details/summary
+  one-liner; click expands). The always-visible line keeps the
+  operational facts: the hub is observability only, never in the
+  inference path; poll cadence; the API as source of truth.

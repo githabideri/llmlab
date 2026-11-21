@@ -294,6 +294,16 @@ def parse_engine_json(text):
         tmean = f(live.get("tok_s_mean"))
         if tmean > 0:
             decode_s += gen / tmean
+    # live context depth: the deepest prompt in flight or in the last few
+    # completed requests (the engine's own numbers, no estimation). For
+    # kv-resident profiles this is the meaningful llama-side counterpart of
+    # vLLM's KV-pool cell: everything past the resident window streams
+    # from pinned RAM. The __ prefix keeps get_metric() from probing it.
+    ctx = 0.0
+    for r in (obj.get("requests") or [])[:5]:
+        if isinstance(r, dict):
+            ctx = max(ctx, f(r.get("prompt_tokens")))
+    ctx = max(ctx, f(live.get("prompt_tokens")))
     return {
         "llamacpp:tokens_predicted_total": out,
         "llamacpp:tokens_predicted_seconds_total": decode_s,
@@ -303,6 +313,7 @@ def parse_engine_json(text):
         "llamacpp:spec_decode_num_draft_tokens_total": f(t.get("drafts_offered")),
         "llamacpp:spec_decode_num_accepted_tokens_total": f(t.get("drafts_accepted")),
         "llamacpp:requests_processing": f(live.get("queued")),
+        "__engine_json_ctx": ctx or None,
     }
 
 
@@ -1201,7 +1212,8 @@ class Server:
                     st.update({"tgen": None, "tpp": None, "spec_accept": None,
                                "cache_hit": None, "n_proc": None,
                                "n_deferred": None, "busy_slots": None,
-                               "stalled": False, "metrics_ok": False})
+                               "stalled": False, "metrics_ok": False,
+                               "ctx_used": None})
                     continue
                 # parser-compat probe: the two counters every hub rate
                 # depends on. False = backend reachable but counter names broke
@@ -1225,6 +1237,12 @@ class Server:
                 st["tpp"] = self._rate(
                     mid, "prompt", get_metric(p, "prompt_tokens_total"), now,
                     secs=tpp_secs, gauge=get_metric(p, "prompt_tokens_seconds"))
+                # live context depth (engine-JSON dashboards only — strata
+                # serve): the deepest prompt in flight or among the last few
+                # completed requests, straight from the engine's own numbers.
+                # The llama-side counterpart of the vLLM KV-pool cell; plain
+                # llama.cpp builds expose no such meter (the footer says so).
+                st["ctx_used"] = p.get("__engine_json_ctx") if isinstance(p, dict) else None
                 # stall detection (2 variants, per-model gated by the
                 # server config's "dual_clock" list):
                 # - classic single clock: some builds (observed on the ISTA

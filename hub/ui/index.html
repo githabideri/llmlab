@@ -130,6 +130,11 @@
   .mc { white-space:nowrap; font-size:12px; }
   .mc .ml { color:var(--faint); font-size:10px; letter-spacing:.05em;
             margin-right:4px; cursor:help; }
+  /* one affordance rule for the whole page: anything that carries a hover
+     explanation shows the help (question-mark) cursor — measured load,
+     row labels, chips, lane labels alike. Clickables keep the pointer. */
+  [title] { cursor:help; }
+  button[title], a[title], .mact [title] { cursor:pointer; }
   .mc b { color:var(--text); font-weight:600; }
   .mc.dim b { color:var(--dim); font-weight:400; }
   .mwin { color:var(--faint); font-size:10px; white-space:nowrap; }
@@ -167,6 +172,9 @@
   canvas { width:100%; height:auto; display:block; margin-top:6px; }
 
   .footer { color:var(--faint); font-size:11px; margin-top:16px; max-width:900px; }
+  .footer summary { cursor:pointer; }
+  .footer summary:hover { color:var(--dim); }
+  .glossary { margin-top:8px; line-height:1.6; }
   #spktip { position:fixed; z-index:60; pointer-events:none; background:#141618;
             border:1px solid #2a2e33; border-radius:4px; padding:6px 9px;
             font:11px/1.6 ui-monospace,monospace; color:var(--dim); white-space:pre; }
@@ -226,8 +234,16 @@
   <span class="tick" id="tick"></span>
 </header>
 <div id="grid" class="grid"></div>
-<div class="footer">
-  what the numbers mean — <b>t/s</b> aggregate generation throughput (2 s avg) ·
+<details class="footer" id="glossary">
+  <summary>what the numbers mean <span class="dim">(full glossary — click to expand)</span> ·
+  control = direct HTTP to each server's native API (proxied by the hub on demand) ·
+  the hub is observability + UI, never in the inference path ·
+  gpu data from per-machine nvidia-smi sidecars · poll 2 s ·
+  hover the 30-min graph for exact values (lanes: tok/s, pp/s, gpu% — each
+  labels its own 0–max scale; ttft p95 shows in the tooltip, vLLM only) ·
+  click a model name for diagnostics · source of truth: <code>/api/servers</code></summary>
+  <div class="glossary">
+  <b>t/s</b> aggregate generation throughput (2 s avg) ·
   <b>pp/s</b> prefill execution speed — vLLM: computed KV tokens ÷ the engine's own
   PREFILL-phase seconds over completed requests in the [window] (cached prompt
   tokens excluded; llama.cpp: computed prompt tokens on the child's prompt clock) ·
@@ -239,6 +255,8 @@
   <b>kv</b> KV-cache blocks in use, incl. prefix-cache-held, over a pool sized for many
   concurrent long contexts (low % is normal; ≥90% shows a pressure chip — pressure
   alone is not degradation) ·
+  <b>ctx</b> (strata engines) deepest prompt across the request in flight and the last
+  few completed ones — the llama-side counterpart of the kv cell ·
   <b>cache</b> prefix-cache token hit rate over the [window] ·
   <b>phase</b> (diagnostics) prefill/decode stats from the engine's own per-request clocks ·
   <b>prompt/s</b> two different quantities share the label: <i>vLLM</i> = computed prompt tokens
@@ -253,15 +271,15 @@
   full KV pool (no queue, no preemption) are normal load — busy, not degraded ·
   <b>prefill Ns…</b> a request is in the PREFILL phase — this vLLM build exposes no
   token counters until first token, so there is no in-flight rate to show; the timer
-  and kv/req cells are the live signals
-  <br>
-  control = direct HTTP to each server's native API (proxied by the hub on demand) ·
-  the hub is observability + UI, never in the inference path ·
-  gpu data from per-machine nvidia-smi sidecars · poll 2 s ·
-  hover the 30-min graph for exact values (lanes: tok/s, pp/s, gpu% — each
-  labels its own 0–max scale; ttft p95 shows in the tooltip, vLLM only) ·
-  click a model name for diagnostics · source of truth: <code>/api/servers</code>
-</div>
+  and kv/req cells are the live signals ·
+  <b>what each card kind carries</b> — vLLM cards: kv (pool occupancy), req, ttft/tpot,
+  phase; strata cards (the 48 GiB box, the 35B on the laptop): ctx (deepest prompt),
+  mtp draft acceptance, cache; plain llama.cpp builds (the 27B on the dual-3060, the
+  4B decision model, the backup box): the engine's /metrics exposes no KV-pool meter
+  and no per-request dashboard — memory pressure is visible in the GPU row, and that
+  is all that engine honestly reports
+  </div>
+</details>
 <div id="toast" class="toast"></div>
 <div id="spktip" hidden></div>
 <div id="auth" hidden>
@@ -447,6 +465,10 @@ function nowBlock(m) {
       ? "Prefill execution speed: vLLM's computed-KV tokens divided by its PREFILL-phase time over the completed requests in the trailing 5-min window. Cached/transferred prompt tokens excluded; independent of when requests arrive. Seconds tag = how long ago the last completed request contributed a prefill measurement (the phase histograms are sampled at request completion, not at first token)."
       : "prompt tokens actually prefilled (prefix-cache hits excluded), rate taken on the engine's own prompt clock — a big prefill landing in one poll divides by its real processing time, not the 2 s poll gap"));
   }
+  if (m.ctx_used != null) {
+    cells.push(cell("ctx", ctxFmt(m.ctx_used) || "0",
+      "deepest prompt across the request in flight and the last few completed ones (engine-reported; for kv-resident profiles everything past the resident window streams from pinned RAM — the llama-side counterpart of the vLLM kv cell)"));
+  }
   const lp = m.live_prefill;
   if (lp && lp.active)
     cells.push(cell("", "prefill " + Math.max(1, Math.round(lp.elapsed_s)) + "s…", "A request is in the PREFILL phase. This vLLM build exposes no token counters during a chunked prefill (the computed-token counter jumps once, at first token), so there is no in-flight rate to show — the timer, kv and req cells are the live signals. pp/s updates once the prefill completes.", "dim"));
@@ -473,8 +495,16 @@ function nowBlock(m) {
   // load signals — only when non-zero
   if (m.req_running != null && (m.req_running > 0 || (m.req_waiting || 0) > 0))
     cells.push(cell("req", m.req_running + (m.req_waiting ? "+" + m.req_waiting : ""), "requests the engine is running now; +N waiting"));
-  if (m.kv_used != null && m.kv_used >= 0.01)
-    cells.push(cell("kv", Math.round(m.kv_used * 100) + "%", "KV-cache blocks in use (incl. blocks held by the prefix cache), as a fraction of the pool"));
+  if (m.kv_used != null) {
+    // shown at ANY occupancy (a near-empty long-context pool is a fact,
+    // not noise): the tooltip carries the tokens, the pool, its measured
+    // capacity in concurrent contexts, and the peak history
+    const pool = m.kv_pool || {};
+    const peaks = m.kv_peaks || {};
+    const pk = Object.keys(peaks).map(k => `${k} ${Math.round((peaks[k] || 0) * 100)}%`).join(", ");
+    cells.push(cell("kv", Math.round(m.kv_used * 100) + "%",
+      `KV cache in use: ${m.kv_used_tokens != null ? fmt(m.kv_used_tokens, 0) : "?"} of ${pool.size_tokens != null ? fmt(pool.size_tokens, 0) : "?"} ${pool.kv_dtype || ""} tokens (${Math.round(m.kv_used * 100)}%) — the pool is sized for ${pool.max_concurrency != null ? Math.round(pool.max_concurrency * 10) / 10 : "?"} concurrent long contexts (peaks: ${pk || "n/a"}). Includes blocks held by the prefix cache; low % on a long-context pool is normal, ≥90% adds a pressure chip`));
+  }
   if (m.kv_used != null && m.kv_used >= 0.9)
     chips.push(chip("kv " + Math.round(m.kv_used * 100) + "% pressure", "KV pool nearly full — legitimate pressure. The state only becomes degraded if it turns into consequences: preemptions (requests evicted) or a queue building up against this occupancy"));
   if (m.n_proc != null && m.n_proc > 0) cells.push(cell("proc", m.n_proc));
@@ -649,8 +679,8 @@ function capBar(s) {
       : "no measured-load bar yet: it appears once this card's profile VRAM " +
         "totals are measured in a pre-test window (the bar is never estimated)";
     return `<div class="cap dim" title="${esc(CAP_EXPLAIN)}">` +
-      `<span class="label">measured load</span>` +
-      `<span class="gstat">— ${esc(why)}</span></div>`;
+      `<span class="label" title="${esc(CAP_EXPLAIN)}">measured load</span>` +
+      `<span class="gstat" title="${esc(CAP_EXPLAIN)}">— ${esc(why)}</span></div>`;
   }
   const mm = c.measured_mib || {};
   let sum = 0, n = 0, miss = 0;
@@ -660,9 +690,9 @@ function capBar(s) {
   const pct = Math.min(100, sum / c.total_mib * 100);
   const cls = pct >= 95 ? "hot" : pct >= 75 ? "warm" : "ok";
   return `<div class="cap" title="${esc(CAP_EXPLAIN)}">` +
-    `<span class="label">measured load</span>` +
+    `<span class="label" title="${esc(CAP_EXPLAIN)}">measured load</span>` +
     `<div class="capbar"><div class="${cls}" style="width:${pct}%"></div></div>` +
-    `<span class="gstat">${n ? sum.toLocaleString() : 0} / ${c.total_mib.toLocaleString()} MiB${miss ? " (partial)" : ""}</span></div>`;
+    `<span class="gstat" title="${esc(CAP_EXPLAIN)}">${n ? sum.toLocaleString() : 0} / ${c.total_mib.toLocaleString()} MiB${miss ? " (partial)" : ""}</span></div>`;
 }
 
 function card(s) {
