@@ -177,3 +177,33 @@ otherwise a client-side elapsed counter. One interaction subtlety was fixed
 along the way: the grid deliberately skips re-rendering while the cursor
 sits on it, which silently swallowed the first panel toggles — the toggle
 now forces the next render explicitly.
+
+## Addendum 4 (fleet fixes found while reviewing the v2 build)
+
+Three fixes landed in the same deploy:
+
+- **The tick period was the fleet sum, and dead machines set it.** The
+  poller ran one server per iteration, so each unreachable endpoint
+  (two 4 s fetch timeouts per attempt) added its full cost to every
+  tick; with three machines down the "2 s" tick ran at ~29 s for
+  *every* card. The vLLM card's 1-min prompt-compute window — the data
+  behind its pp/s lane — self-clears after a 15 s gap, so it could never
+  accumulate and the lane read flat while the card was actively
+  generating. The tick is now **one poll thread per server in parallel**
+  (a re-entry guard makes a wedged fetch harmless; a 15 s join cap keeps
+  one server from ever stalling the fleet), offline servers are probed
+  at most once every 15 s on their own clock, and the offline state is
+  time-based (~30 s without a success) instead of a fixed poll count.
+  The tick is back to 2 s and the vLLM pp lane fills again (small
+  numbers while the conversation runs on ~96 % prefix-cache hits; a
+  fresh prefill spikes it like the other cards).
+- **Card order: online first.** `/api/servers` stable-sorts online
+  machines to the top (config order inside each group), so the three
+  down machines no longer sit between the live ones. The config order
+  was set in the same change (the box the 27B runs on, then the
+  48 GiB box, then the dual-3060, then the GPU-only visibility card).
+- **The 48 GiB box's boot default is now the solo profile** (owner
+  decision: it serves one long conversation, not two). Only the
+  `wantedBy` symlinks flipped — the unit bodies are byte-identical, so
+  a rebuild never restarts a running profile; the two-consumer dual
+  profile stays one switch away.

@@ -68,7 +68,9 @@ UI_DIR = os.environ.get("LLM_HUB_UI", "/opt/llm-hub/ui")
 POLL_INTERVAL = 2
 RING_SECONDS = 30 * 60              # sparkline ring retention
 SNAPSHOT_EVERY = 60                 # seconds between state snapshots
-OFFLINE_AFTER = 15                  # consecutive failed polls (30 s) before "offline"
+OFFLINE_AFTER = 15                  # consecutive failed sidecar polls (30 s) before "offline"
+OFFLINE_AFTER_S = 30                # seconds since last success before the API is declared offline (time-based: the tick period varies — backed-off servers probe every 15 s)
+OFFLINE_RETRY_S = 15                # an offline server is probed at most once every 15 s (each dead endpoint costs one full fetch timeout per attempt; left unbacked off, three dead machines stretched every tick to ~29 s and killed the vLLM 1-min pp window, which self-clears on >15 s gaps)
 HTTP_TIMEOUT = 4                    # per upstream fetch
 CONTROL_VERDICT_S = 2.0             # how long to wait for a load/unload verdict
 SIDECAR_TIMEOUT = 7                 # sidecar runs nvidia-smi (~1 s), allow margin
@@ -509,6 +511,8 @@ class Server:
         self.online = False
         self.miss_streak = 0
         self.last_seen = None
+        self._last_probe = 0.0        # last API attempt (backoff clock for offline servers)
+        self._polling = False         # re-entry guard for the parallel tick
         self.last_err = None
         self._lock = threading.Lock()      # guards .models (poller writes, API reads)
         self._counters = {}                # (mid, key) -> rate state
@@ -596,6 +600,7 @@ class Server:
     def poll(self, now):
         if self.kind == "gpu-only":
             return                        # no API; online state comes from the sidecar
+        self._last_probe = now
         try:
             if self.kind == "vllm":
                 self._poll_vllm(now)
@@ -606,7 +611,10 @@ class Server:
         except Exception as e:
             self.miss_streak += 1
             self.last_err = f"{self.name}: {e}"[:200]
-            if self.miss_streak >= OFFLINE_AFTER:
+            # time-based (a count threshold assumed a fixed 2 s tick; with
+            # variable ticks it would declare offline far too late or too
+            # early) — 30 s without a success is offline
+            if now - (self.last_seen or 0) > OFFLINE_AFTER_S:
                 self.online = False
         else:
             self.miss_streak = 0
@@ -1539,7 +1547,10 @@ class Handler(BaseHTTPRequestHandler):
             if not self._authed():
                 return self._send(401, {"error": "unauthorized"})
             self._send(200, {"ts": time.time(), "poll_tick": last_tick,
-                             "servers": [s.api(time.time()) for s in SERVERS]})
+                             # stable sort: ONLINE first, offline sinks to the
+                             # bottom; config order preserved within each group
+                             "servers": sorted((s.api(time.time()) for s in SERVERS),
+                                               key=lambda r: not r["online"])})
         elif path == "/api/models":
             if not self._authed():
                 return self._send(401, {"error": "unauthorized"})
@@ -1953,28 +1964,56 @@ def poller():
     while True:
         t0 = time.time()
         now = t0
-        for s in SERVERS:
+
+        def work(s):
+            if s._polling:                     # previous tick's thread still
+                return                        # inside a wedged fetch: never
+            s._polling = True                 # double-poll one server
             try:
-                s.poll(now)
-                s.poll_gpus(now)
-            except Exception as e:
-                s.last_err = f"poller exception: {e}"[:200]
-            tgen_sum = sum(m.get("tgen") or 0 for m in s.models.values())
-            # sparkline pp lane: llama.cpp child-clock rate; vLLM the 1-min
-            # prompt-compute throughput (the headline cell is the separate
-            # phase-clock prefill speed — the two branches stay separate)
-            tpp_sum = sum(((m.get("pp_tput_1m") if m.get("kind") == "vllm"
-                            else m.get("tpp")) or 0)
-                          for m in s.models.values())
-            gpu_max = max((g.get("util_pct") or 0) for g in s.gpus) if s.gpus else None
-            ttft_p95_ms = None
-            for m in s.models.values():
-                ttft = (m.get("latency") or {}).get("ttft") or {}
-                if ttft.get("p95") is not None:
-                    ttft_p95_ms = round(ttft["p95"] * 1000)
-                    break
-            s.ring_push(tgen_sum if tgen_sum > 0 else None, gpu_max,
-                        ttft_p95_ms, tpp_sum if tpp_sum > 0 else None)
+                # a dead endpoint costs a full timeout per fetch; probing it
+                # every tick used to stretch the whole loop to ~29 s (3 dead ×
+                # 4 s timeouts + live servers), which killed freshness
+                # everywhere and the vLLM 1-min pp window specifically.
+                # Backed-off servers are retried at most once every 15 s;
+                # since ticks are parallel the backoff no longer has to beat
+                # the loop period (that was the trap of the sequential design).
+                skip = (s.kind != "gpu-only" and not s.online
+                        and now - (s._last_probe or 0) < OFFLINE_RETRY_S)
+                if not skip:
+                    try:
+                        s.poll(now)
+                        s.poll_gpus(now)
+                    except Exception as e:
+                        s.last_err = f"poller exception: {e}"[:200]
+                tgen_sum = sum(m.get("tgen") or 0 for m in s.models.values())
+                # sparkline pp lane: llama.cpp child-clock rate; vLLM the 1-min
+                # prompt-compute throughput (the headline cell is the separate
+                # phase-clock prefill speed — the two branches stay separate)
+                tpp_sum = sum(((m.get("pp_tput_1m") if m.get("kind") == "vllm"
+                                else m.get("tpp")) or 0)
+                              for m in s.models.values())
+                gpu_max = max((g.get("util_pct") or 0) for g in s.gpus) if s.gpus else None
+                ttft_p95_ms = None
+                for m in s.models.values():
+                    ttft = (m.get("latency") or {}).get("ttft") or {}
+                    if ttft.get("p95") is not None:
+                        ttft_p95_ms = round(ttft["p95"] * 1000)
+                        break
+                s.ring_push(tgen_sum if tgen_sum > 0 else None, gpu_max,
+                            ttft_p95_ms, tpp_sum if tpp_sum > 0 else None)
+            finally:
+                s._polling = False
+
+        # one thread per server: the tick period is the slowest LIVE server,
+        # never the sum of the fleet (a dead machine's 4 s timeouts overlap
+        # with the live servers' polls instead of queueing behind them)
+        threads = [threading.Thread(target=work, args=(s,), daemon=True)
+                   for s in SERVERS]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(15)    # a wedged fetch must not stall the fleet; the
+                          # re-entry guard makes the overlap harmless
         last_tick = time.time()
         if int(last_tick) % SNAPSHOT_EVERY < POLL_INTERVAL:
             snapshot()

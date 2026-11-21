@@ -46,7 +46,12 @@ For the systemd layout, see [Deploy](#deploy).
 
 ## What it shows
 
-Per server, every 2 s:
+Per server, on a 2 s tick — **one poll thread per server, in parallel**
+(the tick period is the slowest live server, never the fleet sum: the
+sequential design stretched to ~29 s once three machines were dead, each
+costing full fetch timeouts per tick, and that gap killed the vLLM 1-min
+pp window, which self-clears after 15 s; offline servers are probed at
+most once every 15 s on their own clock, in parallel with the live ones):
 
 - **llama.cpp routers**: generation throughput (t/s) and
   prompt-processing throughput (pp/s), speculative-decoding (MTP)
@@ -113,8 +118,11 @@ better as an on-demand exact value.
 
 States are derived per model (node state is the worst across its models):
 
-- `offline` — no answer for ~30 s (15 consecutive 2 s polls); model rows
-  show last-known state flagged `stale`.
+- `offline` — no successful answer for ~30 s (time-based, so it is
+  independent of the tick period); model rows show last-known state
+  flagged `stale`. Offline servers sink to the bottom of the board
+  (online-first stable sort in `/api/servers`; config order inside each
+  group), so a dead machine can't push the live ones off-screen.
 - `idle` — not loaded, stale, or no activity (the common state).
 - `active` — requests in flight or recent generation.
 - `busy` — requests waiting, deferred requests, or KV cache ≥ 75 %
