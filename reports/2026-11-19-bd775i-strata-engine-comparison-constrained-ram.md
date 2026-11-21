@@ -55,3 +55,5 @@ knob from the newer line, `STRATA_FILE_CACHE_OLD_RULE`, is recorded for
 the 96 GB upgrade (report E): it restores the pre-#1194 cache-sizing
 behavior, which is the correct behavior when the complement fits in
 the page cache (96 GiB) and self-corrects when it does not.
+
+**Update (2026-11-21):** the 0.1.45 null here held only for that one-shot shape. In the production serve shape (MTP, int8 kv-resident, 32 GiB pin) v0.1.45 measured +23–39% sustained decode vs v0.1.41 at 32K/128K/200K in the three-way campaign — see [2026-11-21-bd775i-strata-three-way-hotrod](2026-11-21-bd775i-strata-three-way-hotrod.md).
