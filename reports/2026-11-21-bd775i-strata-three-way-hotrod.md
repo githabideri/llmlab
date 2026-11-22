@@ -102,3 +102,5 @@ rollback) is still open. (d) Raw per-run records (all serve, one-shot, agent and
 ablation cells) are kept in the estate's private repo; a sanitized extract is available
 on request. The corrected H-ablation and the quality-battery result land in the
 follow-up report.
+
+**Update (2026-11-22):** campaign closed — v0.1.45 passed the quality battery and is the node's production engine; the corrected ablation and full cutover record are in [2026-11-22-bd775i-strata-0.1.45-cutover-final.md](./2026-11-22-bd775i-strata-0.1.45-cutover-final.md).
